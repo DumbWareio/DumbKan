@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DumbKan - Simple Kanban Board</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app">
+        <header>
+            <h1>DumbKan</h1>
+            <button id="theme-toggle" aria-label="Toggle dark mode">🌙</button>
+        </header>
+
+        <main>
+            <div class="board">
+                <div class="column" data-column="todo">
+                    <h2>To Do</h2>
+                    <div class="tasks" id="todo"></div>
+                    <button class="add-task" data-column="todo">+ Add Task</button>
+                </div>
+
+                <div class="column" data-column="doing">
+                    <h2>Doing</h2>
+                    <div class="tasks" id="doing"></div>
+                    <button class="add-task" data-column="doing">+ Add Task</button>
+                </div>
+
+                <div class="column" data-column="done">
+                    <h2>Done</h2>
+                    <div class="tasks" id="done"></div>
+                    <button class="add-task" data-column="done">+ Add Task</button>
+                </div>
+            </div>
+        </main>
+
+        <div id="toast" class="toast" hidden></div>
+    </div>
+
+    <!-- PIN Modal -->
+    <div id="pin-modal" class="modal" hidden>
+        <div class="modal-content">
+            <h2>Enter PIN</h2>
+            <div class="pin-input">
+                <input type="password" maxlength="1" pattern="[0-9]" inputmode="numeric">
+                <input type="password" maxlength="1" pattern="[0-9]" inputmode="numeric">
+                <input type="password" maxlength="1" pattern="[0-9]" inputmode="numeric">
+                <input type="password" maxlength="1" pattern="[0-9]" inputmode="numeric">
+            </div>
+            <div class="pin-keypad">
+                <button>1</button>
+                <button>2</button>
+                <button>3</button>
+                <button>4</button>
+                <button>5</button>
+                <button>6</button>
+                <button>7</button>
+                <button>8</button>
+                <button>9</button>
+                <button class="clear">Clear</button>
+                <button>0</button>
+                <button class="enter">Enter</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html> 
