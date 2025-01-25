@@ -2,9 +2,11 @@ require('dotenv').config();
 const express = require('express');
 const fs = require('fs').promises;
 const path = require('path');
+const cookieParser = require('cookie-parser');
 const app = express();
 
 app.use(express.json());
+app.use(cookieParser());
 
 // Ensure data directory and tasks.json exist
 async function initializeStorage() {
@@ -1400,13 +1402,11 @@ const html = `<!DOCTYPE html>
                     input.maxLength = 1;
                     input.pattern = '[0-9]';
                     input.inputMode = 'numeric';
+                    input.required = true;
                     container.appendChild(input);
                 }
                 
-                // Set up event listeners for new inputs
                 setupPinInputs();
-                
-                document.getElementById('pin-overlay').style.display = 'flex';
                 document.querySelector('.pin-input').focus();
             }
         }
@@ -1452,12 +1452,8 @@ const html = `<!DOCTYPE html>
                 });
                 
                 if (response.ok) {
-                    verifiedPin = pin;
-                    document.getElementById('pin-overlay').style.display = 'none';
-                    document.getElementById('pin-error').style.display = 'none';
-                    // Load tasks after successful PIN verification
-                    await loadTasks();
-                    await updateBoardSelector();
+                    // After successful verification, redirect to home
+                    window.location.href = '/';
                 } else {
                     document.getElementById('pin-error').style.display = 'block';
                     inputs.forEach(input => {
@@ -1468,6 +1464,7 @@ const html = `<!DOCTYPE html>
                 }
             } catch (error) {
                 console.error('Error verifying PIN:', error);
+                document.getElementById('pin-error').style.display = 'block';
             }
         });
 
@@ -1923,15 +1920,37 @@ const html = `<!DOCTYPE html>
 
         // Initialize app
         async function initializeApp() {
-            if (await checkPinRequired()) {
+            const storedPin = localStorage.getItem('DUMBKAN_PIN');
+            if (storedPin) {
+                // Override fetch to include PIN header
+                const originalFetch = window.fetch;
+                window.fetch = function(url, options = {}) {
+                    options.headers = {
+                        ...options.headers,
+                        'X-Pin': storedPin
+                    };
+                    return originalFetch(url, options);
+                };
+            }
+
+            try {
                 await loadTasks();
+            } catch (error) {
+                console.error('Failed to load tasks:', error);
+                // Clear PIN and redirect to login if unauthorized
+                if (error.status === 401) {
+                    localStorage.removeItem('DUMBKAN_PIN');
+                    window.location.replace('/login');
+                }
             }
         }
 
         // Wait for DOM content to be loaded before initializing
-        document.addEventListener('DOMContentLoaded', () => {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeApp);
+        } else {
             initializeApp();
-        });
+        }
 
         // Theme handling
         function setTheme(isDark, showToastMessage = false) {
@@ -2281,7 +2300,7 @@ function requirePin(req, res, next) {
         return next();
     }
 
-    const providedPin = req.headers['x-pin'];
+    const providedPin = req.headers['x-pin'] || req.cookies.DUMBKAN_PIN;
     if (providedPin !== pin) {
         return res.status(401).json({ error: 'Invalid PIN' });
     }
@@ -2303,6 +2322,12 @@ app.post('/api/verify-pin', (req, res) => {
     const storedPin = process.env.DUMBKAN_PIN;
     
     if (!storedPin || pin === storedPin) {
+        // Set a cookie with the PIN
+        res.cookie('DUMBKAN_PIN', pin, { 
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict'
+        });
         res.json({ success: true });
     } else {
         res.status(401).json({ error: 'Invalid PIN' });
@@ -2310,7 +2335,222 @@ app.post('/api/verify-pin', (req, res) => {
 });
 
 // Routes
-app.get('/', (_, res) => res.send(html));
+app.get('/', (req, res) => {
+    const pin = process.env.DUMBKAN_PIN;
+    if (!pin || pin.length < 4 || pin.length > 10) {
+        return res.send(html);
+    }
+
+    const providedPin = req.headers['x-pin'] || req.cookies.DUMBKAN_PIN;
+    if (!providedPin || providedPin !== pin) {
+        return res.redirect('/login');
+    }
+    
+    res.send(html);
+});
+
+app.get('/login', async (req, res) => {
+    const pin = process.env.DUMBKAN_PIN;
+    if (!pin || pin.length < 4 || pin.length > 10) {
+        return res.redirect('/');
+    }
+
+    const providedPin = req.headers['x-pin'];
+    if (providedPin === pin) {
+        return res.redirect('/');
+    }
+
+    // Send login page HTML
+    res.send(`<!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>DumbKan</title>
+        <style>
+            :root {
+                --background: #ffffff;
+                --container: #f5f5f5;
+                --border: #e0e0e0;
+                --text: #333333;
+                --primary: #2196F3;
+                --primary-hover: #1976D2;
+                --shadow: 0 2px 4px rgba(0,0,0,0.1);
+                --border-radius: 8px;
+                --transition: 0.2s ease;
+            }
+            
+            @media (prefers-color-scheme: dark) {
+                :root {
+                    --background: #1a1a1a;
+                    --container: #2d2d2d;
+                    --border: #404040;
+                    --text: #ffffff;
+                }
+            }
+            
+            body {
+                margin: 0;
+                padding: 0;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                background: var(--background);
+                color: var(--text);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .login-container {
+                background: var(--container);
+                padding: 2rem;
+                border-radius: 16px;
+                box-shadow: var(--shadow);
+                text-align: center;
+            }
+            
+            h1 {
+                margin: 0 0 1.5rem 0;
+                color: var(--text);
+            }
+            
+            .pin-form {
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
+                align-items: center;
+            }
+            
+            .pin-input-container {
+                display: flex;
+                gap: 0.75rem;
+                margin: 1rem 0;
+            }
+            
+            .pin-input {
+                width: 35px;
+                height: 45px;
+                text-align: center;
+                font-size: 1.25rem;
+                border: 2px solid var(--border);
+                border-radius: 8px;
+                background: var(--container);
+                color: var(--text);
+                transition: all var(--transition);
+            }
+            
+            .pin-input.has-value {
+                background: var(--primary);
+                border-color: var(--primary);
+                color: white;
+            }
+            
+            .pin-error {
+                color: #f44336;
+                margin: 0;
+                font-size: 0.9rem;
+                display: none;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="login-container">
+            <h1>DumbKan</h1>
+            <form id="pin-form" class="pin-form">
+                <h2>Enter PIN</h2>
+                <div class="pin-input-container">
+                </div>
+                <p id="pin-error" class="pin-error">Invalid PIN. Please try again.</p>
+            </form>
+        </div>
+        <script>
+            // Check if PIN is required and get length
+            async function checkPinRequired() {
+                const response = await fetch('/api/pin-required');
+                const { required, length } = await response.json();
+                if (required) {
+                    const container = document.querySelector('.pin-input-container');
+                    container.innerHTML = ''; // Clear existing inputs
+                    
+                    // Create inputs based on PIN length
+                    for (let i = 0; i < length; i++) {
+                        const input = document.createElement('input');
+                        input.type = 'password';
+                        input.className = 'pin-input';
+                        input.maxLength = 1;
+                        input.pattern = '[0-9]';
+                        input.inputMode = 'numeric';
+                        input.required = true;
+                        container.appendChild(input);
+                    }
+                    
+                    setupPinInputs();
+                    document.querySelector('.pin-input').focus();
+                } else {
+                    window.location.href = '/';
+                }
+            }
+
+            function setupPinInputs() {
+                document.querySelectorAll('.pin-input').forEach((input, index, inputs) => {
+                    input.addEventListener('input', (e) => {
+                        if (e.target.value) {
+                            e.target.classList.add('has-value');
+                            if (index < inputs.length - 1) {
+                                inputs[index + 1].focus();
+                            } else {
+                                document.getElementById('pin-form').requestSubmit();
+                            }
+                        } else {
+                            e.target.classList.remove('has-value');
+                        }
+                    });
+
+                    input.addEventListener('keydown', (e) => {
+                        if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                            const prevInput = inputs[index - 1];
+                            prevInput.value = '';
+                            prevInput.classList.remove('has-value');
+                            prevInput.focus();
+                        }
+                    });
+                });
+            }
+
+            document.getElementById('pin-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const inputs = [...document.querySelectorAll('.pin-input')];
+                const pin = inputs.map(input => input.value).join('');
+                
+                try {
+                    const response = await fetch('/api/verify-pin', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ pin })
+                    });
+                    
+                    if (response.ok) {
+                        // After successful verification, redirect to home
+                        window.location.href = '/';
+                    } else {
+                        document.getElementById('pin-error').style.display = 'block';
+                        inputs.forEach(input => {
+                            input.value = '';
+                            input.classList.remove('has-value');
+                        });
+                        inputs[0].focus();
+                    }
+                } catch (error) {
+                    console.error('Error verifying PIN:', error);
+                    document.getElementById('pin-error').style.display = 'block';
+                }
+            });
+
+            checkPinRequired();
+        </script>
+    </body>
+    </html>`);
+});
 
 app.get('/data/tasks.json', requirePin, async (_, res) => {
     try {
