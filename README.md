@@ -2,6 +2,9 @@
 
 A lightweight, mobile-friendly Kanban board application for managing tasks and projects. Built with vanilla JavaScript and Node.js.
 
+![dumbkan](https://github.com/user-attachments/assets/80d32ace-a8b9-476b-a235-df857c1d0c36)
+
+
 ## Features
 
 ### 🎯 Task Management
