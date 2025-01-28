@@ -5,27 +5,14 @@
       "columns": {
         "todo": {
           "name": "To Do",
-          "tasks": [
-            "fart1fart1fart1",
-            "fart1fart1fart1fart1"
-          ]
+          "tasks": []
         },
         "doing": {
           "name": "Doing",
-          "tasks": [
-            "test",
-            "fart1ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            "new task"
-          ]
+          "tasks": []
         },
         "done": {
           "name": "Done",
-          "tasks": [
-            "where does this go"
-          ]
-        },
-        "column-1737840304612": {
-          "name": "Really Done",
           "tasks": []
         }
       }
@@ -33,35 +20,16 @@
     "personal": {
       "name": "Personal",
       "columns": {
-        "todo": {
-          "name": "To Dofeeeeeeeeeeeeeefffffffffffffffffffffffffffffffffffffff",
-          "tasks": [
-            "fart1fart1fart1"
-          ]
-        },
-        "doing": {
-          "name": "Doing",
-          "tasks": [
-            "fart1fart1fart1fart1fart1",
-            "Personal"
-          ]
-        },
-        "done": {
-          "name": "Done",
-          "tasks": [
-            "fart1fart1fart1fart1"
-          ]
-        },
         "column-1737820503477": {
-          "name": "New Column",
+          "name": "To Do",
           "tasks": []
         },
         "column-1737820504596": {
-          "name": "New Column",
+          "name": "Doing",
           "tasks": []
         },
         "column-1737820919397": {
-          "name": "New Column",
+          "name": "Done",
           "tasks": []
         }
       }

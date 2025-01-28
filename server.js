@@ -5,6 +5,48 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const app = express();
 
+// Brute force protection setup
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_TIME = 15 * 60 * 1000; // 15 minutes in milliseconds
+const loginAttempts = new Map();
+
+// Reset attempts for an IP
+function resetAttempts(ip) {
+    loginAttempts.delete(ip);
+}
+
+// Check if an IP is locked out
+function isLockedOut(ip) {
+    const attempts = loginAttempts.get(ip);
+    if (!attempts) return false;
+    
+    // If enough time has passed, reset attempts
+    if (Date.now() - attempts.lastAttempt >= LOCKOUT_TIME) {
+        resetAttempts(ip);
+        return false;
+    }
+    
+    return attempts.count >= MAX_ATTEMPTS;
+}
+
+// Record a failed attempt for an IP
+function recordAttempt(ip) {
+    const attempts = loginAttempts.get(ip) || { count: 0, lastAttempt: 0 };
+    attempts.count++;
+    attempts.lastAttempt = Date.now();
+    loginAttempts.set(ip, attempts);
+}
+
+// Clean up old lockouts periodically
+setInterval(() => {
+    const now = Date.now();
+    for (const [ip, attempts] of loginAttempts.entries()) {
+        if (now - attempts.lastAttempt >= LOCKOUT_TIME) {
+            loginAttempts.delete(ip);
+        }
+    }
+}, LOCKOUT_TIME);
+
 app.use(express.json());
 app.use(cookieParser());
 
@@ -1451,16 +1493,28 @@ const html = `<!DOCTYPE html>
                     body: JSON.stringify({ pin })
                 });
                 
+                const data = await response.json();
+                
                 if (response.ok) {
-                    // After successful verification, redirect to home
                     window.location.href = '/';
                 } else {
-                    document.getElementById('pin-error').style.display = 'block';
-                    inputs.forEach(input => {
+                    const errorElement = document.getElementById('pin-error');
+                    if (response.status === 429) {
+                        errorElement.textContent = data.error;
+                    } else {
+                        const msg = 'Invalid PIN. ' + data.attemptsLeft + ' attempts remaining';
+                        errorElement.textContent = msg;
+                    }
+                    errorElement.style.display = 'block';
+                    
+                    // Reset all PIN input boxes
+                    const pinInputs = document.querySelectorAll('.pin-input');
+                    pinInputs.forEach(input => {
                         input.value = '';
                         input.classList.remove('has-value');
                     });
-                    inputs[0].focus();
+                    // Focus the first input box
+                    pinInputs[0].focus();
                 }
             } catch (error) {
                 console.error('Error verifying PIN:', error);
@@ -2318,11 +2372,33 @@ app.get('/api/pin-required', (req, res) => {
 });
 
 app.post('/api/verify-pin', (req, res) => {
-    const { pin } = req.body;
-    const storedPin = process.env.DUMBKAN_PIN;
+    // If no PIN is set, authentication is successful
+    if (!process.env.DUMBKAN_PIN || process.env.DUMBKAN_PIN.trim() === '') {
+        return res.json({ success: true });
+    }
+
+    const ip = req.ip;
     
-    if (!storedPin || pin === storedPin) {
-        // Set a cookie with the PIN
+    // Check if IP is locked out
+    if (isLockedOut(ip)) {
+        const attempts = loginAttempts.get(ip);
+        const timeLeft = Math.ceil((LOCKOUT_TIME - (Date.now() - attempts.lastAttempt)) / 1000 / 60);
+        return res.status(429).json({ 
+            error: `Too many attempts. Please try again in ${timeLeft} minutes.`
+        });
+    }
+
+    const { pin } = req.body;
+    
+    if (!pin || typeof pin !== 'string') {
+        return res.status(400).json({ error: 'Invalid PIN format' });
+    }
+
+    if (pin === process.env.DUMBKAN_PIN) {
+        // Reset attempts on successful login
+        resetAttempts(ip);
+        
+        // Set cookie and return success
         res.cookie('DUMBKAN_PIN', pin, { 
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -2330,7 +2406,16 @@ app.post('/api/verify-pin', (req, res) => {
         });
         res.json({ success: true });
     } else {
-        res.status(401).json({ error: 'Invalid PIN' });
+        // Record failed attempt
+        recordAttempt(ip);
+        
+        const attempts = loginAttempts.get(ip);
+        const attemptsLeft = MAX_ATTEMPTS - attempts.count;
+        
+        res.status(401).json({ 
+            error: 'Invalid PIN',
+            attemptsLeft: Math.max(0, attemptsLeft)
+        });
     }
 });
 
@@ -2351,7 +2436,9 @@ app.get('/', (req, res) => {
 
 app.get('/login', async (req, res) => {
     const pin = process.env.DUMBKAN_PIN;
-    if (!pin || pin.length < 4 || pin.length > 10) {
+    const isPinDisabled = !pin || pin.trim() === '';
+    
+    if (isPinDisabled) {
         return res.redirect('/');
     }
 
@@ -2445,6 +2532,14 @@ app.get('/login', async (req, res) => {
                 color: white;
             }
             
+            .pin-input:disabled {
+                background-color: var(--border);
+                border-color: var(--border);
+                color: var(--text);
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+            
             .pin-error {
                 color: #f44336;
                 margin: 0;
@@ -2521,30 +2616,42 @@ app.get('/login', async (req, res) => {
                 e.preventDefault();
                 const inputs = [...document.querySelectorAll('.pin-input')];
                 const pin = inputs.map(input => input.value).join('');
-                
-                try {
-                    const response = await fetch('/api/verify-pin', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ pin })
-                    });
-                    
-                    if (response.ok) {
-                        // After successful verification, redirect to home
-                        window.location.href = '/';
-                    } else {
-                        document.getElementById('pin-error').style.display = 'block';
-                        inputs.forEach(input => {
-                            input.value = '';
-                            input.classList.remove('has-value');
-                        });
-                        inputs[0].focus();
-                    }
-                } catch (error) {
-                    console.error('Error verifying PIN:', error);
-                    document.getElementById('pin-error').style.display = 'block';
-                }
-            });
+
+                            try {
+                                const response = await fetch('/api/verify-pin', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ pin })
+                                });
+                                
+                                const data = await response.json();
+                                
+                                if (response.ok) {
+                                    window.location.href = '/';
+                                } else {
+                                    const errorElement = document.getElementById('pin-error');
+                                    if (response.status === 429) {
+                                        errorElement.textContent = data.error;
+                                    } else {
+                                        const msg = 'Invalid PIN. ' + data.attemptsLeft + ' attempts remaining';
+                                        errorElement.textContent = msg;
+                                    }
+                                    errorElement.style.display = 'block';
+                                    
+                                    // Reset all PIN input boxes
+                                    const pinInputs = document.querySelectorAll('.pin-input');
+                                    pinInputs.forEach(input => {
+                                        input.value = '';
+                                        input.classList.remove('has-value');
+                                    });
+                                    // Focus the first input box
+                                    pinInputs[0].focus();
+                                }
+                            } catch (error) {
+                                console.error('Error verifying PIN:', error);
+                                document.getElementById('pin-error').style.display = 'block';
+                            }
+                });
 
             checkPinRequired();
         </script>

@@ -40,23 +40,6 @@ A lightweight, mobile-friendly Kanban board application for managing tasks and p
 - JSON-based storage
 - No database required
 
-## Quick Start
-
-### Running Locally
-```bash
-npm install
-npm start
-```
-
-### Using Docker
-```bash
-# Build the image
-docker build -t dumbkan .
-
-# Run the container
-docker run -p 3000:3000 -v $(pwd)/data:/app/data --env-file .env dumbkan
-```
-
 ## Environment Variables
 
 | Variable | Description | Default | Required |
@@ -72,9 +55,26 @@ Task data is stored in `/app/data/tasks.json`. When using Docker, mount this dir
 
 ## Getting Started
 
+### Option 1: Docker (Recommended)
+1. Pull the image:
+   ```bash
+   docker pull dumbwareio/dumbkan:latest
+   ```
+
+2. Run the container:
+   ```bash
+   docker run -d -p 3000:3000 -v $(pwd)/data:/app/data --env-file .env dumbwareio/dumbkan:latest
+   ```
+
+3. Open your browser and navigate to:
+   ```
+   http://localhost:3000
+   ```
+
+### Option 2: Local Installation
 1. Clone the repository:
    ```bash
-   git clone https://github.com/abiteman/dumbkan.git
+   git clone https://github.com/dumbwareio/dumbkan.git
    cd dumbkan
    ```
 
