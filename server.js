@@ -364,7 +364,7 @@ function generateBoardId(name) {
 // API Routes
 
 // Get all boards
-app.get('/api/boards', async (req, res) => {
+app.get(BASE_PATH + '/api/boards', async (req, res) => {
     try {
         const data = await readData();
         res.json(data);
@@ -374,7 +374,7 @@ app.get('/api/boards', async (req, res) => {
 });
 
 // Create new board
-app.post('/api/boards', async (req, res) => {
+app.post(BASE_PATH + '/api/boards', async (req, res) => {
     try {
         const { name } = req.body;
         if (!name) {
@@ -410,7 +410,7 @@ app.post('/api/boards', async (req, res) => {
 });
 
 // Set active board
-app.post('/api/boards/active', async (req, res) => {
+app.post(BASE_PATH + '/api/boards/active', async (req, res) => {
     try {
         const { boardId } = req.body;
         const data = await readData();
@@ -428,7 +428,7 @@ app.post('/api/boards/active', async (req, res) => {
 });
 
 // Add column to board
-app.post('/api/boards/:boardId/columns', async (req, res) => {
+app.post(BASE_PATH + '/api/boards/:boardId/columns', async (req, res) => {
     try {
         const { boardId } = req.params;
         const { name } = req.body;
@@ -456,7 +456,7 @@ app.post('/api/boards/:boardId/columns', async (req, res) => {
 });
 
 // Add task to column
-app.post('/api/boards/:boardId/columns/:columnId/tasks', async (req, res) => {
+app.post(BASE_PATH + '/api/boards/:boardId/columns/:columnId/tasks', async (req, res) => {
     try {
         const { boardId, columnId } = req.params;
         const { title, description } = req.body;
@@ -485,7 +485,7 @@ app.post('/api/boards/:boardId/columns/:columnId/tasks', async (req, res) => {
 });
 
 // Move task between columns
-app.post('/api/boards/:boardId/tasks/:taskId/move', async (req, res) => {
+app.post(BASE_PATH + '/api/boards/:boardId/tasks/:taskId/move', async (req, res) => {
     try {
         const { boardId, taskId } = req.params;
         const { fromColumnId, toColumnId } = req.body;
@@ -513,7 +513,7 @@ app.post('/api/boards/:boardId/tasks/:taskId/move', async (req, res) => {
 });
 
 // Delete task
-app.delete('/api/boards/:boardId/columns/:columnId/tasks/:taskId', async (req, res) => {
+app.delete(BASE_PATH + '/api/boards/:boardId/columns/:columnId/tasks/:taskId', async (req, res) => {
     try {
         const { boardId, columnId, taskId } = req.params;
 
@@ -538,7 +538,7 @@ app.delete('/api/boards/:boardId/columns/:columnId/tasks/:taskId', async (req, r
 });
 
 // Update column name
-app.put('/api/boards/:boardId/columns/:columnId', async (req, res) => {
+app.put(BASE_PATH + '/api/boards/:boardId/columns/:columnId', async (req, res) => {
     try {
         const { boardId, columnId } = req.params;
         const { name } = req.body;
@@ -561,7 +561,7 @@ app.put('/api/boards/:boardId/columns/:columnId', async (req, res) => {
 });
 
 // Update task
-app.put('/api/boards/:boardId/columns/:columnId/tasks/:taskId', async (req, res) => {
+app.put(BASE_PATH + '/api/boards/:boardId/columns/:columnId/tasks/:taskId', async (req, res) => {
     try {
         const { boardId, columnId, taskId } = req.params;
         const { title, description } = req.body;
@@ -593,7 +593,7 @@ app.put('/api/boards/:boardId/columns/:columnId/tasks/:taskId', async (req, res)
 });
 
 // Delete column
-app.delete('/api/boards/:boardId/columns/:columnId', async (req, res) => {
+app.delete(BASE_PATH + '/api/boards/:boardId/columns/:columnId', async (req, res) => {
     try {
         const { boardId, columnId } = req.params;
 
@@ -615,7 +615,7 @@ app.delete('/api/boards/:boardId/columns/:columnId', async (req, res) => {
 });
 
 // Reorder task within column
-app.post('/api/boards/:boardId/columns/:columnId/tasks/reorder', async (req, res) => {
+app.post(BASE_PATH + '/api/boards/:boardId/columns/:columnId/tasks/reorder', async (req, res) => {
     try {
         const { boardId, columnId } = req.params;
         const { taskId, newIndex } = req.body;
@@ -644,7 +644,7 @@ app.post('/api/boards/:boardId/columns/:columnId/tasks/reorder', async (req, res
 });
 
 // Reorder columns
-app.post('/api/boards/:boardId/columns/reorder', async (req, res) => {
+app.post(BASE_PATH + '/api/boards/:boardId/columns/reorder', async (req, res) => {
     try {
         const { boardId } = req.params;
         const { columnOrder } = req.body;
