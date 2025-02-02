@@ -24,7 +24,7 @@ function toggleTheme() {
 // Board Management
 async function loadBoards() {
     try {
-        const response = await fetch('/api/boards');
+        const response = await fetch(window.appConfig.basePath + '/api/boards');
         const data = await response.json();
         state.boards = data.boards;
         state.activeBoard = data.activeBoard;
@@ -49,7 +49,7 @@ function renderBoards() {
 
 async function switchBoard(boardId) {
     try {
-        const response = await fetch('/api/boards/active', {
+        const response = await fetch(window.appConfig.basePath + '/api/boards/active', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ boardId })
@@ -68,7 +68,7 @@ async function switchBoard(boardId) {
 
 async function createBoard(name) {
     try {
-        const response = await fetch('/api/boards', {
+        const response = await fetch(window.appConfig.basePath + '/api/boards', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name })
@@ -84,7 +84,7 @@ async function createBoard(name) {
 // Column Management
 async function addColumn(name = '') {
     try {
-        const response = await fetch(`/api/boards/${state.activeBoard}/columns`, {
+        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: name || 'New Column' })
@@ -98,7 +98,7 @@ async function addColumn(name = '') {
         if (newColumn) {
             const titleElement = newColumn.querySelector('.column-title');
             if (titleElement) {
-                titleElement.click();  // Trigger the makeEditable click handler
+                titleElement.click();
             }
         }
     } catch (error) {
@@ -120,7 +120,7 @@ function hideTaskModal() {
 
 async function addTask(columnId, title, description = '') {
     try {
-        const response = await fetch(`/api/boards/${state.activeBoard}/columns/${columnId}/tasks`, {
+        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${columnId}/tasks`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title, description })
@@ -137,7 +137,7 @@ async function addTask(columnId, title, description = '') {
 async function handleTaskMove(taskId, fromColumnId, toColumnId, newIndex) {
     try {
         console.log(`Attempting to move task ${taskId} from column ${fromColumnId} to column ${toColumnId} at index ${newIndex}`);
-        const response = await fetch(`/api/boards/${state.activeBoard}/tasks/${taskId}/move`, {
+        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/tasks/${taskId}/move`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -281,7 +281,7 @@ async function handleDrop(e) {
             const oldIndex = sourceColumn.tasks.indexOf(taskObj);
             
             // Make the server request
-            const response = await fetch(`/api/boards/${state.activeBoard}/columns/${sourceColumnId}/tasks/reorder`, {
+            const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${sourceColumnId}/tasks/reorder`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -742,7 +742,7 @@ function createTaskElement(task) {
 
     makeEditable(taskTitle, async (newTitle) => {
         try {
-            const response = await fetch(`/api/boards/${state.activeBoard}/columns/${task.columnId}/tasks/${task.id}`, {
+            const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${task.columnId}/tasks/${task.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ title: newTitle, description: task.description })
@@ -765,7 +765,7 @@ function createTaskElement(task) {
 
     makeEditable(taskDescription, async (newDescription) => {
         try {
-            const response = await fetch(`/api/boards/${state.activeBoard}/columns/${task.columnId}/tasks/${task.id}`, {
+            const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${task.columnId}/tasks/${task.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ title: task.title, description: newDescription })
@@ -807,7 +807,7 @@ function createTaskElement(task) {
             e.stopPropagation();
             const nextColumnId = columns[currentColumnIndex + 1];
             try {
-                const response = await fetch(`/api/boards/${state.activeBoard}/tasks/${task.id}/move`, {
+                const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/tasks/${task.id}/move`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -875,7 +875,7 @@ function createColumnElement(column) {
 
     makeEditable(title, async (newName) => {
         try {
-            const response = await fetch(`/api/boards/${state.activeBoard}/columns/${column.id}`, {
+            const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${column.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: newName })
@@ -1002,7 +1002,7 @@ function createColumnElement(column) {
             const newOrder = columns.map(col => col.dataset.columnId);
             
             // Make the server request to update column order
-            const response = await fetch(`/api/boards/${state.activeBoard}/columns/reorder`, {
+            const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/reorder`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1034,12 +1034,11 @@ function createColumnElement(column) {
 
 async function deleteColumn(columnId) {
     try {
-        const response = await fetch(`/api/boards/${state.activeBoard}/columns/${columnId}`, {
+        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${columnId}`, {
             method: 'DELETE'
         });
         
         if (response.ok) {
-            // Update local state
             delete state.boards[state.activeBoard].columns[columnId];
             renderActiveBoard();
         }
@@ -1131,7 +1130,7 @@ function showAddTaskModal(columnId) {
 // Add this new function for updating tasks
 async function updateTask(columnId, taskId, title, description) {
     try {
-        const response = await fetch(`/api/boards/${state.activeBoard}/columns/${columnId}/tasks/${taskId}`, {
+        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${columnId}/tasks/${taskId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title, description })
@@ -1153,12 +1152,11 @@ async function updateTask(columnId, taskId, title, description) {
 // Add this new function for deleting tasks
 async function deleteTask(columnId, taskId) {
     try {
-        const response = await fetch(`/api/boards/${state.activeBoard}/columns/${columnId}/tasks/${taskId}`, {
+        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${columnId}/tasks/${taskId}`, {
             method: 'DELETE'
         });
         
         if (response.ok) {
-            // Update local state
             const column = state.boards[state.activeBoard].columns[columnId];
             column.tasks = column.tasks.filter(task => task.id !== taskId);
             renderActiveBoard();

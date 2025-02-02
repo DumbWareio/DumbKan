@@ -49,6 +49,8 @@ A lightweight, mobile-friendly Kanban board application for managing tasks and p
 |----------|-------------|---------|----------|
 | PORT | Port for the server to listen on | 3000 | No |
 | DUMBKAN_PIN | PIN protection (4-10 digits) | - | No |
+| SITE_TITLE | Title displayed in the header and browser tab | DumbKan | No |
+| BASE_URL | Base URL path for the application (e.g., '/app') | - | No |
 
 ## PIN Protection
 When `DUMBKAN_PIN` is set, the app requires PIN verification before accessing or modifying boards. The PIN must be 4-10 digits long.
