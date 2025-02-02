@@ -24,6 +24,10 @@ function toggleTheme() {
 // Board Management
 async function loadBoards() {
     try {
+        if (!window.appConfig) {
+            console.error('Configuration not loaded');
+            return;
+        }
         const response = await fetch(window.appConfig.basePath + '/api/boards');
         const data = await response.json();
         state.boards = data.boards;
