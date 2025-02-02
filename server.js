@@ -93,9 +93,11 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'sha256-9QQdPjcXJPuOrPrQUD2Ni0Iisj7itcA+jSSYpXJwzTw='"],
+            scriptSrc: ["'self'", "'unsafe-inline'"],
             styleSrc: ["'self'", "'unsafe-inline'"],
             imgSrc: ["'self'"],
+            workerSrc: ["'self'"],
+            manifestSrc: ["'self'"]
         },
     },
 }));
@@ -173,6 +175,11 @@ app.get(BASE_PATH + '/config.js', (req, res) => {
 // Serve static files for public assets
 app.use(BASE_PATH + '/styles.css', express.static('public/styles.css'));
 app.use(BASE_PATH + '/script.js', express.static('public/script.js'));
+app.use(BASE_PATH + '/manifest.json', express.static('public/manifest.json'));
+app.use(BASE_PATH + '/sw.js', express.static('public/sw.js'));
+app.use(BASE_PATH + '/icons', express.static('public/icons'));
+app.use(BASE_PATH + '/logo.png', express.static('public/logo.png'));
+app.use(BASE_PATH + '/favicon.svg', express.static('public/favicon.svg'));
 
 // Routes
 app.get(BASE_PATH + '/', authMiddleware, async (req, res, next) => {
