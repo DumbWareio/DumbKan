@@ -610,13 +610,21 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function makeEditable(element, onSave) {
+    // Prevent text selection on double-click
+    element.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+    });
+
     element.addEventListener('click', function(e) {
         if (e.target.closest('.task-move')) return; // Don't trigger edit on move button click
+        if (e.target.tagName === 'INPUT') return; // Don't trigger if already editing
         
         const text = this.textContent.trim();
         const input = document.createElement('input');
         input.value = text;
         input.className = 'inline-edit';
+        input.style.width = '100%';
+        input.style.height = '100%';
         
         const saveEdit = async () => {
             const newText = input.value.trim();
@@ -645,6 +653,7 @@ function makeEditable(element, onSave) {
             }
         });
 
+        // Replace the content with the input
         element.textContent = '';
         element.appendChild(input);
         input.focus();
