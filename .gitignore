@@ -128,3 +128,12 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Cursor IDE
+cursorrules
+.cursor
+.cursor/
+
+# Dumb Boilerplate Documentation
+boilerplate.md
+reference.md

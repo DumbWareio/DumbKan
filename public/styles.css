@@ -1,0 +1,979 @@
+:root {
+    /* Light theme variables */
+    --primary: #2196F3;
+    --primary-hover: #1976D2;
+    --background: #f5f5f5;
+    --container: white;
+    --text: #333;
+    --border: #ccc;
+    --shadow: 0 2px 4px rgba(0,0,0,0.1);
+    --transition: 0.2s ease;
+}
+
+[data-theme="dark"] {
+    --background: #1a1a1a;
+    --container: #2d2d2d;
+    --text: white;
+    --border: #404040;
+    --shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* Base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background: var(--background);
+    color: var(--text);
+    transition: background var(--transition), color var(--transition);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Main content */
+main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+/* Container styling */
+.container {
+    position: relative;
+    background: var(--container);
+    padding: 3rem 1.5rem 2rem;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    width: calc(100% - 2rem);
+    max-width: 99%;
+    min-height: calc(100vh - 4rem);
+    transition: background var(--transition), box-shadow var(--transition);
+    margin: 1rem auto;
+}
+
+/* Form styling */
+form {
+    position: relative;
+    background: var(--container);
+    padding: 3rem 1.5rem 2rem;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    width: calc(100% - 2rem);
+    max-width: 400px;
+    transition: background var(--transition), box-shadow var(--transition);
+    text-align: center;
+    margin: 1rem auto;
+    transform: translateY(-10%);
+}
+
+/* Theme toggle */
+#themeToggle {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color var(--transition);
+}
+
+#themeToggle:hover {
+    background: rgba(128, 128, 128, 0.1);
+}
+
+#themeToggle svg {
+    width: 24px;
+    height: 24px;
+    stroke: var(--text);
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: stroke var(--transition);
+}
+
+[data-theme="light"] .moon {
+    display: block;
+}
+
+[data-theme="light"] .sun {
+    display: none;
+}
+
+[data-theme="dark"] .moon {
+    display: none;
+}
+
+[data-theme="dark"] .sun {
+    display: block;
+}
+
+/* Headings */
+h1 {
+    font-size: 2rem;
+    font-weight: 500;
+    margin-bottom: 0.75rem;
+    color: var(--text);
+    text-align: center;
+}
+
+h2 {
+    font-size: 0.875rem;
+    font-weight: 400;
+    margin-bottom: 2rem;
+    color: var(--text);
+    opacity: 0.7;
+    text-align: center;
+}
+
+/* PIN input styling */
+.pin-input-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+    margin: 2rem 0;
+    padding: 0 0.5rem;
+}
+
+.pin-input-container input.pin-input {
+    width: 44px;
+    height: 44px;
+    text-align: center;
+    font-size: 1.25rem;
+    font-weight: 500;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    background: var(--container);
+    color: var(--text);
+    transition: all var(--transition);
+    -webkit-appearance: none;
+    -moz-appearance: textfield;
+}
+
+.pin-input-container input.pin-input::-webkit-outer-spin-button,
+.pin-input-container input.pin-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.pin-input-container input.pin-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.15);
+}
+
+.pin-input-container input.pin-input.has-value {
+    border-color: var(--primary);
+    background-color: var(--primary);
+    color: white;
+}
+
+.pin-error {
+    color: #ff4444;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+    text-align: center;
+    display: none;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: opacity var(--transition), transform var(--transition);
+}
+
+.pin-error[aria-hidden="false"] {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Credit styling */
+.dumbware-credit {
+    position: fixed;
+    bottom: 4px;
+    width: 100%;
+    text-align: center;
+    font-size: 0.75em;
+    opacity: 0.5;
+    padding: 8px;
+    z-index: 100;
+    pointer-events: none;
+    margin: 0;
+}
+
+.dumbware-credit a {
+    color: inherit;
+    text-decoration: none;
+    pointer-events: auto;
+}
+
+.dumbware-credit a:hover {
+    text-decoration: underline;
+    opacity: 0.8;
+}
+
+/* Responsive adjustments */
+@media (max-width: 400px) {
+    form, .container {
+        padding: 3rem 0.75rem 1.5rem;
+        width: calc(100% - 1rem);
+        margin: 0.5rem auto;
+    }
+
+    .pin-input-container {
+        gap: 0.4rem;
+        padding: 0;
+    }
+
+    .pin-input-container input.pin-input {
+        width: 36px;
+        height: 36px;
+        font-size: 1rem;
+        border-radius: 8px;
+    }
+
+    h1 {
+        font-size: 1.75rem;
+    }
+}
+
+@media (max-width: 320px) {
+    .pin-input-container input.pin-input {
+        width: 32px;
+        height: 32px;
+    }
+}
+
+/* Board Header */
+.board-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 1rem;
+    position: relative;
+    margin: -3rem -1.5rem 2rem;
+}
+
+.board-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.board-selector h1 {
+    font-size: 1.25rem;
+    margin: 0;
+    text-align: left;
+}
+
+#boardMenuBtn {
+    background: none;
+    border: none;
+    padding: 0.5rem;
+    cursor: pointer;
+    color: var(--text);
+    opacity: 0.6;
+    transition: opacity var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#boardMenuBtn:hover {
+    opacity: 1;
+}
+
+#boardMenuBtn svg {
+    width: 24px;
+    height: 24px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.app-title {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--text);
+    user-select: none;
+    margin: 0;
+    padding: 0;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+/* Board Menu */
+.board-menu {
+    position: absolute;
+    top: 4rem;
+    left: 1rem;
+    background: var(--container);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    min-width: 180px;
+    z-index: 100;
+}
+
+.menu-header {
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.menu-header h3 {
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin: 0;
+}
+
+.board-list {
+    list-style: none;
+    padding: 0.25rem 0;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.board-list li {
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    transition: background var(--transition);
+    font-size: 0.875rem;
+}
+
+.board-list li:hover {
+    background: rgba(128, 128, 128, 0.1);
+}
+
+.board-list li.active {
+    background: var(--primary);
+    color: white;
+}
+
+/* Kanban Board */
+.board-container {
+    overflow-x: auto;
+    padding-bottom: 1rem;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+}
+
+.columns {
+    display: inline-flex;
+    gap: 1rem;
+    min-height: 70vh;
+    padding: 0.2rem;
+    align-items: flex-start;
+}
+
+/* Add Column Button */
+.add-column-btn {
+    flex: 0 0 60px;
+    height: calc(70vh - 1rem);
+    margin: 0;
+    background: var(--background);
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition);
+    padding: 0;
+    color: var(--text);
+    opacity: 0.6;
+    margin-top: 0;
+}
+
+.add-column-btn:hover {
+    opacity: 1;
+    border-color: var(--primary);
+    color: var(--primary);
+    background: rgba(33, 150, 243, 0.1);
+    width: 64px;
+}
+
+.add-column-btn svg {
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    width: 20px;
+    height: 20px;
+}
+
+/* Column styling */
+.column {
+    flex: 0 0 300px;
+    background: var(--background);
+    border-radius: 12px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+    position: relative;
+    transition: transform 0.2s ease, border 0.2s ease;
+    width: 300px;
+}
+
+.column-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    padding-right: 2.5rem;
+    gap: 0.5rem;
+    cursor: grab;
+    justify-content: flex-start;
+}
+
+.column-header.dragging {
+    cursor: grabbing;
+    opacity: 0.8;
+}
+
+.column.column-drag-over {
+    border: 2px dashed var(--primary);
+}
+
+.column-title {
+    font-weight: 500;
+    font-size: 1rem;
+    color: var(--text);
+    display: inline-block;
+    max-width: fit-content;
+    flex: 0 1 auto;
+}
+
+.column-count {
+    background: rgba(128, 128, 128, 0.2);
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    font-size: 0.875rem;
+    color: var(--text);
+    flex-shrink: 0;
+    order: -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    aspect-ratio: 1;
+    line-height: 1;
+    text-align: center;
+}
+
+.tasks {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem;
+}
+
+/* Task styling */
+.task {
+    background: var(--container);
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.75rem;
+    box-shadow: var(--shadow);
+    cursor: grab;
+    transition: transform var(--transition), box-shadow var(--transition);
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    position: relative;
+}
+
+.task-content {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+}
+
+.task:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.task.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+}
+
+.task-title {
+    font-weight: 500;
+    margin-bottom: 0.15rem;
+    word-wrap: break-word;
+    display: inline-block;
+    max-width: fit-content;
+    margin-top: 0;
+}
+
+.task-description {
+    font-size: 0.875rem;
+    color: var(--text);
+    opacity: 0.8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+    max-width: 220px;
+    margin-top: 0.15rem;
+}
+
+.task-move {
+    background: none;
+    border: none;
+    padding: 0.5rem;
+    margin-right: -0.5rem;
+    cursor: pointer;
+    color: var(--text);
+    opacity: 0.4;
+    transition: all var(--transition);
+    border-radius: 4px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+}
+
+.task-move:hover {
+    opacity: 1;
+    color: var(--primary);
+    background: rgba(33, 150, 243, 0.1);
+}
+
+.task-move svg {
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    width: 16px;
+    height: 16px;
+}
+
+/* Buttons */
+.btn-primary {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background var(--transition);
+}
+
+.btn-primary:hover {
+    background: var(--primary-hover);
+}
+
+.btn-primary svg {
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.btn-secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background var(--transition);
+}
+
+.btn-secondary:hover {
+    background: rgba(128, 128, 128, 0.1);
+}
+
+.btn-text {
+    background: none;
+    border: none;
+    color: var(--primary);
+    padding: 0.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    transition: opacity var(--transition);
+}
+
+.btn-text:hover {
+    opacity: 0.8;
+}
+
+.btn-text svg {
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Modal */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.modal[hidden] {
+    display: none;
+}
+
+.modal-content {
+    background: var(--container);
+    border-radius: 12px;
+    padding: 2rem;
+    width: 90%;
+    max-width: 500px;
+    position: relative;
+    box-shadow: var(--shadow);
+    animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text);
+    opacity: 0.6;
+    transition: all var(--transition);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    z-index: 1;
+}
+
+.modal-close:hover {
+    opacity: 1;
+    background: rgba(128, 128, 128, 0.1);
+}
+
+.modal h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 2rem;
+    color: var(--text);
+    opacity: 1;
+    text-align: left;
+    padding-right: 2rem;
+}
+
+.modal form {
+    background: none;
+    padding: 0;
+    box-shadow: none;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    transform: none;
+}
+
+.modal .form-group {
+    margin-bottom: 1.5rem;
+}
+
+.modal label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+}
+
+.modal input,
+.modal textarea {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--background);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 1rem;
+    transition: all var(--transition);
+}
+
+.modal input:hover,
+.modal textarea:hover {
+    border-color: var(--primary);
+}
+
+.modal input:focus,
+.modal textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.15);
+}
+
+.modal textarea {
+    min-height: 120px;
+    resize: vertical;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    font-family: inherit;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+}
+
+.modal-actions .btn-delete {
+    background: #ff4444;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: 8px;
+    transition: all var(--transition);
+}
+
+.modal-actions .btn-delete:hover {
+    background: #ff1111;
+}
+
+.modal-actions .actions-right {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.modal-actions .btn-secondary {
+    background: var(--background);
+    border: 1px solid var(--border);
+    color: var(--text);
+}
+
+.modal-actions .btn-secondary:hover {
+    background: rgba(128, 128, 128, 0.1);
+    border-color: var(--text);
+}
+
+.modal-actions .btn-primary {
+    background: var(--primary);
+}
+
+.modal-actions .btn-primary:hover {
+    background: var(--primary-hover);
+}
+
+/* Special styling for delete confirmation modal */
+#confirmModal .modal-actions .btn-primary {
+    background: #ff4444;
+}
+
+#confirmModal .modal-actions .btn-primary:hover {
+    background: #ff1111;
+}
+
+/* Drag and Drop */
+.column.drag-over {
+    background: rgba(33, 150, 243, 0.1);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--background);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #999;
+}
+
+/* Inline editing */
+.inline-edit {
+    background: var(--container);
+    border: 1px solid var(--primary);
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+    font-size: inherit;
+    font-family: inherit;
+    color: var(--text);
+    width: 100%;
+    margin: -0.25rem -0.5rem;
+}
+
+.inline-edit:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+}
+
+.column-title, .task-title, .task-description {
+    cursor: text;
+    padding: 0.25rem 0.5rem;
+    margin: -0.25rem -0.5rem;
+    border-radius: 4px;
+    transition: background-color var(--transition);
+}
+
+.column-title:hover, .task-title:hover, .task-description:hover {
+    background-color: rgba(128, 128, 128, 0.1);
+}
+
+/* Column delete button */
+.column-delete {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: none;
+    color: #ff4444;
+    opacity: 0.6;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all var(--transition);
+    z-index: 1;
+}
+
+.column-delete:hover {
+    opacity: 1;
+    background: rgba(255, 68, 68, 0.1);
+}
+
+.column-delete svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Update modal styles */
+.modal-content {
+    max-width: 400px;
+}
+
+.modal-content p {
+    margin: 1rem 0;
+    color: var(--text);
+    opacity: 0.8;
+}
+
+.column-header.dragging .column {
+    transform: scale(1.02);
+    box-shadow: var(--shadow);
+}
+
+/* Task styling */
+.add-task-btn {
+    height: 32px;
+    width: 100%;
+    background: var(--background);
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition);
+    padding: 0;
+    color: var(--text);
+    opacity: 0.6;
+    margin-top: 0.5rem;
+}
+
+.add-task-btn:hover {
+    opacity: 1;
+    border-color: var(--primary);
+    color: var(--primary);
+    background: rgba(33, 150, 243, 0.1);
+}
+
+.add-task-btn svg {
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    width: 16px;
+    height: 16px;
+}
+
+/* Remove task-delete button styles */
+.task-delete {
+    display: none;
+}

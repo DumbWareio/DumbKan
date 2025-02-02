@@ -1,9 +1,77 @@
+# Dependencies
 node_modules
 npm-debug.log
-data
+yarn-debug.log
+yarn-error.log
+yarn.lock
+
+# Environment
 .env
+.env.*
+*.env
+
+# Git
 .git
 .gitignore
-README.md
+.gitattributes
+
+# IDE and Editor files
+.idea
+.vscode
+*.swp
+*.swo
+.cursor
+.cursor/
+cursorrules
+
+# OS
+.DS_Store
+Thumbs.db
+*.tmp
+*.temp
+
+# Docker
 Dockerfile
-.dockerignore 
+.dockerignore
+docker-compose*
+*.dockerfile
+
+# Build and Cache
+dist/
+build/
+.cache/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+
+# Data and Logs
+data/
+logs/
+*.log
+.npm/
+.config/
+
+# Test
+test/
+__tests__/
+*.test.js
+*.spec.js
+
+# Documentation
+README.md
+LICENSE
+*.md
+docs/
+boilerplate.md
+reference.md
+
+# Misc
+.editorconfig
+.eslintrc*
+.prettierrc*
+.babelrc*
+jest.config*
+*.gz
+*.zip
+*.tar
+*.rar 
