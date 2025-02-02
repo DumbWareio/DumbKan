@@ -535,13 +535,20 @@ function initLogin() {
           for (let i = 0; i < pinLength; i++) {
             const input = document.createElement('input');
             input.type = 'password';
+            input.inputMode = 'numeric';
+            input.pattern = '[0-9]*';
             input.classList.add('pin-input');
             input.maxLength = 1;
+            input.autocomplete = 'off';
             container.appendChild(input);
             inputs.push(input);
           }
+          // Force focus and show keyboard on mobile
           if (inputs.length > 0) {
-            inputs[0].focus();
+            setTimeout(() => {
+              inputs[0].focus();
+              inputs[0].click();
+            }, 100);
           }
           inputs.forEach((input, index) => {
             input.addEventListener('input', () => {
