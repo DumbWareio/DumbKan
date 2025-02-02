@@ -1,14 +1,15 @@
 const CACHE_NAME = 'dumbkan-v1';
+const BASE_PATH = self.location.pathname.replace('sw.js', '');
 const ASSETS_TO_CACHE = [
-    './',
-    './index.html',
-    './login.html',
-    './styles.css',
-    './script.js',
-    './config.js',
-    './manifest.json',
-    './icons/icon-192x192.png',
-    './icons/icon-512x512.png'
+    BASE_PATH,
+    BASE_PATH + 'index.html',
+    BASE_PATH + 'login.html',
+    BASE_PATH + 'styles.css',
+    BASE_PATH + 'script.js',
+    BASE_PATH + 'config.js',
+    BASE_PATH + 'manifest.json',
+    BASE_PATH + 'favicon.svg',
+    BASE_PATH + 'logo.png'
 ];
 
 // Install event - cache assets
@@ -16,7 +17,15 @@ self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => {
-                return cache.addAll(ASSETS_TO_CACHE);
+                // Cache what we can, ignore failures
+                return Promise.allSettled(
+                    ASSETS_TO_CACHE.map(url => 
+                        cache.add(url).catch(err => {
+                            console.warn(`Failed to cache ${url}:`, err);
+                            return null;
+                        })
+                    )
+                );
             })
     );
 });

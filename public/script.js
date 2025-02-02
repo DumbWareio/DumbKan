@@ -10,8 +10,17 @@ let elements = {};
 
 // Theme Management
 function initTheme() {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    document.documentElement.setAttribute('data-theme', savedTheme);
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+        // Use saved theme if available
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    } else {
+        // Check system preference
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const theme = prefersDark ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('theme', theme);
+    }
 }
 
 function toggleTheme() {
@@ -31,7 +40,14 @@ async function loadBoards() {
         const response = await fetch(window.appConfig.basePath + '/api/boards');
         const data = await response.json();
         state.boards = data.boards;
-        state.activeBoard = data.activeBoard;
+        
+        // If no active board is set, use the first available board
+        if (!data.activeBoard && Object.keys(data.boards).length > 0) {
+            state.activeBoard = Object.keys(data.boards)[0];
+        } else {
+            state.activeBoard = data.activeBoard;
+        }
+        
         renderBoards();
         renderActiveBoard();
     } catch (error) {
@@ -111,25 +127,51 @@ async function addColumn(name = '') {
 }
 
 // Task Management
-function showTaskModal(columnId) {
+function showTaskModal(task) {
+    if (!elements.taskModal) return;
+    
+    elements.taskModal.querySelector('h2').textContent = 'Edit Task';
+    elements.taskTitle.value = task.title;
+    elements.taskDescription.value = task.description || '';
+    elements.taskForm.dataset.taskId = task.id;
+    elements.taskForm.dataset.columnId = task.columnId;
     elements.taskModal.hidden = false;
-    elements.taskForm.dataset.columnId = columnId;
     elements.taskTitle.focus();
 }
 
 function hideTaskModal() {
+    if (!elements.taskModal) return;
     elements.taskModal.hidden = true;
     elements.taskForm.reset();
+    delete elements.taskForm.dataset.taskId;
+    delete elements.taskForm.dataset.columnId;
 }
 
 async function addTask(columnId, title, description = '') {
     try {
+        if (!columnId) {
+            console.error('Column ID is required to add a task');
+            return;
+        }
+        
         const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${columnId}/tasks`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title, description })
         });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to add task: ${response.status}`);
+        }
+        
         const data = await response.json();
+        
+        // Make sure the column exists in state before trying to access it
+        if (!state.boards[state.activeBoard].columns[columnId]) {
+            console.error('Column not found in state:', columnId);
+            return;
+        }
+        
         state.boards[state.activeBoard].columns[columnId].tasks.push(data);
         renderActiveBoard();
     } catch (error) {
@@ -372,77 +414,6 @@ function initEventListeners() {
     // Add column button
     elements.addColumnBtn.addEventListener('click', () => addColumn());
 
-    // Task form and modal
-    elements.taskForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const title = elements.taskTitle.value.trim();
-        const description = elements.taskDescription.value.trim();
-        const taskId = e.target.dataset.taskId;
-        const columnId = e.target.dataset.columnId;
-        
-        if (title && columnId) {
-            if (taskId) {
-                // Edit existing task
-                await updateTask(columnId, taskId, title, description);
-            } else {
-                // Add new task
-                await addTask(columnId, title, description);
-            }
-            hideTaskModal();
-        }
-    });
-
-    // Task modal event listeners
-    if (elements.taskModal) {
-        // Close modal with close button
-        const closeButton = elements.taskModal.querySelector('.modal-close');
-        if (closeButton) {
-            closeButton.addEventListener('click', hideTaskModal);
-        }
-
-        // Close modal with cancel button
-        const cancelButton = elements.taskModal.querySelector('[data-action="cancel"]');
-        if (cancelButton) {
-            cancelButton.addEventListener('click', hideTaskModal);
-        }
-
-        // Delete button
-        const deleteButton = elements.taskModal.querySelector('[data-action="delete"]');
-        if (deleteButton) {
-            deleteButton.addEventListener('click', () => {
-                const taskId = elements.taskForm.dataset.taskId;
-                const columnId = elements.taskForm.dataset.columnId;
-                const taskTitle = elements.taskTitle.value;
-                if (taskId && columnId) {
-                    hideTaskModal();
-                    showConfirmModal(taskId, taskTitle, 'task', columnId);
-                }
-            });
-        }
-
-        // Close modal when clicking outside
-        elements.taskModal.addEventListener('click', (e) => {
-            if (e.target === elements.taskModal) {
-                hideTaskModal();
-            }
-        });
-
-        // Prevent modal close when clicking inside modal content
-        const modalContent = elements.taskModal.querySelector('.modal-content');
-        if (modalContent) {
-            modalContent.addEventListener('click', (e) => {
-                e.stopPropagation();
-            });
-        }
-    }
-
-    // Close modal with Escape key
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !elements.taskModal.hidden) {
-            hideTaskModal();
-        }
-    });
-
     // Confirm modal event listeners
     if (elements.confirmModal) {
         // Close button
@@ -472,6 +443,75 @@ function initEventListeners() {
             });
         }
     }
+
+    // Task modal event listeners
+    if (elements.taskModal) {
+        // Close button
+        const taskModalClose = elements.taskModal.querySelector('.modal-close');
+        if (taskModalClose) {
+            taskModalClose.addEventListener('click', hideTaskModal);
+        }
+
+        // Close when clicking outside
+        elements.taskModal.addEventListener('click', (e) => {
+            if (e.target === elements.taskModal) {
+                hideTaskModal();
+            }
+        });
+
+        // Handle Ctrl+Enter (or Cmd+Enter on Mac) to save
+        elements.taskModal.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                const submitButton = elements.taskForm.querySelector('button[type="submit"]');
+                if (submitButton) {
+                    submitButton.click();
+                }
+            }
+        });
+
+        // Form submission
+        elements.taskForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const taskId = elements.taskForm.dataset.taskId;
+            const columnId = elements.taskForm.dataset.columnId;
+            const title = elements.taskTitle.value.trim();
+            const description = elements.taskDescription.value.trim();
+
+            try {
+                const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${columnId}/tasks/${taskId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, description })
+                });
+                
+                if (response.ok) {
+                    const taskObj = state.boards[state.activeBoard].columns[columnId].tasks.find(t => t.id === taskId);
+                    if (taskObj) {
+                        taskObj.title = title;
+                        taskObj.description = description;
+                        renderActiveBoard();
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to update task:', error);
+            }
+            
+            hideTaskModal();
+        });
+
+        // Delete button
+        const deleteButton = elements.taskModal.querySelector('[data-action="delete"]');
+        if (deleteButton) {
+            deleteButton.addEventListener('click', () => {
+                const taskId = elements.taskForm.dataset.taskId;
+                const columnId = elements.taskForm.dataset.columnId;
+                const taskTitle = elements.taskTitle.value;
+                hideTaskModal();
+                showConfirmModal(taskId, taskTitle, 'task', columnId);
+            });
+        }
+    }
 }
 
 // Initialization
@@ -486,24 +526,20 @@ async function initBoard() {
         currentBoard: document.getElementById('currentBoard'),
         addColumnBtn: document.getElementById('addColumnBtn'),
         columns: document.getElementById('columns'),
+        confirmModal: document.getElementById('confirmModal'),
+        confirmModalMessage: document.querySelector('#confirmModal p'),
+        confirmModalConfirmBtn: document.querySelector('#confirmModal [data-action="confirm"]'),
         taskModal: document.getElementById('taskModal'),
         taskForm: document.getElementById('taskForm'),
         taskTitle: document.getElementById('taskTitle'),
         taskDescription: document.getElementById('taskDescription')
     };
 
-    // Add confirm modal elements separately
-    const confirmModal = document.getElementById('confirmModal');
-    if (confirmModal) {
-        elements.confirmModal = confirmModal;
-        elements.confirmModalMessage = confirmModal.querySelector('p');
-        elements.confirmModalConfirmBtn = confirmModal.querySelector('[data-action="confirm"]');
-    }
-
     // Check required elements
     const requiredElements = [
         'themeToggle', 'boardMenu', 'boardMenuBtn', 'boardList', 
         'addBoardBtn', 'currentBoard', 'addColumnBtn', 'columns',
+        'confirmModal', 'confirmModalMessage', 'confirmModalConfirmBtn',
         'taskModal', 'taskForm', 'taskTitle', 'taskDescription'
     ];
 
@@ -519,6 +555,74 @@ async function initBoard() {
     await loadBoards();
 }
 
+// Add this before initLogin function
+const DB_NAME = 'dumbkan-auth';
+const DB_VERSION = 1;
+const STORE_NAME = 'auth';
+
+async function initDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+        
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+            }
+        };
+    });
+}
+
+async function storeAuthData(pin) {
+    try {
+        const db = await initDB();
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        
+        // Store PIN with expiration (24 hours)
+        await store.put({
+            id: 'auth',
+            pin,
+            expires: Date.now() + (24 * 60 * 60 * 1000)
+        });
+    } catch (error) {
+        console.error('Failed to store auth data:', error);
+    }
+}
+
+async function getStoredAuth() {
+    try {
+        const db = await initDB();
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        
+        return new Promise((resolve, reject) => {
+            const request = store.get('auth');
+            
+            request.onsuccess = () => {
+                const data = request.result;
+                if (data && data.expires > Date.now()) {
+                    resolve(data);
+                } else {
+                    // Clear expired data
+                    const deleteTx = db.transaction(STORE_NAME, 'readwrite');
+                    const deleteStore = deleteTx.objectStore(STORE_NAME);
+                    deleteStore.delete('auth');
+                    resolve(null);
+                }
+            };
+            
+            request.onerror = () => reject(request.error);
+        });
+    } catch (error) {
+        console.error('Failed to get stored auth:', error);
+        return null;
+    }
+}
+
 function initLogin() {
     // Initialize theme on login page
     initTheme();
@@ -527,89 +631,121 @@ function initLogin() {
         themeToggleElem.addEventListener('click', toggleTheme);
     }
     
-    // For the login page, only fetch the PIN length and generate the input boxes
-    fetch(window.appConfig.basePath + '/pin-length')
-      .then((response) => response.json())
-      .then((data) => {
-        const pinLength = data.length;
-        const container = document.querySelector('.pin-input-container');
-        if (container && pinLength > 0) {
-          container.innerHTML = ''; // Clear any preexisting inputs
-          const inputs = [];
-          for (let i = 0; i < pinLength; i++) {
-            const input = document.createElement('input');
-            input.type = 'password';
-            input.inputMode = 'numeric';
-            input.pattern = '[0-9]*';
-            input.classList.add('pin-input');
-            input.maxLength = 1;
-            input.autocomplete = 'off';
-            container.appendChild(input);
-            inputs.push(input);
-          }
-          // Force focus and show keyboard on mobile
-          if (inputs.length > 0) {
-            setTimeout(() => {
-              inputs[0].focus();
-              inputs[0].click();
-            }, 100);
-          }
-          inputs.forEach((input, index) => {
-            input.addEventListener('input', () => {
-              if (input.value.length === 1) {
-                if (index < inputs.length - 1) {
-                  inputs[index + 1].focus();
-                } else {
-                  // Last digit entered, auto submit the PIN via fetch
-                  const pin = inputs.map(inp => inp.value).join('');
-                  fetch(window.appConfig.basePath + '/verify-pin', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ pin })
-                  })
-                  .then((response) => response.json())
-                  .then((result) => {
-                    if (result.success) {
-                      // Redirect to the index page using the base URL
-                      window.location.href = window.appConfig.basePath + '/';
-                    } else {
-                      const errorElem = document.querySelector('.pin-error');
-                      if (result.attemptsLeft === 0) {
-                          if (errorElem) {
-                              errorElem.innerHTML = "Too many invalid attempts - 15 minute lockout";
-                              errorElem.setAttribute('aria-hidden', 'false');
-                          }
-                          // Disable all input fields and grey them out
-                          inputs.forEach(inp => {
-                              inp.value = '';
-                              inp.disabled = true;
-                              inp.style.backgroundColor = "#ddd";
-                          });
-                      } else {
-                          const invalidAttempt = 5 - (result.attemptsLeft || 0);
-                          if (errorElem) {
-                              errorElem.innerHTML = `Invalid PIN entry ${invalidAttempt}/5`;
-                              errorElem.setAttribute('aria-hidden', 'false');
-                          }
-                          // Clear all input fields and refocus the first one
-                          inputs.forEach(inp => inp.value = '');
-                          inputs[0].focus();
-                      }
-                    }
-                  })
-                  .catch((err) => console.error('Error verifying PIN:', err));
+    // Check for stored PIN first
+    getStoredAuth().then(authData => {
+        if (authData && authData.pin) {
+            // Auto verify the stored PIN
+            fetch(window.appConfig.basePath + '/verify-pin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: authData.pin })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    window.location.href = window.appConfig.basePath + '/';
+                    return;
                 }
-              }
-            });
-            input.addEventListener('keydown', (e) => {
-              if (e.key === 'Backspace' && input.value === '' && index > 0) {
-                inputs[index - 1].focus();
-              }
-            });
-          });
+                // If verification fails, proceed with normal login
+                initPinInputs();
+            })
+            .catch(() => initPinInputs());
+        } else {
+            initPinInputs();
         }
-      })
-      .catch((err) => console.error('Error fetching PIN length:', err));
+    }).catch(() => initPinInputs());
+    
+    function initPinInputs() {
+        // For the login page, fetch the PIN length and generate the input boxes
+        fetch(window.appConfig.basePath + '/pin-length')
+        .then((response) => response.json())
+        .then((data) => {
+            const pinLength = data.length;
+            const container = document.querySelector('.pin-input-container');
+            if (container && pinLength > 0) {
+                container.innerHTML = ''; // Clear any preexisting inputs
+                const inputs = [];
+                for (let i = 0; i < pinLength; i++) {
+                    const input = document.createElement('input');
+                    input.type = 'password';
+                    input.inputMode = 'numeric';
+                    input.pattern = '[0-9]*';
+                    input.classList.add('pin-input');
+                    input.maxLength = 1;
+                    input.autocomplete = 'off';
+                    container.appendChild(input);
+                    inputs.push(input);
+                }
+                
+                // Force focus and show keyboard on mobile
+                if (inputs.length > 0) {
+                    setTimeout(() => {
+                        inputs[0].focus();
+                        inputs[0].click();
+                    }, 100);
+                }
+                
+                inputs.forEach((input, index) => {
+                    input.addEventListener('input', () => {
+                        if (input.value.length === 1) {
+                            if (index < inputs.length - 1) {
+                                inputs[index + 1].focus();
+                            } else {
+                                // Last digit entered, auto submit the PIN via fetch
+                                const pin = inputs.map(inp => inp.value).join('');
+                                fetch(window.appConfig.basePath + '/verify-pin', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ pin })
+                                })
+                                .then((response) => response.json())
+                                .then((result) => {
+                                    if (result.success) {
+                                        // Store the PIN in IndexedDB
+                                        storeAuthData(pin).then(() => {
+                                            // Redirect to the index page using the base URL
+                                            window.location.href = window.appConfig.basePath + '/';
+                                        });
+                                    } else {
+                                        const errorElem = document.querySelector('.pin-error');
+                                        if (result.attemptsLeft === 0) {
+                                            if (errorElem) {
+                                                errorElem.innerHTML = "Too many invalid attempts - 15 minute lockout";
+                                                errorElem.setAttribute('aria-hidden', 'false');
+                                            }
+                                            // Disable all input fields and grey them out
+                                            inputs.forEach(inp => {
+                                                inp.value = '';
+                                                inp.disabled = true;
+                                                inp.style.backgroundColor = "#ddd";
+                                            });
+                                        } else {
+                                            const invalidAttempt = 5 - (result.attemptsLeft || 0);
+                                            if (errorElem) {
+                                                errorElem.innerHTML = `Invalid PIN entry ${invalidAttempt}/5`;
+                                                errorElem.setAttribute('aria-hidden', 'false');
+                                            }
+                                            // Clear all input fields and refocus the first one
+                                            inputs.forEach(inp => inp.value = '');
+                                            inputs[0].focus();
+                                        }
+                                    }
+                                })
+                                .catch((err) => console.error('Error verifying PIN:', err));
+                            }
+                        }
+                    });
+                    
+                    input.addEventListener('keydown', (e) => {
+                        if (e.key === 'Backspace' && input.value === '' && index > 0) {
+                            inputs[index - 1].focus();
+                        }
+                    });
+                });
+            }
+        })
+        .catch((err) => console.error('Error fetching PIN length:', err));
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -690,30 +826,14 @@ function createTaskElement(task) {
     taskElement.dataset.columnId = task.columnId;
     taskElement.draggable = true;
     
-    // Add delete button
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'task-delete';
-    deleteBtn.setAttribute('aria-label', 'Delete task');
-    deleteBtn.innerHTML = `
-        <svg viewBox="0 0 24 24">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-    `;
-    deleteBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        showConfirmModal(task.id, task.title, 'task', task.columnId);
-    });
-    taskElement.appendChild(deleteBtn);
-    
-    // Add double-click handler with move button check
-    taskElement.addEventListener('dblclick', (e) => {
-        // Don't trigger edit modal if clicking the move button
-        if (e.target.closest('.task-move')) return;
-        showEditTaskModal(task);
-    });
-    
-    // Add drag event listeners
+    const taskContent = document.createElement('div');
+    taskContent.className = 'task-content';
+
+    const taskTitle = document.createElement('div');
+    taskTitle.className = 'task-title';
+    taskTitle.textContent = task.title;
+
+    // Add drag event listeners to the task element
     taskElement.addEventListener('dragstart', (e) => {
         e.stopPropagation();
         taskElement.classList.add('dragging');
@@ -731,18 +851,6 @@ function createTaskElement(task) {
             col.classList.remove('drag-over');
         });
     });
-    
-    const taskContent = document.createElement('div');
-    taskContent.className = 'task-content';
-
-    const taskTitle = document.createElement('div');
-    taskTitle.className = 'task-title';
-    taskTitle.textContent = task.title;
-
-    const taskDescription = document.createElement('div');
-    taskDescription.className = 'task-description';
-    // Only show first line in the card, converting URLs to clickable links
-    taskDescription.innerHTML = linkify((task.description || '').split('\n')[0]);
 
     makeEditable(taskTitle, async (newTitle) => {
         try {
@@ -752,8 +860,7 @@ function createTaskElement(task) {
                 body: JSON.stringify({ title: newTitle, description: task.description })
             });
         
-        if (response.ok) {
-                // Update local state
+            if (response.ok) {
                 const taskObj = state.boards[state.activeBoard].columns[task.columnId].tasks.find(t => t.id === task.id);
                 if (taskObj) {
                     taskObj.title = newTitle;
@@ -767,37 +874,121 @@ function createTaskElement(task) {
         }
     });
 
-    makeEditable(taskDescription, async (newDescription) => {
-        try {
-            const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${task.columnId}/tasks/${task.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: task.title, description: newDescription })
-            });
-            
-            if (response.ok) {
-                // Update local state
-                const taskObj = state.boards[state.activeBoard].columns[task.columnId].tasks.find(t => t.id === task.id);
-                if (taskObj) {
-                    taskObj.description = newDescription;
+    // Create description section
+    const descriptionId = 'desc-' + task.id;
+    const descriptionSection = document.createElement('div');
+    descriptionSection.className = 'description-section';
+    
+    if (task.description) {
+        // If there's a description, show it with edit capability
+        const taskDescription = document.createElement('div');
+        taskDescription.className = 'task-description has-description';
+        taskDescription.innerHTML = linkify(task.description);
+        
+        makeEditable(taskDescription, async (newDescription) => {
+            try {
+                const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${task.columnId}/tasks/${task.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: task.title, description: newDescription })
+                });
+                
+                if (response.ok) {
+                    const taskObj = state.boards[state.activeBoard].columns[task.columnId].tasks.find(t => t.id === task.id);
+                    if (taskObj) {
+                        taskObj.description = newDescription;
+                    }
+                    return true;
                 }
-                return true;
+                return false;
+            } catch (error) {
+                console.error('Failed to update task description:', error);
+                return false;
             }
-            return false;
-        } catch (error) {
-            console.error('Failed to update task:', error);
-            return false;
-        }
-    });
+        });
+        
+        descriptionSection.appendChild(taskDescription);
+    } else {
+        // If no description, show the add description button
+        const showLink = document.createElement('button');
+        showLink.className = 'show-description';
+        showLink.innerHTML = `
+            <svg viewBox="0 0 24 24" width="16" height="16">
+                <polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        `;
 
-    // Add double-click handler to show full description in modal
-    taskDescription.addEventListener('dblclick', (e) => {
-        if (e.target.closest('.task-move')) return;
-        showEditTaskModal(task);
-    });
+        const hideLink = document.createElement('button');
+        hideLink.className = 'hide-description';
+        hideLink.innerHTML = `
+            <svg viewBox="0 0 24 24" width="16" height="16">
+                <polyline points="18 15 12 9 6 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        `;
+
+        const descriptionContent = document.createElement('div');
+        descriptionContent.className = 'description-content';
+        
+        const descriptionInput = document.createElement('textarea');
+        descriptionInput.className = 'inline-edit';
+        descriptionInput.placeholder = 'Add a description...';
+        
+        // Show/hide description content with JavaScript
+        showLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            descriptionContent.style.display = 'block';
+            showLink.style.display = 'none';
+            hideLink.style.display = 'flex';
+            setTimeout(() => {
+                descriptionInput.focus();
+            }, 0);
+        });
+        
+        hideLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            descriptionContent.style.display = 'none';
+            showLink.style.display = 'flex';
+            hideLink.style.display = 'none';
+        });
+
+        descriptionInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                e.preventDefault();
+                descriptionInput.blur();
+            }
+        });
+        
+        descriptionInput.addEventListener('blur', async () => {
+            const newDescription = descriptionInput.value.trim();
+            if (newDescription) {
+                try {
+                    const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${task.columnId}/tasks/${task.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ title: task.title, description: newDescription })
+                    });
+                    
+                    if (response.ok) {
+                        const taskObj = state.boards[state.activeBoard].columns[task.columnId].tasks.find(t => t.id === task.id);
+                        if (taskObj) {
+                            taskObj.description = newDescription;
+                        }
+                        renderActiveBoard();
+                    }
+                } catch (error) {
+                    console.error('Failed to update task description:', error);
+                }
+            }
+        });
+
+        descriptionContent.appendChild(descriptionInput);
+        descriptionSection.appendChild(showLink);
+        descriptionSection.appendChild(hideLink);
+        descriptionSection.appendChild(descriptionContent);
+    }
 
     taskContent.appendChild(taskTitle);
-    taskContent.appendChild(taskDescription);
+    taskContent.appendChild(descriptionSection);
     taskElement.appendChild(taskContent);
 
     // Add move button if not the last column
@@ -821,7 +1012,6 @@ function createTaskElement(task) {
                 });
 
                 if (response.ok) {
-                    // Update local state
                     const taskIndex = state.boards[state.activeBoard].columns[task.columnId].tasks.findIndex(t => t.id === task.id);
                     const [movedTask] = state.boards[state.activeBoard].columns[task.columnId].tasks.splice(taskIndex, 1);
                     state.boards[state.activeBoard].columns[nextColumnId].tasks.push(movedTask);
@@ -834,18 +1024,24 @@ function createTaskElement(task) {
         taskElement.appendChild(moveButton);
     }
 
+    taskElement.addEventListener('dblclick', (e) => {
+        // Don't trigger if clicking on an input or the move button
+        if (e.target.closest('input, textarea, .task-move, .show-description, .hide-description')) return;
+        showTaskModal({
+            id: task.id,
+            title: task.title,
+            description: task.description,
+            columnId: task.columnId
+        });
+    });
+
     return taskElement;
 }
 
 function renderColumn(column, columnId) {
-    // Add the id to the column object
-    return createColumnElement({...column, id: columnId});
-}
-
-function createColumnElement(column) {
     const columnElement = document.createElement('div');
     columnElement.className = 'column';
-    columnElement.dataset.columnId = column.id;
+    columnElement.dataset.columnId = columnId;
 
     const header = document.createElement('div');
     header.className = 'column-header';
@@ -856,7 +1052,7 @@ function createColumnElement(column) {
         e.stopPropagation();
         columnElement.classList.add('dragging');
         e.dataTransfer.setData('application/json', JSON.stringify({
-            columnId: column.id,
+            columnId: columnId,
             type: 'column'
         }));
     });
@@ -879,14 +1075,14 @@ function createColumnElement(column) {
 
     makeEditable(title, async (newName) => {
         try {
-            const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${column.id}`, {
+            const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${columnId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: newName })
             });
             
             if (response.ok) {
-                state.boards[state.activeBoard].columns[column.id].name = newName;
+                state.boards[state.activeBoard].columns[columnId].name = newName;
                 return true;
             }
             return false;
@@ -940,7 +1136,7 @@ function createColumnElement(column) {
     column.tasks.forEach(task => {
         const taskEl = createTaskElement({
             ...task,
-            columnId: column.id
+            columnId: columnId
         });
         tasksContainer.appendChild(taskEl);
     });
@@ -955,80 +1151,70 @@ function createColumnElement(column) {
         </svg>
     `;
     addTaskButton.addEventListener('click', () => {
-        showAddTaskModal(column.id);
+        const tasksContainer = columnElement.querySelector('.tasks');
+        const newTask = createEmptyTaskElement(columnId);
+        tasksContainer.insertBefore(newTask, addTaskButton);
+        const input = newTask.querySelector('input');
+        if (input) {
+            input.focus();
+            input.select();
+        }
     });
 
     tasksContainer.appendChild(addTaskButton);
-    
     columnElement.appendChild(tasksContainer);
     
     // Add column drag and drop event listeners
     columnElement.addEventListener('dragover', (e) => {
         e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
         const draggingColumn = document.querySelector('.column.dragging');
-        if (!draggingColumn || draggingColumn === columnElement) return;
+        if (!draggingColumn) return;
         
-        const columns = [...document.querySelectorAll('.column')];
-        const draggedIndex = columns.indexOf(draggingColumn);
-        const dropIndex = columns.indexOf(columnElement);
+        const columns = [...document.querySelectorAll('.column:not(.dragging)')];
+        const nextColumn = columns.find(column => {
+            const rect = column.getBoundingClientRect();
+            return e.clientX < rect.left + rect.width / 2;
+        });
         
-        if (draggedIndex < dropIndex) {
-            columnElement.parentNode.insertBefore(draggingColumn, columnElement.nextSibling);
+        if (nextColumn) {
+            elements.columns.insertBefore(draggingColumn, nextColumn);
         } else {
-            columnElement.parentNode.insertBefore(draggingColumn, columnElement);
+            elements.columns.appendChild(draggingColumn);
         }
     });
-    
-    columnElement.addEventListener('dragenter', (e) => {
-        e.preventDefault();
-        if (document.querySelector('.column.dragging')) {
-            columnElement.classList.add('column-drag-over');
-        }
-    });
-    
-    columnElement.addEventListener('dragleave', (e) => {
-        e.preventDefault();
-        if (!columnElement.contains(e.relatedTarget)) {
-            columnElement.classList.remove('column-drag-over');
-        }
-    });
-    
+
     columnElement.addEventListener('drop', async (e) => {
         e.preventDefault();
-        e.stopPropagation();
-        columnElement.classList.remove('column-drag-over');
+        // Get the new order of columns after the drop
+        const columns = [...document.querySelectorAll('.column')];
+        const newOrder = columns.map(col => col.dataset.columnId).filter(id => id);
         
         try {
-            const data = JSON.parse(e.dataTransfer.getData('application/json'));
-            if (data.type !== 'column') return;
-            
-            const columns = [...document.querySelectorAll('.column')];
-            const newOrder = columns.map(col => col.dataset.columnId);
-            
-            // Make the server request to update column order
             const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/reorder`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     columnOrder: newOrder
                 })
             });
             
-            if (!response.ok) {
-                throw new Error('Failed to reorder columns');
+            if (response.ok) {
+                // Update local state by reordering the columns
+                const reorderedColumns = {};
+                newOrder.forEach(columnId => {
+                    if (state.boards[state.activeBoard].columns[columnId]) {
+                        reorderedColumns[columnId] = state.boards[state.activeBoard].columns[columnId];
+                    }
+                });
+                state.boards[state.activeBoard].columns = reorderedColumns;
+                renderActiveBoard();
+            } else {
+                console.error('Failed to reorder columns:', response.status);
+                renderActiveBoard(); // Revert to previous state
             }
-            
-            // Update local state to match the new order
-            const newColumns = {};
-            newOrder.forEach(columnId => {
-                newColumns[columnId] = state.boards[state.activeBoard].columns[columnId];
-            });
-            state.boards[state.activeBoard].columns = newColumns;
-            
         } catch (error) {
-            console.error('Error reordering columns:', error);
+            console.error('Failed to reorder columns:', error);
             renderActiveBoard(); // Revert to previous state
         }
     });
@@ -1036,18 +1222,31 @@ function createColumnElement(column) {
     return columnElement;
 }
 
-async function deleteColumn(columnId) {
-    try {
-        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${columnId}`, {
-            method: 'DELETE'
+// Add drag event listeners to the task element
+function addTaskDragListeners(taskElement) {
+    taskElement.addEventListener('dragstart', (e) => {
+        e.stopPropagation();
+        taskElement.classList.add('dragging');
+        e.dataTransfer.setData('application/json', JSON.stringify({
+            taskId: taskElement.dataset.taskId,
+            sourceColumnId: taskElement.dataset.columnId
+        }));
+        e.dataTransfer.effectAllowed = 'move';
+    });
+    
+    taskElement.addEventListener('dragend', (e) => {
+        e.stopPropagation();
+        taskElement.classList.remove('dragging');
+        document.querySelectorAll('.column').forEach(col => {
+            col.classList.remove('drag-over');
         });
-        
-        if (response.ok) {
-            delete state.boards[state.activeBoard].columns[columnId];
-            renderActiveBoard();
-        }
-    } catch (error) {
-        console.error('Failed to delete column:', error);
+    });
+}
+
+// Add these functions for modal handling
+function hideConfirmModal() {
+    if (elements.confirmModal) {
+        elements.confirmModal.hidden = true;
     }
 }
 
@@ -1086,74 +1285,21 @@ function showConfirmModal(id, name, type = 'column', columnId = null) {
     });
 }
 
-function hideConfirmModal() {
-    if (elements.confirmModal) {
-        elements.confirmModal.hidden = true;
-    }
-}
-
-// Add these new functions for task modal handling
-function showEditTaskModal(task) {
-    elements.taskModal.querySelector('h2').textContent = 'Edit Task';
-    elements.taskTitle.value = task.title;
-    elements.taskDescription.value = task.description || '';
-    elements.taskForm.dataset.taskId = task.id;
-    elements.taskForm.dataset.columnId = task.columnId;
-    elements.taskModal.removeAttribute('hidden');
-    elements.taskTitle.focus();
-    
-    // Show delete button only in edit mode
-    const deleteButton = elements.taskModal.querySelector('[data-action="delete"]');
-    if (deleteButton) {
-        deleteButton.style.display = 'block';
-    }
-}
-
-function showAddTaskModal(columnId) {
-    elements.taskModal.querySelector('h2').textContent = 'Add New Task';
-    elements.taskTitle.value = '';
-    elements.taskDescription.value = '';
-    elements.taskForm.dataset.taskId = '';
-    elements.taskForm.dataset.columnId = columnId;
-    elements.taskModal.removeAttribute('hidden');
-    elements.taskTitle.focus();
-    
-    // Hide delete button in add mode
-    const deleteButton = elements.taskModal.querySelector('[data-action="delete"]');
-    if (deleteButton) {
-        deleteButton.style.display = 'none';
-    }
-    
-    // Change submit button text to "Add Task"
-    const submitButton = elements.taskForm.querySelector('button[type="submit"]');
-    if (submitButton) {
-        submitButton.textContent = 'Add Task';
-    }
-}
-
-// Add this new function for updating tasks
-async function updateTask(columnId, taskId, title, description) {
+async function deleteColumn(columnId) {
     try {
-        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${columnId}/tasks/${taskId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title, description })
+        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${columnId}`, {
+            method: 'DELETE'
         });
         
         if (response.ok) {
-            const taskObj = state.boards[state.activeBoard].columns[columnId].tasks.find(t => t.id === taskId);
-            if (taskObj) {
-                taskObj.title = title;
-                taskObj.description = description;
-                renderActiveBoard();
-            }
+            delete state.boards[state.activeBoard].columns[columnId];
+            renderActiveBoard();
         }
     } catch (error) {
-        console.error('Failed to update task:', error);
+        console.error('Failed to delete column:', error);
     }
 }
 
-// Add this new function for deleting tasks
 async function deleteTask(columnId, taskId) {
     try {
         const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${columnId}/tasks/${taskId}`, {
@@ -1168,4 +1314,52 @@ async function deleteTask(columnId, taskId) {
     } catch (error) {
         console.error('Failed to delete task:', error);
     }
+}
+
+function createEmptyTaskElement(columnId) {
+    const taskElement = document.createElement('div');
+    taskElement.className = 'task';
+    taskElement.draggable = false;
+    taskElement.dataset.columnId = columnId;
+
+    const taskContent = document.createElement('div');
+    taskContent.className = 'task-content';
+
+    const taskTitle = document.createElement('div');
+    taskTitle.className = 'task-title';
+    
+    const input = document.createElement('input');
+    input.className = 'inline-edit';
+    input.placeholder = 'Enter task title';
+    
+    const saveNewTask = async () => {
+        const title = input.value.trim();
+        if (title) {
+            const actualColumnId = taskElement.dataset.columnId;
+            if (!actualColumnId) {
+                console.error('Column ID is missing');
+                return;
+            }
+            await addTask(actualColumnId, title);
+            renderActiveBoard();
+        } else {
+            taskElement.remove();
+        }
+    };
+
+    input.addEventListener('blur', saveNewTask);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            input.blur();
+        } else if (e.key === 'Escape') {
+            taskElement.remove();
+        }
+    });
+
+    taskTitle.appendChild(input);
+    taskContent.appendChild(taskTitle);
+    taskElement.appendChild(taskContent);
+
+    return taskElement;
 }

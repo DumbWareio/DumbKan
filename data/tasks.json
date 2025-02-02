@@ -20,93 +20,48 @@
     "personal": {
       "name": "Personal",
       "columns": {
-        "column-1738300979247": {
-          "name": "Yay!",
+        "column-1738528642562": {
+          "name": "Done",
           "tasks": [
             {
-              "id": "task-1738469302416",
-              "title": "amazing",
-              "description": ""
-            },
-            {
-              "id": "task-1738379733319",
+              "id": "task-1738529177682",
               "title": "test",
-              "description": ""
+              "description": "test"
             },
             {
-              "id": "task-1738303983219",
-              "title": "LOOOOONNNNGGGGGGGGG titleeeeeeeeeeeeeeeeeee",
-              "description": ""
+              "id": "task-1738532464370",
+              "title": "new task",
+              "description": "desc"
             }
           ]
         },
-        "column-1738304128237": {
-          "name": "Ok",
+        "column-1738528641821": {
+          "name": "Doing",
           "tasks": [
             {
-              "id": "task-1738305024194",
-              "title": "great",
-              "description": ""
-            },
-            {
-              "id": "task-1738297540282",
-              "title": "nonomo",
-              "description": "t"
-            },
-            {
-              "id": "task-1738366437007",
-              "title": "another task",
-              "description": ""
+              "id": "task-1738532944274",
+              "title": "new",
+              "description": "nothing"
             }
           ]
         },
-        "column-1737820503477": {
-          "name": "To Do",
+        "column-1738528641102": {
+          "name": "To do",
           "tasks": [
             {
-              "id": "task-1738297523145",
+              "id": "task-1738532573845",
               "title": "test",
-              "description": ""
+              "description": "new description"
             },
             {
-              "id": "task-1738297538806",
+              "id": "task-1738529142287",
               "title": "test",
-              "description": "Watch this video below\nhttps://www.youtube.com/shorts/BNe8KHElLBw"
+              "description": "description"
             },
             {
-              "id": "task-1738303941967",
-              "title": "amazing",
-              "description": "Test \nthis function"
-            }
-          ]
-        },
-        "column-1737820919397": {
-          "name": "All done",
-          "tasks": [
-            {
-              "id": "task-1738303931965",
+              "id": "task-1738529179296",
               "title": "test",
-              "description": "amazing!"
-            },
-            {
-              "id": "task-1738297536848",
-              "title": "now",
-              "description": ""
-            }
-          ]
-        },
-        "column-1738469744172": {
-          "name": "New Column",
-          "tasks": [
-            {
-              "id": "task-1738303775648",
-              "title": "test",
-              "description": "test\nTest this"
-            },
-            {
-              "id": "task-1738297544714",
-              "title": "ok",
-              "description": ""
+              "description": "description"
             }
           ]
         }

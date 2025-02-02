@@ -9,8 +9,9 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <meta name="description" content="A lightweight Kanban board application">
-    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <style>
         @media (max-width: 768px) {
@@ -87,31 +88,6 @@
                     </button>
                 </div>
             </div>
-
-            <!-- Add Task Modal -->
-            <div id="taskModal" class="modal" hidden>
-                <div class="modal-content">
-                    <button class="modal-close" aria-label="Close modal">×</button>
-                    <h2>Add New Task</h2>
-                    <form id="taskForm">
-                        <div class="form-group">
-                            <label for="taskTitle">Title</label>
-                            <input type="text" id="taskTitle" placeholder="Enter task title" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="taskDescription">Description</label>
-                            <textarea id="taskDescription" placeholder="Enter task description (optional)"></textarea>
-                        </div>
-                        <div class="modal-actions">
-                            <button type="button" class="btn-delete" data-action="delete">Delete</button>
-                            <div class="actions-right">
-                                <button type="button" class="btn-secondary" data-action="cancel">Cancel</button>
-                                <button type="submit" class="btn-primary">Save</button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-            </div>
         </div>
     </main>
     <div class="dumbware-credit">
@@ -144,6 +120,30 @@
                 <button type="button" class="btn-secondary" data-action="cancel">Cancel</button>
                 <button type="button" class="btn-primary" data-action="confirm">Delete</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Add this before the closing body tag -->
+    <div id="taskModal" class="modal" hidden>
+        <div class="modal-content">
+            <button class="modal-close" aria-label="Close modal">×</button>
+            <h2>Edit Task</h2>
+            <form id="taskForm">
+                <div class="form-group">
+                    <label for="taskTitle">Title</label>
+                    <input type="text" id="taskTitle" required>
+                </div>
+                <div class="form-group">
+                    <label for="taskDescription">Description</label>
+                    <textarea id="taskDescription" rows="4"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-delete" data-action="delete">Delete Task</button>
+                    <div class="actions-right">
+                        <button type="submit" class="btn-primary">Save Changes</button>
+                    </div>
+                </div>
+            </form>
         </div>
     </div>
 </body>
