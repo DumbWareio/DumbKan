@@ -764,39 +764,51 @@ function makeEditable(element, onSave) {
 
     element.addEventListener('click', function(e) {
         if (e.target.closest('.task-move')) return; // Don't trigger edit on move button click
-        if (e.target.tagName === 'INPUT') return; // Don't trigger if already editing
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return; // Don't trigger if already editing
         
-        const text = this.textContent.trim();
-        const input = document.createElement('input');
+        const text = this.innerHTML.replace(/<br\s*\/?>/g, '\n').replace(/<[^>]*>/g, '').trim();
+        const isDescription = this.classList.contains('task-description');
+        const input = document.createElement(isDescription ? 'textarea' : 'input');
+        
         input.value = text;
         input.className = 'inline-edit';
-        input.style.width = '100%';
-        input.style.height = '100%';
+        input.style.width = isDescription ? '100%' : 'auto';
+        
+        // Add editing class to show background
+        element.classList.add('editing');
         
         const saveEdit = async () => {
             const newText = input.value.trim();
             if (newText && newText !== text) {
                 const success = await onSave(newText);
                 if (success) {
-                    element.textContent = newText;
-                    // Re-render the board to ensure all state changes are reflected
+                    element.innerHTML = isDescription ? linkify(newText) : newText;
                     renderActiveBoard();
                 } else {
-                    element.textContent = text;
+                    element.innerHTML = isDescription ? linkify(text) : text;
                 }
             } else {
-                element.textContent = text;
+                element.innerHTML = isDescription ? linkify(text) : text;
             }
+            element.classList.remove('editing');
+        };
+
+        const cancelEdit = () => {
+            element.innerHTML = isDescription ? linkify(text) : text;
+            element.classList.remove('editing');
+            input.removeEventListener('blur', saveEdit);
         };
 
         input.addEventListener('blur', saveEdit);
         input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
+            if (!isDescription && e.key === 'Enter') {
+                e.preventDefault();
+                input.blur();
+            } else if (isDescription && (e.ctrlKey || e.metaKey) && e.key === 'Enter') {
                 e.preventDefault();
                 input.blur();
             } else if (e.key === 'Escape') {
-                element.textContent = text;
-                input.removeEventListener('blur', saveEdit);
+                cancelEdit();
             }
         });
 
@@ -804,7 +816,13 @@ function makeEditable(element, onSave) {
         element.textContent = '';
         element.appendChild(input);
         input.focus();
-        input.select();
+        if (!isDescription) {
+            // For title, put cursor at end instead of selecting all
+            input.setSelectionRange(input.value.length, input.value.length);
+        } else {
+            // For descriptions, put cursor at end
+            input.setSelectionRange(input.value.length, input.value.length);
+        }
     });
 }
 

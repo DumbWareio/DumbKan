@@ -27,6 +27,16 @@
               "id": "task-1738529177682",
               "title": "test",
               "description": "test"
+            }
+          ]
+        },
+        "column-1738528641102": {
+          "name": "To do",
+          "tasks": [
+            {
+              "id": "task-1738529179296",
+              "title": "test",
+              "description": "description"
             },
             {
               "id": "task-1738532464370",
@@ -42,26 +52,31 @@
               "id": "task-1738532944274",
               "title": "new",
               "description": "nothing"
-            }
-          ]
-        },
-        "column-1738528641102": {
-          "name": "To do",
-          "tasks": [
+            },
             {
               "id": "task-1738532573845",
               "title": "test",
-              "description": "new description"
+              "description": "New Description\nTwo Lines\nNow Three\nAnd Four"
             },
             {
               "id": "task-1738529142287",
               "title": "test",
-              "description": "description"
+              "description": "Multiple rows now\nRow\nTo\nTest"
+            }
+          ]
+        },
+        "column-1738537969005": {
+          "name": "a test column",
+          "tasks": [
+            {
+              "id": "task-1738542964651",
+              "title": "another task",
+              "description": ""
             },
             {
-              "id": "task-1738529179296",
-              "title": "test",
-              "description": "description"
+              "id": "task-1738542967229",
+              "title": "enter  here",
+              "description": ""
             }
           ]
         }

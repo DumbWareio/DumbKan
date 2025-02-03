@@ -502,18 +502,18 @@ h2 {
     transition: transform var(--transition), box-shadow var(--transition);
     display: flex;
     align-items: flex-start;
-    gap: 1rem;
+    gap: 0.5rem;
     position: relative;
+    width: 100%;
 }
 
 .task-content {
-    flex: 1;
+    flex: 1 1 auto;
     min-width: 0;
     padding: 0;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    justify-content: flex-start;
+    width: calc(100% - 32px); /* Account for the move button width */
 }
 
 .task:hover {
@@ -530,44 +530,108 @@ h2 {
     font-weight: 500;
     margin-bottom: 0.15rem;
     word-wrap: break-word;
-    display: inline-block;
-    max-width: fit-content;
+    width: 100%;
     margin-top: 0;
+    display: block;
+    padding: 0.25rem;
+    border-radius: 4px;
+}
+
+.task-title .inline-edit {
+    font-weight: 500;
+    width: auto;
+    min-width: 50px;
+    padding: 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: rgba(128, 128, 128, 0.1);
+    color: var(--text);
+    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+}
+
+/* Remove hover highlight from task title */
+.task-title:hover {
+    background-color: transparent;
+}
+
+/* Only show hover effect when editing */
+.task-title.editing {
+    background-color: rgba(128, 128, 128, 0.1);
 }
 
 .task-description {
     font-size: 0.9rem;
     color: var(--text-secondary);
-    word-break: break-word;
     margin-top: 0.25rem;
     padding: 0.25rem;
     cursor: text;
     border-radius: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    width: 100%;
+    line-height: 1.5;
+}
+
+.task-description.has-description {
+    padding: 0.25rem;
+    background: var(--container);
+    border-radius: 4px;
+    cursor: text;
+}
+
+.task-description .inline-edit {
+    width: 100%;
+    min-height: 4rem;
+    resize: vertical;
+    white-space: pre-wrap;
+    font-family: inherit;
+    line-height: 1.5;
+    padding: 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--container);
+    color: var(--text);
+    display: block;
+    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+}
+
+.task-description.has-description {
+    padding: 0.25rem;
+    background: var(--container);
+    border-radius: 4px;
+    cursor: text;
 }
 
 .task-description:hover {
     background: rgba(128, 128, 128, 0.1);
 }
 
-.task-description:not(.has-description) {
-    margin-top: 0.5rem;
+/* Keep full description visible in the modal */
+.modal .task-description {
+    display: block;
+    white-space: pre-wrap;
+    overflow: visible;
+    -webkit-line-clamp: unset;
+    line-height: inherit;
 }
 
 .task-move {
+    flex: 0 0 auto;
     background: none;
     border: none;
     padding: 0.5rem;
-    margin-right: -0.5rem;
     cursor: pointer;
     color: var(--text);
     opacity: 0.4;
     transition: all var(--transition);
     border-radius: 4px;
-    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     align-self: stretch;
+    width: 32px;
 }
 
 .task-move:hover {
@@ -872,7 +936,6 @@ h2 {
     font-size: inherit;
     font-family: inherit;
     color: var(--text);
-    width: 100%;
     margin: 0;
     min-height: 24px;
 }
@@ -884,7 +947,8 @@ h2 {
 
 .task-title .inline-edit {
     font-weight: 500;
-    width: 100%;
+    width: auto;
+    min-width: 50px;
     margin: -0.25rem -0.5rem;
 }
 
@@ -1032,6 +1096,7 @@ h2 {
     background: var(--container);
     border-radius: 4px;
     cursor: text;
+    white-space: pre-wrap;
 }
 
 .task-description .inline-edit {

@@ -304,7 +304,8 @@ const DATA_FILE = path.join(__dirname, 'data', 'tasks.json');
 async function readData() {
     try {
         const data = await fs.readFile(DATA_FILE, 'utf8');
-        return JSON.parse(data);
+        const parsedData = JSON.parse(data);
+        return migrateOldFormat(parsedData);
     } catch (error) {
         if (error.code === 'ENOENT') {
             // Return default data structure if file doesn't exist
@@ -333,6 +334,33 @@ async function readData() {
         }
         throw error;
     }
+}
+
+// Helper function to migrate old format to new format
+function migrateOldFormat(data) {
+    // If data is already in new format (tasks are objects), return as is
+    const firstBoard = Object.values(data.boards)[0];
+    if (!firstBoard) return data;
+    
+    const firstColumn = Object.values(firstBoard.columns)[0];
+    if (!firstColumn) return data;
+    
+    const firstTask = firstColumn.tasks[0];
+    if (!firstTask || typeof firstTask === 'object') return data;
+
+    // Convert old format to new format
+    Object.values(data.boards).forEach(board => {
+        Object.values(board.columns).forEach(column => {
+            column.tasks = column.tasks.map(task => ({
+                id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                title: task,
+                description: '',
+                columnId: Object.keys(board.columns).find(key => board.columns[key] === column)
+            }));
+        });
+    });
+
+    return data;
 }
 
 // Helper function to write data
