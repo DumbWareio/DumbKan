@@ -56,7 +56,7 @@ A lightweight, mobile-friendly Kanban board application for managing tasks and p
 When `DUMBKAN_PIN` is set, the app requires PIN verification before accessing or modifying boards. The PIN must be 4-10 digits long.
 
 ## Data Persistence
-Task data is stored in `/app/data/tasks.json`. When using Docker, mount this directory as a volume to persist data between container restarts.
+Task data is stored in `/app/dumbdata/tasks.json`. When using Docker, mount this directory as a volume to persist data between container restarts.
 
 ## Getting Started
 

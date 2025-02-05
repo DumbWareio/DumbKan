@@ -298,7 +298,7 @@ setInterval(() => {
 }, 60000); // Clean up every minute
 
 // Data file path
-const DATA_FILE = path.join(__dirname, 'data', 'tasks.json');
+const DATA_FILE = path.join(__dirname, 'dumbdata', 'tasks.json');
 
 // Helper function to read data
 async function readData() {

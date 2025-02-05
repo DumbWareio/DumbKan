@@ -4,7 +4,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./data:/app/data
+      - ./dumbdata:/app/dumbdata
     environment:
       DUMBKAN_PIN: 123456
     restart: unless-stopped

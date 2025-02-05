@@ -45,7 +45,7 @@ coverage/
 *.tsbuildinfo
 
 # Data and Logs
-data/
+dumbdata/
 logs/
 *.log
 .npm/
