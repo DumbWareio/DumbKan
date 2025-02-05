@@ -561,6 +561,21 @@ function initEventListeners() {
         if (name) createBoard(name);
     });
 
+    // Task modal close button
+    const modalClose = elements.taskModal?.querySelector('.modal-close');
+    if (modalClose) {
+        modalClose.addEventListener('click', () => {
+            hideTaskModal();
+        });
+    }
+
+    // Close task modal when clicking outside
+    elements.taskModal?.addEventListener('click', (e) => {
+        if (e.target === elements.taskModal) {
+            hideTaskModal();
+        }
+    });
+
     // Task form submission
     elements.taskForm.addEventListener('submit', async (e) => {
         e.preventDefault();
