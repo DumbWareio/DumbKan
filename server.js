@@ -26,22 +26,33 @@ const BASE_PATH = (() => {
         debugLog('No BASE_URL set, using empty base path');
         return '';
     }
+
+    // Clean and normalize the path
+    let path = process.env.BASE_URL;
+
+    // If it's a full URL, extract just the path portion
     try {
-        const url = new URL(process.env.BASE_URL);
-        const path = url.pathname.replace(/\/$/, ''); // Remove trailing slash
-        debugLog('Base URL Configuration:', {
-            originalUrl: process.env.BASE_URL,
-            extractedPath: path,
-            protocol: url.protocol,
-            hostname: url.hostname
-        });
-        return path;
+        const url = new URL(path);
+        path = url.pathname;
     } catch {
-        // If BASE_URL is just a path (e.g. /app)
-        const path = process.env.BASE_URL.replace(/\/$/, '');
-        debugLog('Using direct path as BASE_URL:', path);
-        return path;
+        // Not a full URL, treat as a path
+        // No action needed as we'll process it as a path
     }
+
+    // Ensure path starts with / if not empty
+    if (path && !path.startsWith('/')) {
+        path = '/' + path;
+    }
+
+    // Remove trailing slash if present
+    path = path.replace(/\/$/, '');
+
+    debugLog('Base URL Configuration:', {
+        originalUrl: process.env.BASE_URL,
+        normalizedPath: path
+    });
+
+    return path;
 })();
 
 // Get the project name from package.json to use for the PIN environment variable
