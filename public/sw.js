@@ -6,7 +6,6 @@ const ASSETS_TO_CACHE = [
     BASE_PATH + 'login.html',
     BASE_PATH + 'styles.css',
     BASE_PATH + 'script.js',
-    BASE_PATH + 'config.js',
     BASE_PATH + 'manifest.json',
     BASE_PATH + 'favicon.svg',
     BASE_PATH + 'logo.png'
@@ -17,13 +16,20 @@ self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => {
-                // Cache what we can, ignore failures
+                // Cache each asset individually and ignore failures
                 return Promise.allSettled(
                     ASSETS_TO_CACHE.map(url => 
-                        cache.add(url).catch(err => {
-                            console.warn(`Failed to cache ${url}:`, err);
-                            return null;
-                        })
+                        fetch(new Request(url))
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error(`Failed to fetch ${url}`);
+                                }
+                                return cache.put(url, response);
+                            })
+                            .catch(err => {
+                                console.warn(`Failed to cache ${url}:`, err);
+                                return null;
+                            })
                     )
                 );
             })
@@ -49,6 +55,10 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     // Skip non-GET requests
     if (event.request.method !== 'GET') return;
+
+    // Skip chrome-extension and other non-http(s) requests
+    const url = new URL(event.request.url);
+    if (!['http:', 'https:'].includes(url.protocol)) return;
 
     // Handle API requests differently
     if (event.request.url.includes('/api/')) {

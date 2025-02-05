@@ -304,63 +304,44 @@ const DATA_FILE = path.join(__dirname, 'dumbdata', 'tasks.json');
 async function readData() {
     try {
         const data = await fs.readFile(DATA_FILE, 'utf8');
-        const parsedData = JSON.parse(data);
-        return migrateOldFormat(parsedData);
+        return JSON.parse(data);
     } catch (error) {
         if (error.code === 'ENOENT') {
             // Return default data structure if file doesn't exist
             return {
                 boards: {
                     personal: {
-                        name: 'Personal',
-                        columns: {
-                            todo: {
-                                name: 'To Do',
-                                tasks: []
-                            },
-                            doing: {
-                                name: 'Doing',
-                                tasks: []
-                            },
-                            done: {
-                                name: 'Done',
-                                tasks: []
-                            }
-                        }
+                        id: "personal",
+                        name: "Personal",
+                        sectionOrder: ["personal-todo-1738747174543", "personal-doing-1738747174543", "personal-done-1738747174543"]
                     }
                 },
-                activeBoard: 'personal'
+                sections: {
+                    "personal-todo-1738747174543": {
+                        id: "personal-todo-1738747174543",
+                        name: "To Do",
+                        boardId: "personal",
+                        taskIds: []
+                    },
+                    "personal-doing-1738747174543": {
+                        id: "personal-doing-1738747174543",
+                        name: "Doing",
+                        boardId: "personal",
+                        taskIds: []
+                    },
+                    "personal-done-1738747174543": {
+                        id: "personal-done-1738747174543",
+                        name: "Done",
+                        boardId: "personal",
+                        taskIds: []
+                    }
+                },
+                tasks: {},
+                activeBoard: "personal"
             };
         }
         throw error;
     }
-}
-
-// Helper function to migrate old format to new format
-function migrateOldFormat(data) {
-    // If data is already in new format (tasks are objects), return as is
-    const firstBoard = Object.values(data.boards)[0];
-    if (!firstBoard) return data;
-    
-    const firstColumn = Object.values(firstBoard.columns)[0];
-    if (!firstColumn) return data;
-    
-    const firstTask = firstColumn.tasks[0];
-    if (!firstTask || typeof firstTask === 'object') return data;
-
-    // Convert old format to new format
-    Object.values(data.boards).forEach(board => {
-        Object.values(board.columns).forEach(column => {
-            column.tasks = column.tasks.map(task => ({
-                id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                title: task,
-                description: '',
-                columnId: Object.keys(board.columns).find(key => board.columns[key] === column)
-            }));
-        });
-    });
-
-    return data;
 }
 
 // Helper function to write data
@@ -368,37 +349,32 @@ async function writeData(data) {
     await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
 }
 
-// Helper function to generate column ID
-function generateColumnId(name) {
-    // Convert name to lowercase and remove special characters
+// Helper function to generate task ID
+function generateTaskId() {
+    return `task-${Date.now()}`;
+}
+
+// Helper function to generate section ID
+function generateSectionId(name) {
     const simpleName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-    
-    // If it's one of the default column names, use the simple format
-    if (['todo', 'doing', 'done'].includes(simpleName)) {
-        return simpleName;
-    }
-    
-    // Otherwise, use the timestamp format
-    return `column-${Date.now()}`;
+    return simpleName || `section-${Date.now()}`;
 }
 
 // Helper function to generate board ID
 function generateBoardId(name) {
-    // Convert name to lowercase and remove special characters
     const simpleName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-    
-    // If it's one of the default board names, use the simple format
-    if (['personal', 'work'].includes(simpleName)) {
-        return simpleName;
-    }
-    
-    // Otherwise, use the timestamp format
-    return `board-${Date.now()}`;
+    return simpleName || `board-${Date.now()}`;
+}
+
+// Helper function to generate unique section ID for a board
+function generateUniqueSectionId(boardId, name) {
+    const simpleName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return `${boardId}-${simpleName}-${Date.now()}`;
 }
 
 // API Routes
 
-// Get all boards
+// Get all data
 app.get(BASE_PATH + '/api/boards', async (req, res) => {
     try {
         const data = await readData();
@@ -417,28 +393,39 @@ app.post(BASE_PATH + '/api/boards', async (req, res) => {
         }
 
         const data = await readData();
-        const id = generateBoardId(name);
+        const boardId = generateBoardId(name);
         
-        data.boards[id] = {
+        // Create default sections with unique IDs
+        const defaultSections = [
+            { name: 'To Do' },
+            { name: 'Doing' },
+            { name: 'Done' }
+        ];
+
+        const sectionOrder = [];
+        
+        // Create unique sections for this board
+        defaultSections.forEach(section => {
+            const sectionId = generateUniqueSectionId(boardId, section.name);
+            sectionOrder.push(sectionId);
+            
+            data.sections[sectionId] = {
+                id: sectionId,
+                name: section.name,
+                boardId: boardId,
+                taskIds: []
+            };
+        });
+
+        // Create board with the unique section order
+        data.boards[boardId] = {
+            id: boardId,
             name,
-            columns: {
-                todo: {
-                    name: 'To Do',
-                    tasks: []
-                },
-                doing: {
-                    name: 'Doing',
-                    tasks: []
-                },
-                done: {
-                    name: 'Done',
-                    tasks: []
-                }
-            }
+            sectionOrder
         };
 
         await writeData(data);
-        res.json({ id, ...data.boards[id] });
+        res.json({ id: boardId, ...data.boards[boardId] });
     } catch (error) {
         res.status(500).json({ error: 'Failed to create board' });
     }
@@ -462,14 +449,14 @@ app.post(BASE_PATH + '/api/boards/active', async (req, res) => {
     }
 });
 
-// Add column to board
-app.post(BASE_PATH + '/api/boards/:boardId/columns', async (req, res) => {
+// Add section to board
+app.post(BASE_PATH + '/api/boards/:boardId/sections', async (req, res) => {
     try {
         const { boardId } = req.params;
         const { name } = req.body;
         
         if (!name) {
-            return res.status(400).json({ error: 'Column name is required' });
+            return res.status(400).json({ error: 'Section name is required' });
         }
 
         const data = await readData();
@@ -477,41 +464,68 @@ app.post(BASE_PATH + '/api/boards/:boardId/columns', async (req, res) => {
             return res.status(404).json({ error: 'Board not found' });
         }
 
-        const columnId = generateColumnId(name);
-        data.boards[boardId].columns[columnId] = {
+        const sectionId = generateUniqueSectionId(boardId, name);
+        
+        // Create new section
+        data.sections[sectionId] = {
+            id: sectionId,
             name,
-            tasks: []
+            boardId,
+            taskIds: []
         };
 
+        // Add section to board's section order
+        data.boards[boardId].sectionOrder.push(sectionId);
+
         await writeData(data);
-        res.json({ id: columnId, name, tasks: [] });
+        res.json(data.sections[sectionId]);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to create column' });
+        res.status(500).json({ error: 'Failed to create section' });
     }
 });
 
-// Add task to column
-app.post(BASE_PATH + '/api/boards/:boardId/columns/:columnId/tasks', async (req, res) => {
+// Add task to section
+app.post(BASE_PATH + '/api/boards/:boardId/sections/:sectionId/tasks', async (req, res) => {
     try {
-        const { boardId, columnId } = req.params;
-        const { title, description } = req.body;
+        const { boardId, sectionId } = req.params;
+        const { title, description, priority = 'medium' } = req.body;
         
         if (!title) {
             return res.status(400).json({ error: 'Task title is required' });
         }
 
+        // Validate priority
+        const validPriorities = ['urgent', 'high', 'medium', 'low'];
+        const taskPriority = validPriorities.includes(priority) ? priority : 'medium';
+
         const data = await readData();
-        if (!data.boards[boardId]?.columns[columnId]) {
-            return res.status(404).json({ error: 'Board or column not found' });
+        if (!data.sections[sectionId] || data.sections[sectionId].boardId !== boardId) {
+            return res.status(404).json({ error: 'Board or section not found' });
         }
 
+        const taskId = generateTaskId();
+        const now = new Date().toISOString();
+
+        // Create new task with validated priority
         const task = {
-            id: `task-${Date.now()}`,
+            id: taskId,
             title,
-            description: description || ''
+            description: description || '',
+            createdAt: now,
+            updatedAt: now,
+            sectionId,
+            boardId,
+            priority: taskPriority,
+            tags: [],
+            assignee: null
         };
 
-        data.boards[boardId].columns[columnId].tasks.push(task);
+        // Add task to tasks collection
+        data.tasks[taskId] = task;
+
+        // Add task ID to section
+        data.sections[sectionId].taskIds.push(taskId);
+
         await writeData(data);
         res.json(task);
     } catch (error) {
@@ -519,26 +533,38 @@ app.post(BASE_PATH + '/api/boards/:boardId/columns/:columnId/tasks', async (req,
     }
 });
 
-// Move task between columns
+// Move task between sections
 app.post(BASE_PATH + '/api/boards/:boardId/tasks/:taskId/move', async (req, res) => {
     try {
         const { boardId, taskId } = req.params;
-        const { fromColumnId, toColumnId } = req.body;
+        const { fromSectionId, toSectionId, newIndex } = req.body;
 
         const data = await readData();
-        const board = data.boards[boardId];
         
-        if (!board?.columns[fromColumnId] || !board?.columns[toColumnId]) {
-            return res.status(404).json({ error: 'Board or column not found' });
+        // Validate board and sections exist
+        if (!data.sections[fromSectionId] || !data.sections[toSectionId]) {
+            return res.status(404).json({ error: 'Section not found' });
         }
 
-        const taskIndex = board.columns[fromColumnId].tasks.findIndex(t => t.id === taskId);
+        // Remove task from source section
+        const fromTaskIds = data.sections[fromSectionId].taskIds;
+        const taskIndex = fromTaskIds.indexOf(taskId);
         if (taskIndex === -1) {
             return res.status(404).json({ error: 'Task not found' });
         }
+        fromTaskIds.splice(taskIndex, 1);
 
-        const [task] = board.columns[fromColumnId].tasks.splice(taskIndex, 1);
-        board.columns[toColumnId].tasks.push(task);
+        // Add task to target section
+        const toTaskIds = data.sections[toSectionId].taskIds;
+        if (typeof newIndex === 'number') {
+            toTaskIds.splice(newIndex, 0, taskId);
+        } else {
+            toTaskIds.push(taskId);
+        }
+
+        // Update task's section reference
+        data.tasks[taskId].sectionId = toSectionId;
+        data.tasks[taskId].updatedAt = new Date().toISOString();
 
         await writeData(data);
         res.json({ success: true });
@@ -547,162 +573,60 @@ app.post(BASE_PATH + '/api/boards/:boardId/tasks/:taskId/move', async (req, res)
     }
 });
 
-// Delete task
-app.delete(BASE_PATH + '/api/boards/:boardId/columns/:columnId/tasks/:taskId', async (req, res) => {
-    try {
-        const { boardId, columnId, taskId } = req.params;
-
-        const data = await readData();
-        if (!data.boards[boardId]?.columns[columnId]) {
-            return res.status(404).json({ error: 'Board or column not found' });
-        }
-
-        const tasks = data.boards[boardId].columns[columnId].tasks;
-        const taskIndex = tasks.findIndex(t => t.id === taskId);
-        
-        if (taskIndex === -1) {
-            return res.status(404).json({ error: 'Task not found' });
-        }
-
-        tasks.splice(taskIndex, 1);
-        await writeData(data);
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to delete task' });
-    }
-});
-
-// Update column name
-app.put(BASE_PATH + '/api/boards/:boardId/columns/:columnId', async (req, res) => {
-    try {
-        const { boardId, columnId } = req.params;
-        const { name } = req.body;
-        
-        if (!name) {
-            return res.status(400).json({ error: 'Column name is required' });
-        }
-
-        const data = await readData();
-        if (!data.boards[boardId]?.columns[columnId]) {
-            return res.status(404).json({ error: 'Board or column not found' });
-        }
-
-        data.boards[boardId].columns[columnId].name = name;
-        await writeData(data);
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to update column' });
-    }
-});
-
 // Update task
-app.put(BASE_PATH + '/api/boards/:boardId/columns/:columnId/tasks/:taskId', async (req, res) => {
+app.put(BASE_PATH + '/api/boards/:boardId/sections/:sectionId/tasks/:taskId', async (req, res) => {
     try {
-        const { boardId, columnId, taskId } = req.params;
-        const { title, description } = req.body;
-        
-        if (!title) {
-            return res.status(400).json({ error: 'Task title is required' });
-        }
+        const { boardId, sectionId, taskId } = req.params;
+        const updates = req.body;
 
         const data = await readData();
-        if (!data.boards[boardId]?.columns[columnId]) {
-            return res.status(404).json({ error: 'Board or column not found' });
-        }
+        const task = data.tasks[taskId];
 
-        const task = data.boards[boardId].columns[columnId].tasks.find(t => t.id === taskId);
-        if (!task) {
+        if (!task || task.sectionId !== sectionId || task.boardId !== boardId) {
             return res.status(404).json({ error: 'Task not found' });
         }
 
-        task.title = title;
-        if (description !== undefined) {
-            task.description = description;
-        }
+        // Update task properties
+        Object.assign(task, {
+            ...updates,
+            updatedAt: new Date().toISOString()
+        });
 
         await writeData(data);
-        res.json({ success: true });
+        res.json(task);
     } catch (error) {
         res.status(500).json({ error: 'Failed to update task' });
     }
 });
 
-// Delete column
-app.delete(BASE_PATH + '/api/boards/:boardId/columns/:columnId', async (req, res) => {
+// Delete task
+app.delete(BASE_PATH + '/api/boards/:boardId/sections/:sectionId/tasks/:taskId', async (req, res) => {
     try {
-        const { boardId, columnId } = req.params;
+        const { boardId, sectionId, taskId } = req.params;
 
         const data = await readData();
-        if (!data.boards[boardId]) {
-            return res.status(404).json({ error: 'Board not found' });
-        }
-
-        if (!data.boards[boardId].columns[columnId]) {
-            return res.status(404).json({ error: 'Column not found' });
-        }
-
-        delete data.boards[boardId].columns[columnId];
-        await writeData(data);
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to delete column' });
-    }
-});
-
-// Reorder task within column
-app.post(BASE_PATH + '/api/boards/:boardId/columns/:columnId/tasks/reorder', async (req, res) => {
-    try {
-        const { boardId, columnId } = req.params;
-        const { taskId, newIndex } = req.body;
-
-        const data = await readData();
-        if (!data.boards[boardId]?.columns[columnId]) {
-            return res.status(404).json({ error: 'Board or column not found' });
-        }
-
-        const tasks = data.boards[boardId].columns[columnId].tasks;
-        const taskIndex = tasks.findIndex(t => t.id === taskId);
         
+        // Remove task from section
+        const section = data.sections[sectionId];
+        if (!section || section.boardId !== boardId) {
+            return res.status(404).json({ error: 'Section not found' });
+        }
+
+        const taskIndex = section.taskIds.indexOf(taskId);
         if (taskIndex === -1) {
             return res.status(404).json({ error: 'Task not found' });
         }
 
-        // Remove task from current position and insert at new position
-        const [task] = tasks.splice(taskIndex, 1);
-        tasks.splice(newIndex, 0, task);
+        // Remove task ID from section
+        section.taskIds.splice(taskIndex, 1);
+        
+        // Delete task from tasks collection
+        delete data.tasks[taskId];
 
         await writeData(data);
         res.json({ success: true });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to reorder task' });
-    }
-});
-
-// Reorder columns
-app.post(BASE_PATH + '/api/boards/:boardId/columns/reorder', async (req, res) => {
-    try {
-        const { boardId } = req.params;
-        const { columnOrder } = req.body;
-
-        const data = await readData();
-        if (!data.boards[boardId]) {
-            return res.status(404).json({ error: 'Board not found' });
-        }
-
-        // Create a new columns object with the updated order
-        const newColumns = {};
-        columnOrder.forEach(columnId => {
-            if (data.boards[boardId].columns[columnId]) {
-                newColumns[columnId] = data.boards[boardId].columns[columnId];
-            }
-        });
-
-        // Update the board's columns with the new order
-        data.boards[boardId].columns = newColumns;
-        await writeData(data);
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to reorder columns' });
+        res.status(500).json({ error: 'Failed to delete task' });
     }
 });
 

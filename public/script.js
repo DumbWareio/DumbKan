@@ -1,8 +1,9 @@
 // State Management
 let state = {
     boards: {},
-    activeBoard: null,
-    currentColumnId: null
+    sections: {},
+    tasks: {},
+    activeBoard: null
 };
 
 // DOM Elements placeholder
@@ -12,10 +13,8 @@ let elements = {};
 function initTheme() {
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme) {
-        // Use saved theme if available
         document.documentElement.setAttribute('data-theme', savedTheme);
     } else {
-        // Check system preference
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         const theme = prefersDark ? 'dark' : 'light';
         document.documentElement.setAttribute('data-theme', theme);
@@ -39,30 +38,43 @@ async function loadBoards() {
         }
         const response = await fetch(window.appConfig.basePath + '/api/boards');
         const data = await response.json();
-        state.boards = data.boards;
         
-        // If no active board is set, use the first available board
-        if (!data.activeBoard && Object.keys(data.boards).length > 0) {
-            state.activeBoard = Object.keys(data.boards)[0];
-        } else {
-            state.activeBoard = data.activeBoard;
-        }
+        // Initialize state with empty objects if they don't exist
+        state = {
+            boards: data.boards || {},
+            sections: data.sections || {},
+            tasks: data.tasks || {},
+            activeBoard: data.activeBoard || null
+        };
         
         renderBoards();
         renderActiveBoard();
     } catch (error) {
         console.error('Failed to load boards:', error);
+        // Initialize empty state on error
+        state = {
+            boards: {},
+            sections: {},
+            tasks: {},
+            activeBoard: null
+        };
     }
 }
 
 function renderBoards() {
+    if (!elements.boardList) return;
+    
     elements.boardList.innerHTML = '';
-    Object.entries(state.boards).forEach(([id, board]) => {
+    if (!state.boards) return;
+
+    Object.values(state.boards).forEach(board => {
+        if (!board) return;
+        
         const li = document.createElement('li');
-        li.textContent = board.name;
-        li.dataset.boardId = id;
-        if (id === state.activeBoard) li.classList.add('active');
-        li.addEventListener('click', () => switchBoard(id));
+        li.textContent = board.name || 'Unnamed Board';
+        li.dataset.boardId = board.id;
+        if (board.id === state.activeBoard) li.classList.add('active');
+        li.addEventListener('click', () => switchBoard(board.id));
         elements.boardList.appendChild(li);
     });
 }
@@ -77,7 +89,6 @@ async function switchBoard(boardId) {
         if (response.ok) {
             state.activeBoard = boardId;
             elements.currentBoard.textContent = state.boards[boardId].name;
-            renderBoards();
             renderActiveBoard();
             elements.boardMenu.hidden = true;
         }
@@ -93,33 +104,35 @@ async function createBoard(name) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name })
         });
-        const data = await response.json();
-        state.boards[data.id] = data;
-        renderBoards();
+        
+        if (response.ok) {
+            const board = await response.json();
+            state.boards[board.id] = board;
+            renderBoards();
+            switchBoard(board.id);
+        }
     } catch (error) {
         console.error('Failed to create board:', error);
     }
 }
 
-// Column Management
-async function addColumn(name = '') {
+// Column Management (UI terminology)
+async function addColumn(boardId) {
+    const name = prompt('Enter column name:');
+    if (!name) return;
+
     try {
-        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns`, {
+        const response = await fetch(`${window.appConfig.basePath}/api/boards/${boardId}/sections`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: name || 'New Column' })
+            body: JSON.stringify({ name })
         });
-        const data = await response.json();
-        state.boards[state.activeBoard].columns[data.id] = data;
-        await renderActiveBoard();
-        
-        // Focus the new column's title
-        const newColumn = document.querySelector(`[data-column-id="${data.id}"]`);
-        if (newColumn) {
-            const titleElement = newColumn.querySelector('.column-title');
-            if (titleElement) {
-                titleElement.click();
-            }
+
+        if (response.ok) {
+            const section = await response.json();
+            state.sections[section.id] = section;
+            state.boards[boardId].sectionOrder.push(section.id);
+            renderActiveBoard();
         }
     } catch (error) {
         console.error('Failed to add column:', error);
@@ -130,11 +143,12 @@ async function addColumn(name = '') {
 function showTaskModal(task) {
     if (!elements.taskModal) return;
     
-    elements.taskModal.querySelector('h2').textContent = 'Edit Task';
-    elements.taskTitle.value = task.title;
-    elements.taskDescription.value = task.description || '';
-    elements.taskForm.dataset.taskId = task.id;
-    elements.taskForm.dataset.columnId = task.columnId;
+    const isNewTask = !task.id;
+    elements.taskModal.querySelector('h2').textContent = isNewTask ? 'Add Task' : 'Edit Task';
+    elements.taskTitle.value = isNewTask ? '' : task.title;
+    elements.taskDescription.value = isNewTask ? '' : (task.description || '');
+    elements.taskForm.dataset.taskId = task.id || '';
+    elements.taskForm.dataset.sectionId = task.sectionId;
     elements.taskModal.hidden = false;
     elements.taskTitle.focus();
 }
@@ -144,17 +158,17 @@ function hideTaskModal() {
     elements.taskModal.hidden = true;
     elements.taskForm.reset();
     delete elements.taskForm.dataset.taskId;
-    delete elements.taskForm.dataset.columnId;
+    delete elements.taskForm.dataset.sectionId;
 }
 
-async function addTask(columnId, title, description = '') {
+async function addTask(sectionId, title, description = '') {
     try {
-        if (!columnId) {
-            console.error('Column ID is required to add a task');
+        if (!sectionId) {
+            console.error('Section ID is required to add a task');
             return;
         }
         
-        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${columnId}/tasks`, {
+        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title, description })
@@ -166,13 +180,14 @@ async function addTask(columnId, title, description = '') {
         
         const data = await response.json();
         
-        // Make sure the column exists in state before trying to access it
-        if (!state.boards[state.activeBoard].columns[columnId]) {
-            console.error('Column not found in state:', columnId);
+        // Make sure the section exists in state
+        if (!state.sections[sectionId]) {
+            console.error('Section not found in state:', sectionId);
             return;
         }
         
-        state.boards[state.activeBoard].columns[columnId].tasks.push(data);
+        state.tasks[data.id] = data;
+        state.sections[sectionId].taskIds.push(data.id);
         renderActiveBoard();
     } catch (error) {
         console.error('Failed to add task:', error);
@@ -180,15 +195,14 @@ async function addTask(columnId, title, description = '') {
 }
 
 // Drag and Drop
-async function handleTaskMove(taskId, fromColumnId, toColumnId, newIndex) {
+async function handleTaskMove(taskId, fromSectionId, toSectionId, newIndex) {
     try {
-        console.log(`Attempting to move task ${taskId} from column ${fromColumnId} to column ${toColumnId} at index ${newIndex}`);
         const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/tasks/${taskId}/move`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                fromColumnId,
-                toColumnId,
+                fromSectionId,
+                toSectionId,
                 newIndex
             })
         });
@@ -198,29 +212,30 @@ async function handleTaskMove(taskId, fromColumnId, toColumnId, newIndex) {
         }
 
         // Update local state
-        const sourceColumn = state.boards[state.activeBoard].columns[fromColumnId];
-        const targetColumn = state.boards[state.activeBoard].columns[toColumnId];
-        
-        // Find and remove task from source column
-        const taskIndex = sourceColumn.tasks.findIndex(t => t.id === taskId);
-        if (taskIndex === -1) {
-            console.error(`Task ${taskId} not found in source column ${fromColumnId}`);
-            throw new Error('Task not found in source column');
+        const task = state.tasks[taskId];
+        const fromSection = state.sections[fromSectionId];
+        const toSection = state.sections[toSectionId];
+
+        // Remove task from source section
+        const taskIndex = fromSection.taskIds.indexOf(taskId);
+        if (taskIndex !== -1) {
+            fromSection.taskIds.splice(taskIndex, 1);
         }
-        
-        const [task] = sourceColumn.tasks.splice(taskIndex, 1);
-        console.log(`Task ${taskId} found and removed from source column ${fromColumnId}`);
-        // Update the task's column ID
-        task.columnId = toColumnId;
-        
-        // Add to target column at specific index
-        targetColumn.tasks.splice(newIndex, 0, task);
-        console.log(`Task ${taskId} added to target column ${toColumnId} at index ${newIndex}`);
-        
+
+        // Add task to target section
+        if (typeof newIndex === 'number') {
+            toSection.taskIds.splice(newIndex, 0, taskId);
+        } else {
+            toSection.taskIds.push(taskId);
+        }
+
+        // Update task's section reference
+        task.sectionId = toSectionId;
+
         renderActiveBoard();
     } catch (error) {
         console.error('Failed to move task:', error);
-        loadBoards(); // Revert to server state on error
+        loadBoards(); // Reload the board state in case of error
     }
 }
 
@@ -229,10 +244,10 @@ function handleDragStart(e) {
     if (!task) return;
     
     task.classList.add('dragging');
-    // Store both the task ID and its original column ID using application/json
+    // Store both the task ID and its original section ID using application/json
     e.dataTransfer.setData('application/json', JSON.stringify({
         taskId: task.dataset.taskId,
-        sourceColumnId: task.closest('.column').dataset.columnId
+        sourceSectionId: task.closest('.column').dataset.sectionId
     }));
     e.dataTransfer.effectAllowed = 'move';
 }
@@ -289,26 +304,26 @@ async function handleDrop(e) {
     try {
         // Get the task data from the drag event
         const data = JSON.parse(e.dataTransfer.getData('application/json'));
-        const { taskId, sourceColumnId } = data;
+        const { taskId, sourceSectionId } = data;
         
         const task = document.querySelector(`[data-task-id="${taskId}"]`);
         if (!task) return;
         
-        const targetColumnId = column.dataset.columnId;
+        const targetSectionId = column.dataset.sectionId;
         
-        console.log(`Moving task ${taskId} from column ${sourceColumnId} to column ${targetColumnId}`);
+        console.log(`Moving task ${taskId} from section ${sourceSectionId} to section ${targetSectionId}`);
         
         // Check if we have access to the required state
-        if (!state.boards?.[state.activeBoard]?.columns) {
-            console.error('Invalid board state');
+        if (!state.sections[sourceSectionId] || !state.sections[targetSectionId]) {
+            console.error('Invalid section state');
             return;
         }
 
-        const sourceColumn = state.boards[state.activeBoard].columns[sourceColumnId];
-        const targetColumn = state.boards[state.activeBoard].columns[targetColumnId];
+        const sourceSection = state.sections[sourceSectionId];
+        const targetSection = state.sections[targetSectionId];
 
-        if (!sourceColumn?.tasks || !targetColumn?.tasks) {
-            console.error('Invalid column state');
+        if (!sourceSection?.taskIds || !targetSection?.taskIds) {
+            console.error('Invalid section state');
             return;
         }
 
@@ -316,40 +331,22 @@ async function handleDrop(e) {
         const siblings = [...tasksContainer.querySelectorAll('.task')];
         const newIndex = siblings.indexOf(task);
         
-        if (sourceColumnId === targetColumnId) {
-            // Same column reordering
-            const taskObj = sourceColumn.tasks.find(t => t.id === taskId);
+        if (sourceSectionId === targetSectionId) {
+            // Same section reordering - use move endpoint with same source/target section
+            const taskObj = state.tasks[taskId];
             if (!taskObj) {
-                console.error('Task not found in source column');
+                console.error('Task not found in source section');
                 loadBoards();
                 return;
             }
             
-            const oldIndex = sourceColumn.tasks.indexOf(taskObj);
+            const oldIndex = sourceSection.taskIds.indexOf(taskId);
             
-            // Make the server request
-            const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${sourceColumnId}/tasks/reorder`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    taskId,
-                    newIndex
-                })
-            });
-            
-            if (!response.ok) {
-                throw new Error('Failed to reorder task');
-            }
-
-            // Update local state
-            sourceColumn.tasks.splice(oldIndex, 1);
-            sourceColumn.tasks.splice(newIndex, 0, taskObj);
-            renderActiveBoard();
+            // Make the server request using the move endpoint
+            await handleTaskMove(taskId, sourceSectionId, targetSectionId, newIndex);
         } else {
-            // Moving to different column
-            await handleTaskMove(taskId, sourceColumnId, targetColumnId, newIndex);
+            // Moving to different section
+            await handleTaskMove(taskId, sourceSectionId, targetSectionId, newIndex);
         }
     } catch (error) {
         console.error('Error handling drop:', error);
@@ -359,18 +356,29 @@ async function handleDrop(e) {
 
 // Rendering
 function renderActiveBoard() {
-    const board = state.boards[state.activeBoard];
-    if (!board) return;
+    const board = state.boards?.[state.activeBoard];
+    if (!board) {
+        console.log('No active board to render');
+        return;
+    }
 
-    elements.currentBoard.textContent = board.name;
+    if (!elements.currentBoard || !elements.columns) {
+        console.error('Required DOM elements not found');
+        return;
+    }
+
+    elements.currentBoard.textContent = board.name || 'Unnamed Board';
     elements.columns.innerHTML = '';
 
-    // Convert columns to array to find next column easily
-    const columnEntries = Object.entries(board.columns);
-
-    columnEntries.forEach(([columnId, column]) => {
-        const columnEl = renderColumn(column, columnId);
-        elements.columns.appendChild(columnEl);
+    // Ensure sectionOrder exists and is an array
+    const sectionOrder = Array.isArray(board.sectionOrder) ? board.sectionOrder : [];
+    
+    sectionOrder.forEach(sectionId => {
+        const section = state.sections?.[sectionId];
+        if (section) {
+            const columnEl = renderColumn(section);
+            elements.columns.appendChild(columnEl);
+        }
     });
 
     // Add the "Add Column" button
@@ -383,7 +391,7 @@ function renderActiveBoard() {
             <line x1="5" y1="12" x2="19" y2="12"></line>
         </svg>
     `;
-    addColumnBtn.addEventListener('click', () => addColumn());
+    addColumnBtn.addEventListener('click', () => addColumn(board.id));
     elements.columns.appendChild(addColumnBtn);
 }
 
@@ -412,112 +420,45 @@ function initEventListeners() {
         if (name) createBoard(name);
     });
 
-    // Add column button
-    elements.addColumnBtn.addEventListener('click', () => addColumn());
+    // Task form submission
+    elements.taskForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const taskId = elements.taskForm.dataset.taskId;
+        const sectionId = elements.taskForm.dataset.sectionId;
+        const title = elements.taskTitle.value.trim();
+        const description = elements.taskDescription.value.trim();
 
-    // Confirm modal event listeners
-    if (elements.confirmModal) {
-        // Close button
-        const confirmModalClose = elements.confirmModal.querySelector('.modal-close');
-        if (confirmModalClose) {
-            confirmModalClose.addEventListener('click', hideConfirmModal);
-        }
+        if (!title) return;
 
-        // Cancel button
-        const confirmModalCancel = elements.confirmModal.querySelector('[data-action="cancel"]');
-        if (confirmModalCancel) {
-            confirmModalCancel.addEventListener('click', hideConfirmModal);
-        }
-
-        // Close when clicking outside
-        elements.confirmModal.addEventListener('click', (e) => {
-            if (e.target === elements.confirmModal) {
-                hideConfirmModal();
-            }
-        });
-
-        // Prevent close when clicking inside modal content
-        const confirmModalContent = elements.confirmModal.querySelector('.modal-content');
-        if (confirmModalContent) {
-            confirmModalContent.addEventListener('click', (e) => {
-                e.stopPropagation();
-            });
-        }
-    }
-
-    // Task modal event listeners
-    if (elements.taskModal) {
-        // Close button
-        const taskModalClose = elements.taskModal.querySelector('.modal-close');
-        if (taskModalClose) {
-            taskModalClose.addEventListener('click', hideTaskModal);
-        }
-
-        // Close when clicking outside
-        elements.taskModal.addEventListener('click', (e) => {
-            if (e.target === elements.taskModal) {
-                hideTaskModal();
-            }
-        });
-
-        // Handle Ctrl+Enter (or Cmd+Enter on Mac) to save
-        elements.taskModal.addEventListener('keydown', (e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                e.preventDefault();
-                const submitButton = elements.taskForm.querySelector('button[type="submit"]');
-                if (submitButton) {
-                    submitButton.click();
-                }
-            }
-        });
-
-        // Form submission
-        elements.taskForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const taskId = elements.taskForm.dataset.taskId;
-            const columnId = elements.taskForm.dataset.columnId;
-            const title = elements.taskTitle.value.trim();
-            const description = elements.taskDescription.value.trim();
-
-            try {
-                const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${columnId}/tasks/${taskId}`, {
+        try {
+            if (taskId) {
+                // Update existing task
+                const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks/${taskId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ title, description })
                 });
-                
-                if (response.ok) {
-                    const taskObj = state.boards[state.activeBoard].columns[columnId].tasks.find(t => t.id === taskId);
-                    if (taskObj) {
-                        taskObj.title = title;
-                        taskObj.description = description;
-                        renderActiveBoard();
-                    }
-                }
-            } catch (error) {
-                console.error('Failed to update task:', error);
-            }
-            
-            hideTaskModal();
-        });
 
-        // Delete button
-        const deleteButton = elements.taskModal.querySelector('[data-action="delete"]');
-        if (deleteButton) {
-            deleteButton.addEventListener('click', () => {
-                const taskId = elements.taskForm.dataset.taskId;
-                const columnId = elements.taskForm.dataset.columnId;
-                const taskTitle = elements.taskTitle.value;
-                hideTaskModal();
-                showConfirmModal(taskId, taskTitle, 'task', columnId);
-            });
+                if (response.ok) {
+                    const updatedTask = await response.json();
+                    state.tasks[taskId] = updatedTask;
+                }
+            } else {
+                // Create new task
+                await addTask(sectionId, title, description);
+            }
+
+            hideTaskModal();
+            renderActiveBoard();
+        } catch (error) {
+            console.error('Failed to save task:', error);
         }
-    }
+    });
 }
 
-// Initialization
-async function initBoard() {
-    // Initialize elements after DOM is loaded
+// Initialize the application
+async function init() {
+    // Initialize DOM elements
     elements = {
         themeToggle: document.getElementById('themeToggle'),
         boardMenu: document.getElementById('boardMenu'),
@@ -525,22 +466,18 @@ async function initBoard() {
         boardList: document.getElementById('boardList'),
         addBoardBtn: document.getElementById('addBoardBtn'),
         currentBoard: document.getElementById('currentBoard'),
-        addColumnBtn: document.getElementById('addColumnBtn'),
         columns: document.getElementById('columns'),
-        confirmModal: document.getElementById('confirmModal'),
-        confirmModalMessage: document.querySelector('#confirmModal p'),
-        confirmModalConfirmBtn: document.querySelector('#confirmModal [data-action="confirm"]'),
         taskModal: document.getElementById('taskModal'),
         taskForm: document.getElementById('taskForm'),
         taskTitle: document.getElementById('taskTitle'),
-        taskDescription: document.getElementById('taskDescription')
+        taskDescription: document.getElementById('taskDescription'),
+        boardContainer: document.querySelector('.board-container')
     };
 
     // Check required elements
     const requiredElements = [
         'themeToggle', 'boardMenu', 'boardMenuBtn', 'boardList', 
-        'addBoardBtn', 'currentBoard', 'addColumnBtn', 'columns',
-        'confirmModal', 'confirmModalMessage', 'confirmModalConfirmBtn',
+        'addBoardBtn', 'currentBoard', 'columns', 'boardContainer',
         'taskModal', 'taskForm', 'taskTitle', 'taskDescription'
     ];
 
@@ -753,7 +690,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('pinForm')) {
         initLogin();
     } else {
-        initBoard();
+        init();
     }
 });
 
@@ -838,568 +775,168 @@ function linkify(text) {
     .replace(/\n/g, '<br>');
 }
 
-function createTaskElement(task) {
+function getPrioritySymbol(priority) {
+    switch (priority) {
+        case 'urgent': return '!';
+        case 'high': return '↑';
+        case 'medium': return '⇈';
+        case 'low': return '↓';
+        default: return '⇈';
+    }
+}
+
+function renderColumn(section) {
+    if (!section) return null;
+
+    const columnEl = document.createElement('div');
+    columnEl.className = 'column';
+    columnEl.dataset.sectionId = section.id;
+
+    // Ensure taskIds exists and is an array
+    const taskIds = Array.isArray(section.taskIds) ? section.taskIds : [];
+    const taskCount = taskIds.length;
+
+    columnEl.innerHTML = `
+        <div class="column-header">
+            <div class="column-count">${taskCount}</div>
+            <h2 class="column-title">${section.name || 'Unnamed Section'}</h2>
+        </div>
+        <div class="tasks" data-section-id="${section.id}"></div>
+        <button class="add-task-btn" aria-label="Add task">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+        </button>
+    `;
+
+    const tasksContainer = columnEl.querySelector('.tasks');
+    taskIds.forEach(taskId => {
+        const task = state.tasks?.[taskId];
+        if (task) {
+            const taskEl = renderTask(task);
+            if (taskEl) {
+                tasksContainer.appendChild(taskEl);
+            }
+        }
+    });
+
+    // Add task button
+    const addTaskBtn = columnEl.querySelector('.add-task-btn');
+    if (addTaskBtn) {
+        addTaskBtn.addEventListener('click', () => {
+            showTaskModal({ sectionId: section.id });
+        });
+    }
+
+    // Set up drag and drop
+    if (tasksContainer) {
+        tasksContainer.addEventListener('dragover', handleDragOver);
+        tasksContainer.addEventListener('drop', handleDrop);
+        tasksContainer.addEventListener('dragenter', (e) => {
+            const column = e.target.closest('.column');
+            if (column) {
+                column.classList.add('drag-over');
+            }
+        });
+        tasksContainer.addEventListener('dragleave', (e) => {
+            const column = e.target.closest('.column');
+            if (column) {
+                column.classList.remove('drag-over');
+            }
+        });
+    }
+
+    return columnEl;
+}
+
+function renderTask(task) {
+    if (!task) return null;
+
     const taskElement = document.createElement('div');
     taskElement.className = 'task';
     taskElement.dataset.taskId = task.id;
-    taskElement.dataset.columnId = task.columnId;
     taskElement.draggable = true;
+
+    // Create task header with title
+    const taskHeader = document.createElement('div');
+    taskHeader.className = 'task-header';
     
+    const taskTitle = document.createElement('h3');
+    taskTitle.className = 'task-title';
+    taskTitle.textContent = task.title || 'Untitled Task';
+    taskHeader.appendChild(taskTitle);
+
+    // Add metadata badges to header if they exist
+    const metadataBadges = document.createElement('div');
+    metadataBadges.className = 'task-badges';
+
+    if (task.priority) {
+        const priorityBadge = document.createElement('span');
+        priorityBadge.className = `badge priority-badge ${task.priority}`;
+        priorityBadge.setAttribute('title', task.priority.charAt(0).toUpperCase() + task.priority.slice(1));
+        priorityBadge.textContent = getPrioritySymbol(task.priority);
+        metadataBadges.appendChild(priorityBadge);
+    }
+
+    if (task.assignee) {
+        const assigneeBadge = document.createElement('span');
+        assigneeBadge.className = 'badge assignee-badge';
+        assigneeBadge.textContent = task.assignee;
+        metadataBadges.appendChild(assigneeBadge);
+    }
+
+    taskHeader.appendChild(metadataBadges);
+    taskElement.appendChild(taskHeader);
+
+    // Create task content for description and tags
     const taskContent = document.createElement('div');
     taskContent.className = 'task-content';
 
-    const taskTitle = document.createElement('div');
-    taskTitle.className = 'task-title';
-    taskTitle.textContent = task.title;
+    // Add description if it exists
+    if (task.description) {
+        const taskDescription = document.createElement('div');
+        taskDescription.className = 'task-description';
+        taskDescription.innerHTML = linkify(task.description);
+        taskContent.appendChild(taskDescription);
+    }
 
-    // Add drag event listeners to the task element
+    // Add tags if they exist
+    if (Array.isArray(task.tags) && task.tags.length > 0) {
+        const tagsContainer = document.createElement('div');
+        tagsContainer.className = 'task-tags';
+        
+        task.tags.forEach(tag => {
+            if (tag) {
+                const tagBadge = document.createElement('span');
+                tagBadge.className = 'badge tag-badge';
+                tagBadge.textContent = tag;
+                tagsContainer.appendChild(tagBadge);
+            }
+        });
+        
+        taskContent.appendChild(tagsContainer);
+    }
+
+    taskElement.appendChild(taskContent);
+
+    // Set up drag events
     taskElement.addEventListener('dragstart', (e) => {
-        e.stopPropagation();
         taskElement.classList.add('dragging');
         e.dataTransfer.setData('application/json', JSON.stringify({
             taskId: task.id,
-            sourceColumnId: task.columnId
+            sourceSectionId: task.sectionId
         }));
-        e.dataTransfer.effectAllowed = 'move';
     });
-    
-    taskElement.addEventListener('dragend', (e) => {
-        e.stopPropagation();
+
+    taskElement.addEventListener('dragend', () => {
         taskElement.classList.remove('dragging');
-        document.querySelectorAll('.column').forEach(col => {
-            col.classList.remove('drag-over');
-        });
     });
 
-    makeEditable(taskTitle, async (newTitle) => {
-        try {
-            const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${task.columnId}/tasks/${task.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: newTitle, description: task.description })
-            });
-        
-            if (response.ok) {
-                const taskObj = state.boards[state.activeBoard].columns[task.columnId].tasks.find(t => t.id === task.id);
-                if (taskObj) {
-                    taskObj.title = newTitle;
-                }
-                return true;
-            }
-            return false;
-        } catch (error) {
-            console.error('Failed to update task:', error);
-            return false;
-        }
+    // Double click to edit
+    taskElement.addEventListener('dblclick', () => {
+        showTaskModal(task);
     });
-
-    // Create description section
-    const descriptionId = 'desc-' + task.id;
-    const descriptionSection = document.createElement('div');
-    descriptionSection.className = 'description-section';
-    
-    if (task.description) {
-        // If there's a description, show it with edit capability
-        const taskDescription = document.createElement('div');
-        taskDescription.className = 'task-description has-description';
-        taskDescription.innerHTML = linkify(task.description);
-        
-        makeEditable(taskDescription, async (newDescription) => {
-            try {
-                const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${task.columnId}/tasks/${task.id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title: task.title, description: newDescription })
-                });
-                
-                if (response.ok) {
-                    const taskObj = state.boards[state.activeBoard].columns[task.columnId].tasks.find(t => t.id === task.id);
-                    if (taskObj) {
-                        taskObj.description = newDescription;
-                    }
-                    return true;
-                }
-                return false;
-            } catch (error) {
-                console.error('Failed to update task description:', error);
-                return false;
-            }
-        });
-        
-        descriptionSection.appendChild(taskDescription);
-    } else {
-        // If no description, show the add description button
-        const showLink = document.createElement('button');
-        showLink.className = 'show-description';
-        showLink.innerHTML = `
-            <svg viewBox="0 0 24 24" width="16" height="16">
-                <polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-        `;
-
-        const hideLink = document.createElement('button');
-        hideLink.className = 'hide-description';
-        hideLink.innerHTML = `
-            <svg viewBox="0 0 24 24" width="16" height="16">
-                <polyline points="18 15 12 9 6 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-        `;
-
-        const descriptionContent = document.createElement('div');
-        descriptionContent.className = 'description-content';
-        
-        const descriptionInput = document.createElement('textarea');
-        descriptionInput.className = 'inline-edit';
-        descriptionInput.placeholder = 'Add a description...';
-        
-        // Show/hide description content with JavaScript
-        showLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            descriptionContent.style.display = 'block';
-            showLink.style.display = 'none';
-            hideLink.style.display = 'flex';
-            setTimeout(() => {
-                descriptionInput.focus();
-            }, 0);
-        });
-        
-        hideLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            descriptionContent.style.display = 'none';
-            showLink.style.display = 'flex';
-            hideLink.style.display = 'none';
-        });
-
-        descriptionInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && e.ctrlKey) {
-                e.preventDefault();
-                descriptionInput.blur();
-            }
-        });
-        
-        descriptionInput.addEventListener('blur', async () => {
-            const newDescription = descriptionInput.value.trim();
-            if (newDescription) {
-                try {
-                    const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${task.columnId}/tasks/${task.id}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ title: task.title, description: newDescription })
-                    });
-                    
-                    if (response.ok) {
-                        const taskObj = state.boards[state.activeBoard].columns[task.columnId].tasks.find(t => t.id === task.id);
-                        if (taskObj) {
-                            taskObj.description = newDescription;
-                        }
-                        renderActiveBoard();
-                    }
-                } catch (error) {
-                    console.error('Failed to update task description:', error);
-                }
-            }
-        });
-
-        descriptionContent.appendChild(descriptionInput);
-        descriptionSection.appendChild(showLink);
-        descriptionSection.appendChild(hideLink);
-        descriptionSection.appendChild(descriptionContent);
-    }
-
-    taskContent.appendChild(taskTitle);
-    taskContent.appendChild(descriptionSection);
-    taskElement.appendChild(taskContent);
-
-    // Add move button if not the last column
-    const columns = Object.keys(state.boards[state.activeBoard].columns);
-    const currentColumnIndex = columns.indexOf(task.columnId);
-    if (currentColumnIndex < columns.length - 1) {
-        const moveButton = document.createElement('button');
-        moveButton.className = 'task-move';
-        moveButton.innerHTML = '<svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"></path></svg>';
-        moveButton.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            const nextColumnId = columns[currentColumnIndex + 1];
-            try {
-                const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/tasks/${task.id}/move`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        fromColumnId: task.columnId,
-                        toColumnId: nextColumnId
-                    })
-                });
-
-                if (response.ok) {
-                    const taskIndex = state.boards[state.activeBoard].columns[task.columnId].tasks.findIndex(t => t.id === task.id);
-                    const [movedTask] = state.boards[state.activeBoard].columns[task.columnId].tasks.splice(taskIndex, 1);
-                    state.boards[state.activeBoard].columns[nextColumnId].tasks.push(movedTask);
-                    renderActiveBoard();
-                }
-            } catch (error) {
-                console.error('Failed to move task:', error);
-            }
-        });
-        taskElement.appendChild(moveButton);
-    }
-
-    taskElement.addEventListener('dblclick', (e) => {
-        // Don't trigger if clicking on an input or the move button
-        if (e.target.closest('input, textarea, .task-move, .show-description, .hide-description')) return;
-        showTaskModal({
-            id: task.id,
-            title: task.title,
-            description: task.description,
-            columnId: task.columnId
-        });
-    });
-
-    return taskElement;
-}
-
-function renderColumn(column, columnId) {
-    const columnElement = document.createElement('div');
-    columnElement.className = 'column';
-    columnElement.dataset.columnId = columnId;
-
-    const header = document.createElement('div');
-    header.className = 'column-header';
-    header.draggable = true;
-    
-    // Add drag event listeners to header
-    header.addEventListener('dragstart', (e) => {
-        e.stopPropagation();
-        columnElement.classList.add('dragging');
-        e.dataTransfer.setData('application/json', JSON.stringify({
-            columnId: columnId,
-            type: 'column'
-        }));
-    });
-    
-    header.addEventListener('dragend', (e) => {
-        e.stopPropagation();
-        columnElement.classList.remove('dragging');
-        document.querySelectorAll('.column').forEach(col => {
-            col.classList.remove('column-drag-over');
-        });
-    });
-
-    const count = document.createElement('span');
-    count.className = 'column-count';
-    count.textContent = column.tasks.length;
-
-    const title = document.createElement('div');
-    title.className = 'column-title';
-    title.textContent = column.name;
-
-    makeEditable(title, async (newName) => {
-        try {
-            const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${columnId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: newName })
-            });
-            
-            if (response.ok) {
-                state.boards[state.activeBoard].columns[columnId].name = newName;
-                return true;
-            }
-            return false;
-        } catch (error) {
-            console.error('Failed to update column:', error);
-            return false;
-        }
-    });
-
-    // Add delete button
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'column-delete';
-    deleteBtn.setAttribute('aria-label', 'Delete column');
-    deleteBtn.innerHTML = `
-        <svg viewBox="0 0 24 24">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-    `;
-    deleteBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        showConfirmModal(column.id, column.name);
-    });
-
-    header.appendChild(count);
-    header.appendChild(title);
-    columnElement.appendChild(deleteBtn);
-    columnElement.appendChild(header);
-
-    const tasksContainer = document.createElement('div');
-    tasksContainer.className = 'tasks';
-    
-    // Add drag and drop event listeners for tasks
-    tasksContainer.addEventListener('dragover', handleDragOver);
-    tasksContainer.addEventListener('drop', handleDrop);
-    tasksContainer.addEventListener('dragenter', (e) => {
-        e.preventDefault();
-        const column = e.target.closest('.column');
-        if (column) {
-            column.classList.add('drag-over');
-        }
-    });
-    tasksContainer.addEventListener('dragleave', (e) => {
-        e.preventDefault();
-        const column = e.target.closest('.column');
-        if (column && !column.contains(e.relatedTarget)) {
-            column.classList.remove('drag-over');
-        }
-    });
-    
-    column.tasks.forEach(task => {
-        const taskEl = createTaskElement({
-            ...task,
-            columnId: columnId
-        });
-        tasksContainer.appendChild(taskEl);
-    });
-    
-    const addTaskButton = document.createElement('button');
-    addTaskButton.className = 'add-task-btn';
-    addTaskButton.setAttribute('aria-label', 'Add new task');
-    addTaskButton.innerHTML = `
-        <svg viewBox="0 0 24 24" width="24" height="24">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
-    `;
-    addTaskButton.addEventListener('click', () => {
-        const tasksContainer = columnElement.querySelector('.tasks');
-        const newTask = createEmptyTaskElement(columnId);
-        tasksContainer.insertBefore(newTask, addTaskButton);
-        const input = newTask.querySelector('input');
-        if (input) {
-            input.focus();
-            input.select();
-        }
-    });
-
-    tasksContainer.appendChild(addTaskButton);
-    columnElement.appendChild(tasksContainer);
-    
-    // Add column drag and drop event listeners
-    columnElement.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        const draggingColumn = document.querySelector('.column.dragging');
-        if (!draggingColumn) return;
-        
-        const columns = [...document.querySelectorAll('.column:not(.dragging)')];
-        const nextColumn = columns.find(column => {
-            const rect = column.getBoundingClientRect();
-            return e.clientX < rect.left + rect.width / 2;
-        });
-        
-        if (nextColumn) {
-            elements.columns.insertBefore(draggingColumn, nextColumn);
-        } else {
-            elements.columns.appendChild(draggingColumn);
-        }
-    });
-
-    columnElement.addEventListener('drop', async (e) => {
-        e.preventDefault();
-        // Get the new order of columns after the drop
-        const columns = [...document.querySelectorAll('.column')];
-        const newOrder = columns.map(col => col.dataset.columnId).filter(id => id);
-        
-        try {
-            const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/reorder`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    columnOrder: newOrder
-                })
-            });
-            
-            if (response.ok) {
-                // Update local state by reordering the columns
-                const reorderedColumns = {};
-                newOrder.forEach(columnId => {
-                    if (state.boards[state.activeBoard].columns[columnId]) {
-                        reorderedColumns[columnId] = state.boards[state.activeBoard].columns[columnId];
-                    }
-                });
-                state.boards[state.activeBoard].columns = reorderedColumns;
-                renderActiveBoard();
-            } else {
-                console.error('Failed to reorder columns:', response.status);
-                renderActiveBoard(); // Revert to previous state
-            }
-        } catch (error) {
-            console.error('Failed to reorder columns:', error);
-            renderActiveBoard(); // Revert to previous state
-        }
-    });
-
-    return columnElement;
-}
-
-// Add drag event listeners to the task element
-function addTaskDragListeners(taskElement) {
-    taskElement.addEventListener('dragstart', (e) => {
-        e.stopPropagation();
-        taskElement.classList.add('dragging');
-        e.dataTransfer.setData('application/json', JSON.stringify({
-            taskId: taskElement.dataset.taskId,
-            sourceColumnId: taskElement.dataset.columnId
-        }));
-        e.dataTransfer.effectAllowed = 'move';
-    });
-    
-    taskElement.addEventListener('dragend', (e) => {
-        e.stopPropagation();
-        taskElement.classList.remove('dragging');
-        document.querySelectorAll('.column').forEach(col => {
-            col.classList.remove('drag-over');
-        });
-    });
-}
-
-// Add these functions for modal handling
-function hideConfirmModal() {
-    if (elements.confirmModal) {
-        elements.confirmModal.hidden = true;
-    }
-}
-
-function showConfirmModal(id, name, type = 'column', columnId = null) {
-    // First validate that all required modal elements exist
-    const modalElements = {
-        modal: elements.confirmModal,
-        message: elements.confirmModalMessage,
-        confirmBtn: elements.confirmModalConfirmBtn,
-        title: elements.confirmModal?.querySelector('h2')
-    };
-
-    // Check if any required elements are missing
-    const missingElements = Object.entries(modalElements)
-        .filter(([key, element]) => !element)
-        .map(([key]) => key);
-
-    if (missingElements.length > 0) {
-        console.error(`Required modal elements missing: ${missingElements.join(', ')}`);
-        return false;
-    }
-
-    // Update modal title based on type
-    if (modalElements.title) {
-        modalElements.title.textContent = type === 'column' ? 'Delete Column' : 'Delete Task';
-    }
-
-    const message = type === 'column' 
-        ? `Are you sure you want to delete the column "${name}"? This action cannot be undone.`
-        : `Are you sure you want to delete the task "${name}"? This action cannot be undone.`;
-
-    modalElements.message.textContent = message;
-    modalElements.modal.hidden = false;
-    
-    // Remove any existing event listeners
-    const newConfirmBtn = modalElements.confirmBtn.cloneNode(true);
-    modalElements.confirmBtn.parentNode.replaceChild(newConfirmBtn, modalElements.confirmBtn);
-    elements.confirmModalConfirmBtn = newConfirmBtn;
-    
-    // Add new event listener with corrected parameter passing
-    elements.confirmModalConfirmBtn.addEventListener('click', async () => {
-        try {
-            if (type === 'column') {
-                // For columns, 'id' is the columnId
-                await deleteColumn(id);
-            } else {
-                // For tasks, 'id' is the taskId and we use the provided columnId
-                await deleteTask(columnId, id);
-            }
-            hideConfirmModal();
-        } catch (error) {
-            console.error(`Failed to delete ${type}:`, error);
-            // Optionally show an error message to the user here
-        }
-    });
-
-    return true;
-}
-
-async function deleteColumn(columnId) {
-    try {
-        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${columnId}`, {
-            method: 'DELETE'
-        });
-        
-        if (response.ok) {
-            delete state.boards[state.activeBoard].columns[columnId];
-            renderActiveBoard();
-        }
-    } catch (error) {
-        console.error('Failed to delete column:', error);
-    }
-}
-
-async function deleteTask(columnId, taskId) {
-    try {
-        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/columns/${columnId}/tasks/${taskId}`, {
-            method: 'DELETE'
-        });
-        
-        if (response.ok) {
-            const column = state.boards[state.activeBoard].columns[columnId];
-            column.tasks = column.tasks.filter(task => task.id !== taskId);
-            renderActiveBoard();
-        }
-    } catch (error) {
-        console.error('Failed to delete task:', error);
-    }
-}
-
-function createEmptyTaskElement(columnId) {
-    const taskElement = document.createElement('div');
-    taskElement.className = 'task';
-    taskElement.draggable = false;
-    taskElement.dataset.columnId = columnId;
-
-    const taskContent = document.createElement('div');
-    taskContent.className = 'task-content';
-
-    const taskTitle = document.createElement('div');
-    taskTitle.className = 'task-title';
-    
-    const input = document.createElement('input');
-    input.className = 'inline-edit';
-    input.placeholder = 'Enter task title';
-    
-    const saveNewTask = async () => {
-        const title = input.value.trim();
-        if (title) {
-            const actualColumnId = taskElement.dataset.columnId;
-            if (!actualColumnId) {
-                console.error('Column ID is missing');
-                return;
-            }
-            await addTask(actualColumnId, title);
-            renderActiveBoard();
-        } else {
-            taskElement.remove();
-        }
-    };
-
-    input.addEventListener('blur', saveNewTask);
-    input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            input.blur();
-        } else if (e.key === 'Escape') {
-            taskElement.remove();
-        }
-    });
-
-    taskTitle.appendChild(input);
-    taskContent.appendChild(taskTitle);
-    taskElement.appendChild(taskContent);
 
     return taskElement;
 }
