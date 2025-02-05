@@ -550,6 +550,7 @@ app.post(BASE_PATH + '/api/boards/:boardId/sections/:sectionId/tasks', async (re
             sectionId,
             boardId,
             priority: taskPriority,
+            status: 'open',
             tags: [],
             assignee: null
         };

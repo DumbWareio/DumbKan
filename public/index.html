@@ -138,6 +138,13 @@
                     <label for="taskDescription">Description</label>
                     <textarea id="taskDescription" rows="4"></textarea>
                 </div>
+                <div class="form-group">
+                    <label for="taskStatus">Status</label>
+                    <select id="taskStatus" required>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
                 <div class="modal-actions">
                     <button type="button" class="btn-delete" data-action="delete">Delete Task</button>
                     <div class="actions-right">

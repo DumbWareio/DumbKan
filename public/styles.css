@@ -25,6 +25,21 @@
     --tag-text: #7b1fa2;
     --priority-urgent-bg: #ffcdd2;
     --priority-urgent-text: #c62828;
+    /* Status colors */
+    --status-open-bg: #e3f2fd;
+    --status-open-text: #1976d2;
+    --status-in-progress-bg: #fff3e0;
+    --status-in-progress-text: #f57c00;
+    --status-blocked-bg: #ffebee;
+    --status-blocked-text: #d32f2f;
+    --status-completed-bg: #e8f5e9;
+    --status-completed-text: #388e3c;
+    --status-cancelled-bg: #f5f5f5;
+    --status-cancelled-text: #616161;
+    --status-active-bg: #e8f5e9;
+    --status-active-text: #388e3c;
+    --status-inactive-bg: #f5f5f5;
+    --status-inactive-text: #616161;
 }
 
 [data-theme="dark"] {
@@ -50,6 +65,21 @@
     --tag-text: #d6bcfa;
     --priority-urgent-bg: #b71c1c;
     --priority-urgent-text: #ffcdd2;
+    /* Status colors for dark theme */
+    --status-open-bg: #2a4365;
+    --status-open-text: #90cdf4;
+    --status-in-progress-bg: #744210;
+    --status-in-progress-text: #fbd38d;
+    --status-blocked-bg: #742a2a;
+    --status-blocked-text: #feb2b2;
+    --status-completed-bg: #22543d;
+    --status-completed-text: #9ae6b4;
+    --status-cancelled-bg: #4a5568;
+    --status-cancelled-text: #e2e8f0;
+    --status-active-bg: rgba(56, 142, 60, 0.2);
+    --status-active-text: #81c784;
+    --status-inactive-bg: rgba(97, 97, 97, 0.2);
+    --status-inactive-text: #9e9e9e;
 }
 
 /* Base styles */
@@ -1842,4 +1872,53 @@ h2 {
     .priority-badge {
         opacity: 1;
     }
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    font-size: 14px;
+    line-height: 1;
+    margin-right: 8px;
+    transition: transform 0.2s ease;
+}
+
+.status-badge::before {
+    content: "○";  /* Open circle for active */
+}
+
+.status-badge.active {
+    background-color: var(--status-active-bg);
+    color: var(--status-active-text);
+}
+
+.status-badge.inactive {
+    background-color: var(--status-inactive-bg);
+    color: var(--status-inactive-text);
+}
+
+.status-badge.inactive::before {
+    content: "●";  /* Filled circle for inactive */
+}
+
+/* Status selector styling */
+select#taskStatus {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background-color: var(--container);
+    color: var(--text);
+    font-size: 0.9rem;
+    transition: border-color var(--transition);
+}
+
+select#taskStatus:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
 }

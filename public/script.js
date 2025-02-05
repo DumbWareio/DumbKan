@@ -243,6 +243,7 @@ function showTaskModal(task) {
     elements.taskModal.querySelector('h2').textContent = isNewTask ? 'Add Task' : 'Edit Task';
     elements.taskTitle.value = isNewTask ? '' : task.title;
     elements.taskDescription.value = isNewTask ? '' : (task.description || '');
+    elements.taskStatus.value = isNewTask ? 'open' : (task.status || 'open');
     elements.taskForm.dataset.taskId = task.id || '';
     elements.taskForm.dataset.sectionId = task.sectionId;
     
@@ -301,7 +302,7 @@ function hideTaskModal() {
     delete elements.taskForm.dataset.sectionId;
 }
 
-async function addTask(sectionId, title, description = '') {
+async function addTask(sectionId, title, description = '', status = 'open') {
     try {
         if (!sectionId) {
             console.error('Section ID is required to add a task');
@@ -311,7 +312,7 @@ async function addTask(sectionId, title, description = '') {
         const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title, description })
+            body: JSON.stringify({ title, description, status })
         });
         
         if (!response.ok) {
@@ -594,6 +595,7 @@ function initEventListeners() {
         const sectionId = elements.taskForm.dataset.sectionId;
             const title = elements.taskTitle.value.trim();
             const description = elements.taskDescription.value.trim();
+            const status = elements.taskStatus.value;
 
         if (!title) return;
 
@@ -603,7 +605,7 @@ function initEventListeners() {
                 const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks/${taskId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title, description })
+                    body: JSON.stringify({ title, description, status })
                 });
                 
                 if (response.ok) {
@@ -612,7 +614,7 @@ function initEventListeners() {
                 }
             } else {
                 // Create new task
-                await addTask(sectionId, title, description);
+                await addTask(sectionId, title, description, status);
             }
             
             hideTaskModal();
@@ -638,6 +640,7 @@ async function init() {
         taskForm: document.getElementById('taskForm'),
         taskTitle: document.getElementById('taskTitle'),
         taskDescription: document.getElementById('taskDescription'),
+        taskStatus: document.getElementById('taskStatus'),
         boardContainer: document.querySelector('.board-container'),
         deleteTaskBtn: document.querySelector('.btn-delete')
     };
@@ -646,7 +649,7 @@ async function init() {
     const requiredElements = [
         'themeToggle', 'boardMenu', 'boardMenuBtn', 'boardList', 
         'addBoardBtn', 'currentBoard', 'columns', 'boardContainer',
-        'taskModal', 'taskForm', 'taskTitle', 'taskDescription'
+        'taskModal', 'taskForm', 'taskTitle', 'taskDescription', 'taskStatus'
     ];
 
     for (const key of requiredElements) {
@@ -1426,10 +1429,17 @@ function renderTask(task) {
     });
     taskHeader.appendChild(taskTitle);
 
-    // Create badges container without priority badge
+    // Create badges container
     const metadataBadges = document.createElement('div');
     metadataBadges.className = 'task-badges';
 
+    // Add status badge
+    const statusBadge = document.createElement('span');
+    statusBadge.className = `badge status-badge ${task.status || 'active'}`;
+    statusBadge.setAttribute('title', (task.status || 'active').charAt(0).toUpperCase() + (task.status || 'active').slice(1));
+    metadataBadges.appendChild(statusBadge);
+
+    // Add assignee badge if exists
     if (task.assignee) {
         const assigneeBadge = document.createElement('span');
         assigneeBadge.className = 'badge assignee-badge';
