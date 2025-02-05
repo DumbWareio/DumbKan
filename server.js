@@ -312,21 +312,33 @@ setInterval(() => {
 // Data file path
 const DATA_FILE = path.join(__dirname, 'dumbdata', 'tasks.json');
 
+// Helper function to ensure data directory exists
+async function ensureDataDirectory() {
+    const dir = path.dirname(DATA_FILE);
+    try {
+        await fs.mkdir(dir, { recursive: true });
+    } catch (error) {
+        if (error.code !== 'EEXIST') {
+            throw error;
+        }
+    }
+}
+
 // Helper function to read data
 async function readData() {
+    await ensureDataDirectory();
     try {
         const data = await fs.readFile(DATA_FILE, 'utf8');
         return JSON.parse(data);
     } catch (error) {
         if (error.code === 'ENOENT') {
-            // Return default data structure if file doesn't exist
-            const now = Date.now();
-            const boardId = `b${now}`;
-            const todoId = `s${now + 1}`;
-            const doingId = `s${now + 2}`;
-            const doneId = `s${now + 3}`;
+            // Create default data structure if file doesn't exist
+            const boardId = generateBoardId();
+            const todoId = generateSectionId();
+            const doingId = generateSectionId();
+            const doneId = generateSectionId();
             
-            return {
+            const defaultData = {
                 boards: {
                     [boardId]: {
                         id: boardId,
@@ -357,6 +369,10 @@ async function readData() {
                 tasks: {},
                 activeBoard: boardId
             };
+
+            // Write the default data to file
+            await writeData(defaultData);
+            return defaultData;
         }
         throw error;
     }
@@ -364,6 +380,7 @@ async function readData() {
 
 // Helper function to write data
 async function writeData(data) {
+    await ensureDataDirectory();
     await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
 }
 
