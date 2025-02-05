@@ -308,36 +308,42 @@ async function readData() {
     } catch (error) {
         if (error.code === 'ENOENT') {
             // Return default data structure if file doesn't exist
+            const now = Date.now();
+            const boardId = `b${now}`;
+            const todoId = `s${now + 1}`;
+            const doingId = `s${now + 2}`;
+            const doneId = `s${now + 3}`;
+            
             return {
                 boards: {
-                    personal: {
-                        id: "personal",
+                    [boardId]: {
+                        id: boardId,
                         name: "Personal",
-                        sectionOrder: ["personal-todo-1738747174543", "personal-doing-1738747174543", "personal-done-1738747174543"]
+                        sectionOrder: [todoId, doingId, doneId]
                     }
                 },
                 sections: {
-                    "personal-todo-1738747174543": {
-                        id: "personal-todo-1738747174543",
+                    [todoId]: {
+                        id: todoId,
                         name: "To Do",
-                        boardId: "personal",
+                        boardId: boardId,
                         taskIds: []
                     },
-                    "personal-doing-1738747174543": {
-                        id: "personal-doing-1738747174543",
+                    [doingId]: {
+                        id: doingId,
                         name: "Doing",
-                        boardId: "personal",
+                        boardId: boardId,
                         taskIds: []
                     },
-                    "personal-done-1738747174543": {
-                        id: "personal-done-1738747174543",
+                    [doneId]: {
+                        id: doneId,
                         name: "Done",
-                        boardId: "personal",
+                        boardId: boardId,
                         taskIds: []
                     }
                 },
                 tasks: {},
-                activeBoard: "personal"
+                activeBoard: boardId
             };
         }
         throw error;
@@ -351,25 +357,22 @@ async function writeData(data) {
 
 // Helper function to generate task ID
 function generateTaskId() {
-    return `task-${Date.now()}`;
+    return `t${Date.now()}`;
 }
 
 // Helper function to generate section ID
-function generateSectionId(name) {
-    const simpleName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return simpleName || `section-${Date.now()}`;
+function generateSectionId() {
+    return `s${Date.now()}`;
 }
 
 // Helper function to generate board ID
-function generateBoardId(name) {
-    const simpleName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return simpleName || `board-${Date.now()}`;
+function generateBoardId() {
+    return `b${Date.now()}`;
 }
 
 // Helper function to generate unique section ID for a board
-function generateUniqueSectionId(boardId, name) {
-    const simpleName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return `${boardId}-${simpleName}-${Date.now()}`;
+function generateUniqueSectionId(boardId) {
+    return `s${Date.now()}`;
 }
 
 // API Routes
@@ -393,7 +396,7 @@ app.post(BASE_PATH + '/api/boards', async (req, res) => {
         }
 
         const data = await readData();
-        const boardId = generateBoardId(name);
+        const boardId = generateBoardId();
         
         // Create default sections with unique IDs
         const defaultSections = [
@@ -406,7 +409,7 @@ app.post(BASE_PATH + '/api/boards', async (req, res) => {
         
         // Create unique sections for this board
         defaultSections.forEach(section => {
-            const sectionId = generateUniqueSectionId(boardId, section.name);
+            const sectionId = generateUniqueSectionId(boardId);
             sectionOrder.push(sectionId);
             
             data.sections[sectionId] = {
@@ -464,7 +467,7 @@ app.post(BASE_PATH + '/api/boards/:boardId/sections', async (req, res) => {
             return res.status(404).json({ error: 'Board not found' });
         }
 
-        const sectionId = generateUniqueSectionId(boardId, name);
+        const sectionId = generateUniqueSectionId(boardId);
         
         // Create new section
         data.sections[sectionId] = {
