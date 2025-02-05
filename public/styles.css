@@ -644,15 +644,41 @@ h2 {
 .task-content {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 2px;
+    margin-top: 2px;
 }
 
 .task-description {
     font-size: 0.875rem;
     color: var(--text-secondary);
     line-height: 1.4;
-    white-space: pre-wrap;
-    word-break: break-word;
+    margin-top: 4px;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all var(--transition);
+}
+
+.task-description.editing {
+    background: var(--background);
+}
+
+.task-description .inline-edit {
+    width: 100%;
+    min-height: 60px;
+    padding: 8px;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--container);
+    color: var(--text);
+    resize: vertical;
+}
+
+.task-description .inline-edit:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+    outline: none;
 }
 
 .task-tags {
@@ -672,62 +698,11 @@ h2 {
     background-color: rgba(128, 128, 128, 0.1);
 }
 
-.task-description {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    margin-top: 0.25rem;
-    padding: 0.25rem;
-    cursor: text;
-    border-radius: 4px;
-    display: -webkit-box;
-    -webkit-line-clamp: 1;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    width: 100%;
-    line-height: 1.5;
-}
-
 .task-description.has-description {
     padding: 0.25rem;
     background: var(--container);
     border-radius: 4px;
     cursor: text;
-}
-
-.task-description .inline-edit {
-    width: 100%;
-    min-height: 4rem;
-    resize: vertical;
-    white-space: pre-wrap;
-    font-family: inherit;
-    line-height: 1.5;
-    padding: 0.5rem;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--container);
-    color: var(--text);
-    display: block;
-    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
-}
-
-.task-description.has-description {
-    padding: 0.25rem;
-    background: var(--container);
-    border-radius: 4px;
-    cursor: text;
-}
-
-.task-description:hover {
-    background: rgba(128, 128, 128, 0.1);
-}
-
-/* Keep full description visible in the modal */
-.modal .task-description {
-    display: block;
-    white-space: pre-wrap;
-    overflow: visible;
-    -webkit-line-clamp: unset;
-    line-height: inherit;
 }
 
 .task-move {
@@ -1218,39 +1193,22 @@ h2 {
     display: none;
 }
 
-.add-description-btn {
-    width: 100%;
-    padding: 0.5rem;
-    background: var(--background);
-    border: 1px solid var(--border);
-    border-radius: 4px;
+/* Description hook styles */
+.description-hook {
+    display: inline-block;
     color: var(--text-secondary);
-    font-size: 0.85rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
+    font-size: 0.9rem;
     cursor: pointer;
+    padding: 0 4px;
+    margin: 0;
+    opacity: 0.6;
     transition: all var(--transition);
+    user-select: none;
 }
 
-.add-description-btn:hover {
-    background: var(--background-secondary);
-    color: var(--text);
-    border-color: var(--primary);
-}
-
-.add-description-btn svg {
-    width: 16px;
-    height: 16px;
-    stroke: currentColor;
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    transition: transform var(--transition);
-}
-
-.add-description-btn:hover svg {
+.description-hook:hover {
+    opacity: 1;
+    color: var(--primary);
     transform: translateY(2px);
 }
 

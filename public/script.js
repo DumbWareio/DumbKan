@@ -1242,12 +1242,80 @@ function renderTask(task) {
     const taskContent = document.createElement('div');
     taskContent.className = 'task-content';
 
-    // Add description if it exists
+    // Add description or arrow hook symbol
     if (task.description) {
         const taskDescription = document.createElement('div');
         taskDescription.className = 'task-description';
         taskDescription.innerHTML = linkify(task.description);
+        makeEditable(taskDescription, async (newDescription) => {
+            try {
+                const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ description: newDescription })
+                });
+                
+                if (response.ok) {
+                    const updatedTask = await response.json();
+                    state.tasks[task.id] = updatedTask;
+                    return true;
+                }
+                return false;
+            } catch (error) {
+                console.error('Failed to update task description:', error);
+                return false;
+            }
+        });
         taskContent.appendChild(taskDescription);
+    } else {
+        const arrowHook = document.createElement('span');
+        arrowHook.className = 'description-hook';
+        arrowHook.textContent = '▼';
+        arrowHook.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent task modal from opening
+            const taskDescription = document.createElement('div');
+            taskDescription.className = 'task-description';
+            const textarea = document.createElement('textarea');
+            textarea.className = 'inline-edit';
+            textarea.placeholder = 'Add a description...';
+            
+            const saveDescription = async () => {
+                const newDescription = textarea.value.trim();
+                if (newDescription) {
+                    try {
+                        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ description: newDescription })
+                        });
+                        
+                        if (response.ok) {
+                            const updatedTask = await response.json();
+                            state.tasks[task.id] = updatedTask;
+                            renderActiveBoard();
+                        }
+                    } catch (error) {
+                        console.error('Failed to add task description:', error);
+                    }
+                }
+                renderActiveBoard();
+            };
+
+            textarea.addEventListener('blur', saveDescription);
+            textarea.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    textarea.blur();
+                } else if (e.key === 'Escape') {
+                    renderActiveBoard();
+                }
+            });
+
+            taskDescription.appendChild(textarea);
+            taskContent.appendChild(taskDescription);
+            textarea.focus();
+        });
+        taskContent.appendChild(arrowHook);
     }
 
     // Add tags if they exist
