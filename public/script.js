@@ -138,7 +138,37 @@ function renderBoards() {
         li.textContent = board.name || 'Unnamed Board';
         li.dataset.boardId = board.id;
         if (board.id === state.activeBoard) li.classList.add('active');
-        li.addEventListener('click', () => switchBoard(board.id));
+        
+        makeEditable(li, async (newName) => {
+            try {
+                const response = await fetch(`${window.appConfig.basePath}/api/boards/${board.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName })
+                });
+                
+                if (response.ok) {
+                    const updatedBoard = await response.json();
+                    state.boards[board.id] = updatedBoard;
+                    if (board.id === state.activeBoard) {
+                        elements.currentBoard.textContent = newName;
+                    }
+                    return true;
+                }
+                return false;
+            } catch (error) {
+                console.error('Failed to update board name:', error);
+                return false;
+            }
+        });
+        
+        li.addEventListener('click', (e) => {
+            // Only switch board if not clicking on the editable input
+            if (e.target.tagName !== 'INPUT') {
+                switchBoard(board.id);
+            }
+        });
+        
         elements.boardList.appendChild(li);
     });
 }
@@ -452,8 +482,28 @@ function renderActiveBoard() {
         return;
     }
 
-    // Update board name
+    // Update board name and make it editable
     elements.currentBoard.textContent = board.name || 'Unnamed Board';
+    makeEditable(elements.currentBoard, async (newName) => {
+        try {
+            const response = await fetch(`${window.appConfig.basePath}/api/boards/${board.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newName })
+            });
+            
+            if (response.ok) {
+                const updatedBoard = await response.json();
+                state.boards[board.id] = updatedBoard;
+                renderBoards(); // Update the board list to reflect the change
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Failed to update board name:', error);
+            return false;
+        }
+    });
     elements.columns.innerHTML = '';
 
     // Ensure sectionOrder exists and is an array
@@ -1030,9 +1080,32 @@ function renderColumn(section) {
     const headerEl = document.createElement('div');
     headerEl.className = 'column-header';
     headerEl.draggable = true; // Only the header is draggable
+    
+    const columnTitle = document.createElement('h2');
+    columnTitle.className = 'column-title';
+    columnTitle.textContent = section.name || 'Unnamed Section';
+    makeEditable(columnTitle, async (newName) => {
+        try {
+            const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${section.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newName })
+            });
+            
+            if (response.ok) {
+                const updatedSection = await response.json();
+                state.sections[section.id] = updatedSection;
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Failed to update section name:', error);
+            return false;
+        }
+    });
+
     headerEl.innerHTML = `
         <div class="column-count">${taskCount}</div>
-        <h2 class="column-title">${section.name || 'Unnamed Section'}</h2>
         <div class="column-drag-handle">
             <svg viewBox="0 0 24 24" width="16" height="16">
                 <circle cx="9" cy="12" r="1.5"/>
@@ -1040,6 +1113,7 @@ function renderColumn(section) {
             </svg>
         </div>
     `;
+    headerEl.insertBefore(columnTitle, headerEl.lastElementChild);
 
     // Add drag event listeners to the header
     headerEl.addEventListener('dragstart', handleSectionDragStart);
@@ -1121,6 +1195,25 @@ function renderTask(task) {
     const taskTitle = document.createElement('h3');
     taskTitle.className = 'task-title';
     taskTitle.textContent = task.title || 'Untitled Task';
+    makeEditable(taskTitle, async (newTitle) => {
+        try {
+            const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: newTitle })
+            });
+            
+            if (response.ok) {
+                const updatedTask = await response.json();
+                state.tasks[task.id] = updatedTask;
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Failed to update task title:', error);
+            return false;
+        }
+    });
     taskHeader.appendChild(taskTitle);
 
     // Add metadata badges to header if they exist

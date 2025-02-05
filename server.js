@@ -663,6 +663,54 @@ app.post(BASE_PATH + '/api/boards/:boardId/sections/:sectionId/move', async (req
     }
 });
 
+// Add update board endpoint
+app.put(BASE_PATH + '/api/boards/:boardId', async (req, res) => {
+    try {
+        const { boardId } = req.params;
+        const { name } = req.body;
+        
+        if (!name) {
+            return res.status(400).json({ error: 'Board name is required' });
+        }
+
+        const data = await readData();
+        if (!data.boards[boardId]) {
+            return res.status(404).json({ error: 'Board not found' });
+        }
+
+        // Update board name
+        data.boards[boardId].name = name;
+        await writeData(data);
+        res.json(data.boards[boardId]);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update board' });
+    }
+});
+
+// Add update section endpoint
+app.put(BASE_PATH + '/api/boards/:boardId/sections/:sectionId', async (req, res) => {
+    try {
+        const { boardId, sectionId } = req.params;
+        const { name } = req.body;
+        
+        if (!name) {
+            return res.status(400).json({ error: 'Section name is required' });
+        }
+
+        const data = await readData();
+        if (!data.sections[sectionId] || data.sections[sectionId].boardId !== boardId) {
+            return res.status(404).json({ error: 'Section not found' });
+        }
+
+        // Update section name
+        data.sections[sectionId].name = name;
+        await writeData(data);
+        res.json(data.sections[sectionId]);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update section' });
+    }
+});
+
 app.listen(PORT, () => {
     debugLog('Server Configuration:', {
         port: PORT,
