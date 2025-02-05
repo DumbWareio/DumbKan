@@ -1135,6 +1135,7 @@ h2 {
 
 .modal-actions .btn-delete.confirm .button-text {
     transform: translateX(-8px);
+    color: #ff4444;
 }
 
 .modal-actions .actions-right {
@@ -1579,4 +1580,18 @@ h2 {
 
 .priority-badge:hover {
     transform: scale(1.1);
+}
+
+.inline-delete-btn.confirm {
+    color: #4CAF50 !important;
+}
+
+.inline-delete-btn.confirm ~ input.inline-edit[readonly] {
+    color: #ff4444 !important;
+}
+
+/* For task modal delete button */
+.modal-actions .btn-delete.confirm .button-text {
+    transform: translateX(-8px);
+    color: #ff4444 !important;
 }

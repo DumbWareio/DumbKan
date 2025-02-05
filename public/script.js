@@ -893,16 +893,107 @@ function makeEditable(element, onSave) {
             text = this.innerHTML.replace(/<br\s*\/?>/g, '\n').replace(/<[^>]*>/g, '').trim();
         }
         
-        const input = document.createElement(isDescription ? 'textarea' : 'input');
+        const editContainer = document.createElement('div');
+        editContainer.style.position = 'relative';
+        editContainer.style.width = '100%';
+        editContainer.style.display = 'flex';
+        editContainer.style.alignItems = 'center';
         
+        const input = document.createElement(isDescription ? 'textarea' : 'input');
         input.value = text;
         input.className = 'inline-edit';
-        input.style.width = isDescription ? '100%' : 'auto';
+        input.style.width = '100%';
+        input.style.paddingRight = '30px';
+        input.style.margin = '0';
+        input.style.lineHeight = 'inherit';
+        
+        // Adjust height based on context
+        if (element.closest('.task-title')) {
+            input.style.height = '28px'; // Slightly taller for task titles
+            editContainer.style.minHeight = '28px';
+            input.style.padding = '4px 30px 4px 8px';
+        } else {
+            input.style.height = isDescription ? 'auto' : '24px';
+            input.style.padding = '2px 30px 2px 8px';
+        }
+        
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'inline-delete-btn';
+        deleteBtn.innerHTML = '×';
+        deleteBtn.style.position = 'absolute';
+        deleteBtn.style.right = '8px';
+        deleteBtn.style.top = '50%';
+        deleteBtn.style.transform = 'translateY(-50%)';
+        deleteBtn.style.background = 'none';
+        deleteBtn.style.border = 'none';
+        deleteBtn.style.color = '#ff4444';
+        deleteBtn.style.fontSize = '18px';
+        deleteBtn.style.cursor = 'pointer';
+        deleteBtn.style.padding = '4px';
+        deleteBtn.style.display = isDescription ? 'none' : 'block';
+        deleteBtn.style.zIndex = '2';
+        deleteBtn.style.lineHeight = '1';
+        deleteBtn.style.height = '24px';
+        
+        let isConfirming = false;
+        const itemType = element.closest('.task') ? 'task' : 
+                        element.closest('.column-title') ? 'section' : 'board';
+        
+        deleteBtn.onclick = async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            if (!isConfirming) {
+                isConfirming = true;
+                input.value = `Delete ${itemType}`;
+                input.readOnly = true;
+                deleteBtn.innerHTML = '✓';
+                deleteBtn.style.color = '#4CAF50';
+            } else {
+                // Handle deletion based on type
+                try {
+                    let success = false;
+                    if (itemType === 'task') {
+                        const task = element.closest('.task');
+                        const taskId = task.dataset.taskId;
+                        const sectionId = task.closest('.tasks').dataset.sectionId;
+                        success = await deleteTask(taskId, sectionId);
+                    } else if (itemType === 'section') {
+                        const column = element.closest('.column');
+                        const sectionId = column.dataset.sectionId;
+                        success = await deleteSection(sectionId);
+                    } else if (itemType === 'board') {
+                        const boardId = element.closest('[data-board-id]').dataset.boardId;
+                        success = await deleteBoard(boardId);
+                    }
+                    
+                    if (success) {
+                        renderActiveBoard();
+                        if (itemType === 'board') {
+                            renderBoards();
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Failed to delete ${itemType}:`, error);
+                }
+            }
+        };
+        
+        editContainer.appendChild(input);
+        if (!isDescription) {
+            editContainer.appendChild(deleteBtn);
+        }
         
         // Add editing class to show background
         element.classList.add('editing');
         
         const saveEdit = async () => {
+            if (isConfirming) {
+                element.innerHTML = text;
+                element.classList.remove('editing');
+                return;
+            }
+            
             const newText = input.value.trim();
             if (newText !== text) {
                 const success = await onSave(newText);
@@ -927,7 +1018,25 @@ function makeEditable(element, onSave) {
             input.removeEventListener('blur', saveEdit);
         };
 
-        input.addEventListener('blur', saveEdit);
+        input.addEventListener('blur', (e) => {
+            // Don't save if clicking the delete button
+            if (e.relatedTarget !== deleteBtn) {
+                saveEdit();
+            }
+        });
+
+        // Replace the content with the input
+        element.textContent = '';
+        element.appendChild(editContainer);
+        input.focus();
+        if (!isDescription) {
+            // For title, put cursor at end instead of selecting all
+            input.setSelectionRange(input.value.length, input.value.length);
+        } else {
+            // For descriptions, put cursor at end
+            input.setSelectionRange(input.value.length, input.value.length);
+        }
+
         input.addEventListener('keydown', (e) => {
             if (!isDescription && e.key === 'Enter') {
                 e.preventDefault();
@@ -939,18 +1048,6 @@ function makeEditable(element, onSave) {
                 cancelEdit();
             }
         });
-
-        // Replace the content with the input
-        element.textContent = '';
-        element.appendChild(input);
-        input.focus();
-        if (!isDescription) {
-            // For title, put cursor at end instead of selecting all
-            input.setSelectionRange(input.value.length, input.value.length);
-        } else {
-            // For descriptions, put cursor at end
-            input.setSelectionRange(input.value.length, input.value.length);
-        }
     });
 }
 
@@ -1453,8 +1550,6 @@ function renderTask(task) {
 
 // Add the deleteTask function
 async function deleteTask(taskId, sectionId) {
-    if (!confirm('Are you sure you want to delete this task?')) return;
-    
     try {
         const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks/${taskId}`, {
             method: 'DELETE',
@@ -1477,11 +1572,14 @@ async function deleteTask(taskId, sectionId) {
             // Close modal and refresh board
             hideTaskModal();
             renderActiveBoard();
+            return true;
         } else {
             console.error('Failed to delete task:', response.statusText);
+            return false;
         }
     } catch (error) {
         console.error('Error deleting task:', error);
+        return false;
     }
 }
 
@@ -1527,5 +1625,90 @@ async function handleTaskMove(taskId, fromSectionId, toSectionId, newIndex) {
     } catch (error) {
         console.error('Failed to move task:', error);
         loadBoards(); // Reload the board state in case of error
+    }
+}
+
+// Add the deleteSection function
+async function deleteSection(sectionId) {
+    try {
+        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (response.ok) {
+            // Remove section from state
+            delete state.sections[sectionId];
+            
+            // Remove section from board's sectionOrder
+            const board = state.boards[state.activeBoard];
+            if (board) {
+                const sectionIndex = board.sectionOrder.indexOf(sectionId);
+                if (sectionIndex !== -1) {
+                    board.sectionOrder.splice(sectionIndex, 1);
+                }
+                
+                // Remove all tasks in this section
+                const section = state.sections[sectionId];
+                if (section && Array.isArray(section.taskIds)) {
+                    section.taskIds.forEach(taskId => {
+                        delete state.tasks[taskId];
+                    });
+                }
+            }
+            
+            return true;
+        } else {
+            console.error('Failed to delete section:', response.statusText);
+            return false;
+        }
+    } catch (error) {
+        console.error('Error deleting section:', error);
+        return false;
+    }
+}
+
+// Add the deleteBoard function
+async function deleteBoard(boardId) {
+    try {
+        const response = await fetch(`${window.appConfig.basePath}/api/boards/${boardId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (response.ok) {
+            // Remove all tasks and sections associated with this board
+            Object.entries(state.sections).forEach(([sectionId, section]) => {
+                if (section.boardId === boardId) {
+                    // Remove all tasks in this section
+                    section.taskIds.forEach(taskId => {
+                        delete state.tasks[taskId];
+                    });
+                    // Remove the section
+                    delete state.sections[sectionId];
+                }
+            });
+            
+            // Remove the board
+            delete state.boards[boardId];
+            
+            // If this was the active board, switch to another board
+            if (state.activeBoard === boardId) {
+                const remainingBoards = Object.keys(state.boards);
+                if (remainingBoards.length > 0) {
+                    state.activeBoard = remainingBoards[0];
+                } else {
+                    state.activeBoard = null;
+                }
+            }
+            
+            return true;
+        } else {
+            console.error('Failed to delete board:', response.statusText);
+            return false;
+        }
+    } catch (error) {
+        console.error('Error deleting board:', error);
+        return false;
     }
 }
