@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  dumbkan:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../:/app
+      - /app/node_modules
+      - ../data:/app/data
+    environment:
+      SITE_TITLE: DumbKan-Dev
+      DUMBKAN_PIN: 123456
+    restart: unless-stopped
