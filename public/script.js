@@ -135,11 +135,13 @@ function renderBoards() {
         if (!board) return;
         
         const li = document.createElement('li');
-        li.textContent = board.name || 'Unnamed Board';
+        const textSpan = document.createElement('span');
+        textSpan.textContent = board.name || 'Unnamed Board';
+        li.appendChild(textSpan);
         li.dataset.boardId = board.id;
         if (board.id === state.activeBoard) li.classList.add('active');
         
-        makeEditable(li, async (newName) => {
+        makeEditable(textSpan, async (newName) => {
             try {
                 const response = await fetch(`${window.appConfig.basePath}/api/boards/${board.id}`, {
                     method: 'PUT',
@@ -937,7 +939,8 @@ function makeEditable(element, onSave) {
         
         let isConfirming = false;
         const itemType = element.closest('.task') ? 'task' : 
-                        element.closest('.column-title') ? 'section' : 'board';
+                        element.closest('.column-title') ? 'section' :
+                        element.closest('li[data-board-id]') ? 'board' : 'board';
         
         deleteBtn.onclick = async (e) => {
             e.preventDefault();
@@ -963,8 +966,12 @@ function makeEditable(element, onSave) {
                         const sectionId = column.dataset.sectionId;
                         success = await deleteSection(sectionId);
                     } else if (itemType === 'board') {
-                        const boardId = element.closest('[data-board-id]').dataset.boardId;
-                        success = await deleteBoard(boardId);
+                        const boardElement = element.closest('li[data-board-id]');
+                        if (!boardElement) {
+                            console.error('Could not find valid board element');
+                            return;
+                        }
+                        success = await deleteBoard(boardElement.dataset.boardId);
                     }
                     
                     if (success) {

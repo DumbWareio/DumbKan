@@ -367,24 +367,26 @@ async function writeData(data) {
     await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
 }
 
-// Helper function to generate task ID
+// Simple ID generator
+function generateId() {
+    return Math.random().toString(36).slice(2, 11); // 9 chars
+}
+
+// Helper functions all use the same simple ID generator
 function generateTaskId() {
-    return `t${Date.now()}`;
+    return generateId();
 }
 
-// Helper function to generate section ID
 function generateSectionId() {
-    return `s${Date.now()}`;
+    return generateId();
 }
 
-// Helper function to generate board ID
 function generateBoardId() {
-    return `b${Date.now()}`;
+    return generateId();
 }
 
-// Helper function to generate unique section ID for a board
-function generateUniqueSectionId(boardId) {
-    return `s${Date.now()}`;
+function generateUniqueSectionId() {
+    return generateId();
 }
 
 // API Routes
@@ -421,7 +423,7 @@ app.post(BASE_PATH + '/api/boards', async (req, res) => {
         
         // Create unique sections for this board
         defaultSections.forEach(section => {
-            const sectionId = generateUniqueSectionId(boardId);
+            const sectionId = generateUniqueSectionId();
             sectionOrder.push(sectionId);
             
             data.sections[sectionId] = {
@@ -479,7 +481,7 @@ app.post(BASE_PATH + '/api/boards/:boardId/sections', async (req, res) => {
             return res.status(404).json({ error: 'Board not found' });
         }
 
-        const sectionId = generateUniqueSectionId(boardId);
+        const sectionId = generateUniqueSectionId();
         
         // Create new section
         data.sections[sectionId] = {
