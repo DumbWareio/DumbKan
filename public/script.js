@@ -36,9 +36,40 @@ async function loadBoards() {
             console.error('Configuration not loaded');
             return;
         }
-        const response = await fetch(window.appConfig.basePath + '/api/boards');
+
+        // Add cache-busting query parameter and no-cache headers
+        const response = await fetch(`${window.appConfig.basePath}/api/boards?_t=${Date.now()}`, {
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            if (errorData.offline) {
+                console.warn('Application is offline, using cached data if available');
+                // Continue with empty state but don't show error
+                state = {
+                    boards: {},
+                    sections: {},
+                    tasks: {},
+                    activeBoard: null
+                };
+                renderBoards();
+                return;
+            }
+            throw new Error(`Failed to load boards: ${response.status} - ${errorData.error || response.statusText}`);
+        }
+
         const data = await response.json();
         
+        // Validate the data structure
+        if (!data || typeof data !== 'object') {
+            throw new Error('Invalid data structure received');
+        }
+
         // Initialize state with empty objects if they don't exist
         state = {
             boards: data.boards || {},
@@ -47,8 +78,29 @@ async function loadBoards() {
             activeBoard: data.activeBoard || null
         };
         
-        renderBoards();
-        renderActiveBoard();
+        // Ensure we have a valid active board
+        if (!state.activeBoard || !state.boards[state.activeBoard]) {
+            const firstBoard = Object.keys(state.boards)[0];
+            if (firstBoard) {
+                state.activeBoard = firstBoard;
+            }
+        }
+
+        // Only render if we have valid data
+        if (Object.keys(state.boards).length > 0) {
+            renderBoards();
+            renderActiveBoard();
+        } else {
+            console.warn('No boards found in the loaded data');
+            // Initialize empty state but still render to show empty state
+            state = {
+                boards: {},
+                sections: {},
+                tasks: {},
+                activeBoard: null
+            };
+            renderBoards();
+        }
     } catch (error) {
         console.error('Failed to load boards:', error);
         // Initialize empty state on error
@@ -58,6 +110,18 @@ async function loadBoards() {
             tasks: {},
             activeBoard: null
         };
+        
+        // Show offline message if appropriate
+        if (!navigator.onLine) {
+            console.warn('Browser is offline, using empty state');
+        }
+        
+        renderBoards();
+        
+        // Update UI to show error state
+        if (elements.currentBoard) {
+            elements.currentBoard.textContent = navigator.onLine ? 'Error Loading Boards' : 'Offline';
+        }
     }
 }
 
@@ -149,12 +213,56 @@ function showTaskModal(task) {
     elements.taskDescription.value = isNewTask ? '' : (task.description || '');
     elements.taskForm.dataset.taskId = task.id || '';
     elements.taskForm.dataset.sectionId = task.sectionId;
+    
+    // Show/hide delete button based on whether it's a new task
+    const deleteBtn = elements.taskModal.querySelector('.btn-delete');
+    if (deleteBtn) {
+        deleteBtn.hidden = isNewTask;
+        deleteBtn.classList.remove('confirm');
+        // Update button content to include check icon
+        deleteBtn.innerHTML = `
+            <span class="button-text">Delete Task</span>
+            <svg class="confirm-check" viewBox="0 0 24 24">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+        `;
+        let confirmTimeout;
+        deleteBtn.onclick = isNewTask ? null : (e) => {
+            if (!deleteBtn.classList.contains('confirm')) {
+                e.preventDefault();
+                deleteBtn.classList.add('confirm');
+                deleteBtn.querySelector('.button-text').textContent = 'You Sure?';
+                // Reset confirmation state after 3 seconds
+                confirmTimeout = setTimeout(() => {
+                    deleteBtn.classList.remove('confirm');
+                    deleteBtn.querySelector('.button-text').textContent = 'Delete Task';
+                }, 3000);
+            } else {
+                clearTimeout(confirmTimeout);
+                deleteBtn.classList.remove('confirm');
+                deleteTask(task.id, task.sectionId);
+            }
+        };
+        // Reset confirmation state when modal is closed
+        const resetConfirmation = () => {
+            clearTimeout(confirmTimeout);
+            deleteBtn.classList.remove('confirm');
+            deleteBtn.querySelector('.button-text').textContent = 'Delete Task';
+        };
+        elements.taskModal.querySelector('.modal-close').addEventListener('click', resetConfirmation);
+        elements.taskForm.addEventListener('submit', resetConfirmation);
+    }
+    
     elements.taskModal.hidden = false;
     elements.taskTitle.focus();
 }
 
 function hideTaskModal() {
     if (!elements.taskModal) return;
+    const deleteBtn = elements.taskModal.querySelector('.btn-delete');
+    if (deleteBtn) {
+        deleteBtn.classList.remove('confirm');
+    }
     elements.taskModal.hidden = true;
     elements.taskForm.reset();
     delete elements.taskForm.dataset.taskId;
@@ -356,9 +464,27 @@ async function handleDrop(e) {
 
 // Rendering
 function renderActiveBoard() {
-    const board = state.boards?.[state.activeBoard];
+    // Early validation of board existence
+    if (!state.activeBoard || !state.boards) {
+        console.warn('No active board or boards state available');
+        if (elements.currentBoard) {
+            elements.currentBoard.textContent = 'No Board Selected';
+        }
+        if (elements.columns) {
+            elements.columns.innerHTML = '';
+        }
+        return;
+    }
+
+    const board = state.boards[state.activeBoard];
     if (!board) {
-        console.log('No active board to render');
+        console.warn('Active board not found in boards state');
+        if (elements.currentBoard) {
+            elements.currentBoard.textContent = 'Board Not Found';
+        }
+        if (elements.columns) {
+            elements.columns.innerHTML = '';
+        }
         return;
     }
 
@@ -367,16 +493,31 @@ function renderActiveBoard() {
         return;
     }
 
+    // Update board name
     elements.currentBoard.textContent = board.name || 'Unnamed Board';
     elements.columns.innerHTML = '';
 
     // Ensure sectionOrder exists and is an array
-    const sectionOrder = Array.isArray(board.sectionOrder) ? board.sectionOrder : [];
+    if (!board.sectionOrder || !Array.isArray(board.sectionOrder)) {
+        console.warn(`Invalid or missing sectionOrder for board: ${board.id}`);
+        board.sectionOrder = [];
+    }
     
-    sectionOrder.forEach(sectionId => {
+    // Render sections
+    board.sectionOrder.forEach(sectionId => {
+        if (!sectionId) {
+            console.warn('Null or undefined section ID found in sectionOrder');
+            return;
+        }
+        
         const section = state.sections?.[sectionId];
-        if (section) {
-            const columnEl = renderColumn(section);
+        if (!section) {
+            console.warn(`Section ${sectionId} not found in state`);
+            return;
+        }
+
+        const columnEl = renderColumn(section);
+        if (columnEl) {
             elements.columns.appendChild(columnEl);
         }
     });
@@ -471,7 +612,8 @@ async function init() {
         taskForm: document.getElementById('taskForm'),
         taskTitle: document.getElementById('taskTitle'),
         taskDescription: document.getElementById('taskDescription'),
-        boardContainer: document.querySelector('.board-container')
+        boardContainer: document.querySelector('.board-container'),
+        deleteTaskBtn: document.querySelector('.btn-delete')
     };
 
     // Check required elements
@@ -490,7 +632,27 @@ async function init() {
     
     initTheme();
     initEventListeners();
-    await loadBoards();
+
+    // Add retry logic for loading boards
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    async function loadBoardsWithRetry() {
+        try {
+            await loadBoards();
+        } catch (error) {
+            console.error(`Failed to load boards (attempt ${retryCount + 1}/${maxRetries}):`, error);
+            if (retryCount < maxRetries) {
+                retryCount++;
+                // Exponential backoff
+                const delay = Math.min(1000 * Math.pow(2, retryCount), 5000);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                await loadBoardsWithRetry();
+            }
+        }
+    }
+
+    await loadBoardsWithRetry();
 }
 
 // Add this before initLogin function
@@ -939,4 +1101,38 @@ function renderTask(task) {
     });
 
     return taskElement;
+}
+
+// Add the deleteTask function
+async function deleteTask(taskId, sectionId) {
+    if (!confirm('Are you sure you want to delete this task?')) return;
+    
+    try {
+        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks/${taskId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (response.ok) {
+            // Remove task from state
+            delete state.tasks[taskId];
+            
+            // Remove task from section's taskIds
+            const section = state.sections[sectionId];
+            if (section) {
+                const taskIndex = section.taskIds.indexOf(taskId);
+                if (taskIndex !== -1) {
+                    section.taskIds.splice(taskIndex, 1);
+                }
+            }
+            
+            // Close modal and refresh board
+            hideTaskModal();
+            renderActiveBoard();
+        } else {
+            console.error('Failed to delete task:', response.statusText);
+        }
+    } catch (error) {
+        console.error('Error deleting task:', error);
+    }
 }

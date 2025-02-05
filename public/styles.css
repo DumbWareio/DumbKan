@@ -951,6 +951,7 @@ h2 {
 }
 
 .modal-actions .btn-delete {
+    position: relative;
     background: #ff4444;
     color: white;
     border: none;
@@ -959,10 +960,47 @@ h2 {
     font-weight: 500;
     border-radius: 8px;
     transition: all var(--transition);
+    overflow: hidden;
+    cursor: pointer;
 }
 
 .modal-actions .btn-delete:hover {
     background: #ff1111;
+}
+
+.modal-actions .btn-delete.confirm {
+    background: #d32f2f;
+}
+
+.modal-actions .btn-delete .confirm-check {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%) translateX(200%);
+    transition: transform var(--transition);
+    width: 16px;
+    height: 16px;
+    stroke: white;
+    stroke-width: 3;
+    fill: none;
+    opacity: 0;
+    visibility: hidden;
+}
+
+.modal-actions .btn-delete.confirm .confirm-check {
+    transform: translateY(-50%) translateX(0);
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal-actions .btn-delete .button-text {
+    display: inline-block;
+    transform: translateX(0);
+    transition: transform var(--transition);
+}
+
+.modal-actions .btn-delete.confirm .button-text {
+    transform: translateX(-8px);
 }
 
 .modal-actions .actions-right {
