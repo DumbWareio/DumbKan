@@ -703,6 +703,91 @@ h2 {
     transition: all var(--transition);
 }
 
+/* Markdown styles */
+.task-description h1, 
+.task-description h2, 
+.task-description h3, 
+.task-description h4, 
+.task-description h5, 
+.task-description h6 {
+    margin: 0.5em 0;
+    color: var(--text);
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.task-description h1 { font-size: 1.4em; }
+.task-description h2 { font-size: 1.3em; }
+.task-description h3 { font-size: 1.2em; }
+.task-description h4 { font-size: 1.1em; }
+.task-description h5, 
+.task-description h6 { font-size: 1em; }
+
+.task-description p {
+    margin: 0.5em 0;
+}
+
+.task-description ul,
+.task-description ol {
+    margin: 0.5em 0;
+    padding-left: 1.5em;
+}
+
+.task-description li {
+    margin: 0.25em 0;
+}
+
+.task-description code {
+    background: var(--background);
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-size: 0.9em;
+    font-family: monospace;
+}
+
+.task-description pre {
+    background: var(--background);
+    padding: 0.75em;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 0.5em 0;
+}
+
+.task-description pre code {
+    background: none;
+    padding: 0;
+}
+
+.task-description blockquote {
+    margin: 0.5em 0;
+    padding-left: 1em;
+    border-left: 3px solid var(--border);
+    color: var(--text-secondary);
+}
+
+.task-description hr {
+    margin: 0.75em 0;
+    border: none;
+    border-top: 1px solid var(--border);
+}
+
+.task-description table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 0.5em 0;
+}
+
+.task-description th,
+.task-description td {
+    border: 1px solid var(--border);
+    padding: 0.4em 0.6em;
+    text-align: left;
+}
+
+.task-description th {
+    background: var(--background);
+}
+
 .task-description.editing {
     background: var(--background);
 }

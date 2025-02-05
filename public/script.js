@@ -882,8 +882,17 @@ function makeEditable(element, onSave) {
         if (e.target.closest('.task-move')) return; // Don't trigger edit on move button click
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return; // Don't trigger if already editing
         
-        const text = this.innerHTML.replace(/<br\s*\/?>/g, '\n').replace(/<[^>]*>/g, '').trim();
         const isDescription = this.classList.contains('task-description');
+        let text;
+        if (isDescription) {
+            // For descriptions, get the original markdown text from the task data
+            const taskId = this.closest('.task').dataset.taskId;
+            text = state.tasks[taskId]?.description || '';
+        } else {
+            // For other elements, get the text content
+            text = this.innerHTML.replace(/<br\s*\/?>/g, '\n').replace(/<[^>]*>/g, '').trim();
+        }
+        
         const input = document.createElement(isDescription ? 'textarea' : 'input');
         
         input.value = text;
@@ -901,7 +910,7 @@ function makeEditable(element, onSave) {
                     if (isDescription && !newText) {
                         renderActiveBoard(); // Re-render to show the arrow hook
                     } else {
-                    element.innerHTML = isDescription ? linkify(newText) : newText;
+                        element.innerHTML = isDescription ? linkify(newText) : newText;
                     }
                 } else {
                     element.innerHTML = isDescription ? linkify(text) : text;
@@ -948,12 +957,13 @@ function makeEditable(element, onSave) {
 // Helper function to convert URLs in text to clickable links and include line breaks
 function linkify(text) {
   if (!text) return '';
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  return text
-    .replace(urlRegex, function(url) {
-      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
-    })
-    .replace(/\n/g, '<br>');
+  // First parse markdown
+  const htmlContent = marked.parse(text, { breaks: true });
+  // Then make URLs clickable if they aren't already
+  const urlRegex = /(?<!["'])(https?:\/\/[^\s<]+)(?![^<]*>|[^<>]*<\/a>)/g;
+  return htmlContent.replace(urlRegex, function(url) {
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+  });
 }
 
 function getPrioritySymbol(priority) {

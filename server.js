@@ -180,6 +180,7 @@ app.use(BASE_PATH + '/sw.js', express.static('public/sw.js'));
 app.use(BASE_PATH + '/icons', express.static('public/icons'));
 app.use(BASE_PATH + '/logo.png', express.static('public/logo.png'));
 app.use(BASE_PATH + '/favicon.svg', express.static('public/favicon.svg'));
+app.use(BASE_PATH + '/marked.min.js', express.static('public/marked.min.js'));
 
 // Routes
 app.get(BASE_PATH + '/', authMiddleware, async (req, res, next) => {
