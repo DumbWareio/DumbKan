@@ -471,6 +471,7 @@ h2 {
     transition: transform 0.2s ease, border 0.2s ease;
     width: 300px;
     cursor: grab;
+    z-index: 1;
 }
 
 .column-header {
@@ -486,6 +487,8 @@ h2 {
     border-bottom: 1px solid var(--border);
     border-radius: 8px 8px 0 0;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    position: relative;
+    z-index: 2;
 }
 
 .column-header.dragging {
@@ -546,10 +549,11 @@ h2 {
     position: relative;
     display: flex;
     gap: 8px;
+    z-index: 3;
 }
 
 .task:hover {
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 4;
 }
 
 .task.dragging {
@@ -571,6 +575,39 @@ h2 {
     color: var(--text-color);
     word-break: break-word;
     flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    z-index: 1001;
+}
+
+.task-title .priority-badge {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+}
+
+.title-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0.25rem 0.5rem;
+    margin: -0.25rem 0;
+    border-radius: 4px;
+    transition: background-color var(--transition);
+    position: relative;
+}
+
+.title-text:hover {
+    background-color: rgba(128, 128, 128, 0.1);
+}
+
+.title-text.editing {
+    background-color: rgba(128, 128, 128, 0.1);
 }
 
 .task-content-wrapper {
@@ -600,15 +637,23 @@ h2 {
 .priority-badge {
     background-color: var(--priority-bg);
     color: var(--priority-text);
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 14px;
+    font-size: 12px;
     font-weight: bold;
     border-radius: 50%;
+    cursor: pointer;
+    position: relative;
+    z-index: 1005;
+    transition: transform 0.2s ease;
+}
+
+.priority-badge:hover {
+    transform: scale(1.1);
 }
 
 .priority-badge.urgent {
@@ -695,7 +740,7 @@ h2 {
 
 /* Only show hover effect when editing */
 .task-title.editing {
-    background-color: rgba(128, 128, 128, 0.1);
+    background-color: transparent;
 }
 
 .task-description.has-description {
@@ -1085,9 +1130,15 @@ h2 {
 
 .task-title .inline-edit {
     font-weight: 500;
-    width: auto;
+    width: 100%;
     min-width: 50px;
-    margin: -0.25rem -0.5rem;
+    margin: -0.25rem 0;
+    padding: 0.25rem 0.5rem;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
 }
 
 .column-title, .task-title, .task-description {
@@ -1098,8 +1149,24 @@ h2 {
     transition: background-color var(--transition);
 }
 
-.column-title:hover, .task-title:hover, .task-description:hover {
+/* Remove hover effect from column-title and task-title */
+.column-title:hover, .task-description:hover {
     background-color: rgba(128, 128, 128, 0.1);
+}
+
+/* Keep hover effect only on title-text */
+.title-text:hover {
+    background-color: rgba(128, 128, 128, 0.1);
+}
+
+/* Remove hover highlight from task title */
+.task-title:hover {
+    background-color: transparent;
+}
+
+/* Only show hover effect when editing */
+.task-title.editing {
+    background-color: transparent;
 }
 
 /* Column delete button */
@@ -1195,21 +1262,38 @@ h2 {
 
 /* Description hook styles */
 .description-hook {
-    display: inline-block;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 24px;
+    width: 100%;
+    background: var(--background);
+    border: 1px dashed var(--border);
+    border-radius: 4px;
     cursor: pointer;
-    padding: 0 4px;
-    margin: 0;
+    color: var(--text);
     opacity: 0.6;
+    margin: 8px 0 0 0;
+    padding: 4px;
     transition: all var(--transition);
     user-select: none;
 }
 
+.description-hook svg {
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    width: 14px;
+    height: 14px;
+}
+
 .description-hook:hover {
     opacity: 1;
+    border-color: var(--primary);
     color: var(--primary);
-    transform: translateY(2px);
+    background: rgba(33, 150, 243, 0.1);
 }
 
 .task-description.has-description {
@@ -1217,7 +1301,6 @@ h2 {
     background: var(--container);
     border-radius: 4px;
     cursor: text;
-    white-space: pre-wrap;
 }
 
 .task-description .inline-edit {
@@ -1337,4 +1420,78 @@ h2 {
 
 .column.dragging .column-drag-handle {
     cursor: grabbing;
+}
+
+/* Priority Selection Tray */
+.priority-tray {
+    position: absolute;
+    left: calc(100% + 4px);
+    top: 50%;
+    transform: translateY(-50%) scaleX(0);
+    background: var(--container);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    padding: 4px;
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+    z-index: 1005;
+    opacity: 0;
+    transform-origin: left;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+    pointer-events: none;
+}
+
+.priority-tray.active {
+    transform: translateY(-50%) scaleX(1);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.priority-option {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.priority-option:hover {
+    transform: scale(1.1);
+}
+
+.priority-option.urgent {
+    background-color: var(--priority-urgent-bg);
+    color: var(--priority-urgent-text);
+}
+
+.priority-option.high {
+    background-color: var(--priority-high-bg);
+    color: var(--priority-high-text);
+}
+
+.priority-option.medium {
+    background-color: var(--priority-medium-bg);
+    color: var(--priority-medium-text);
+}
+
+.priority-option.low {
+    background-color: var(--priority-low-bg);
+    color: var(--priority-low-text);
+}
+
+/* Update priority badge to show it's clickable */
+.priority-badge {
+    cursor: pointer;
+    position: relative;
+}
+
+.priority-badge:hover {
+    transform: scale(1.1);
 }

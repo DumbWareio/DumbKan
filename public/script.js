@@ -270,7 +270,7 @@ function showTaskModal(task) {
             } else {
                 clearTimeout(confirmTimeout);
                 deleteBtn.classList.remove('confirm');
-                deleteTask(task.id, task.sectionId);
+                deleteBtn.querySelector('.button-text').textContent = 'Delete Task';
             }
         };
         // Reset confirmation state when modal is closed
@@ -338,9 +338,9 @@ function handleDragStart(e) {
     const columnHeader = e.target.closest('.column-header');
     
     if (task && !columnHeader) {
-        task.classList.add('dragging');
-        e.dataTransfer.setData('application/json', JSON.stringify({
-            taskId: task.dataset.taskId,
+    task.classList.add('dragging');
+    e.dataTransfer.setData('application/json', JSON.stringify({
+        taskId: task.dataset.taskId,
             sourceSectionId: task.closest('.column').dataset.sectionId,
             type: 'task'
         }));
@@ -372,44 +372,36 @@ function handleDragOver(e) {
     
     const column = e.target.closest('.column');
     if (!column) return;
+    
+    const draggingTask = document.querySelector('.task.dragging');
+    if (draggingTask) {
+        column.classList.add('drag-over');
+        const tasksContainer = column.querySelector('.tasks');
+        if (!tasksContainer) return;
 
-    try {
-        const dragData = JSON.parse(e.dataTransfer.getData('application/json'));
+        const siblings = [...tasksContainer.querySelectorAll('.task:not(.dragging)')];
+        const nextSibling = siblings.find(sibling => {
+            const rect = sibling.getBoundingClientRect();
+            return e.clientY < rect.top + rect.height / 2;
+        });
         
-        if (dragData.type === 'task') {
-            column.classList.add('drag-over');
-            const tasksContainer = column.querySelector('.tasks');
-            if (!tasksContainer) return;
-
-            const draggingTask = document.querySelector('.task.dragging');
-            if (!draggingTask) return;
-
-            const siblings = [...tasksContainer.querySelectorAll('.task:not(.dragging)')];
-            const nextSibling = siblings.find(sibling => {
-                const rect = sibling.getBoundingClientRect();
-                return e.clientY < rect.top + rect.height / 2;
-            });
-
-            if (nextSibling) {
-                tasksContainer.insertBefore(draggingTask, nextSibling);
-            } else {
-                tasksContainer.appendChild(draggingTask);
-            }
-        } else if (dragData.type === 'section') {
+        if (nextSibling) {
+            tasksContainer.insertBefore(draggingTask, nextSibling);
+        } else {
+            tasksContainer.appendChild(draggingTask);
+        }
+    } else {
+        const draggingColumn = document.querySelector('.column.dragging');
+        if (draggingColumn) {
             const columns = [...document.querySelectorAll('.column:not(.dragging)')];
             const afterElement = getDragAfterElement(columns, e.clientX);
-            const draggingColumn = document.querySelector('.column.dragging');
             
-            if (draggingColumn) {
-                if (afterElement) {
-                    column.parentNode.insertBefore(draggingColumn, afterElement);
-                } else {
-                    column.parentNode.appendChild(draggingColumn);
-                }
+            if (afterElement) {
+                column.parentNode.insertBefore(draggingColumn, afterElement);
+            } else {
+                column.parentNode.appendChild(draggingColumn);
             }
         }
-    } catch (error) {
-        // Ignore getData errors during dragover
     }
 }
 
@@ -417,9 +409,9 @@ async function handleDrop(e) {
     e.preventDefault();
     const column = e.target.closest('.column');
     if (!column) return;
-
+    
     column.classList.remove('drag-over');
-
+    
     try {
         const data = JSON.parse(e.dataTransfer.getData('application/json'));
         
@@ -428,10 +420,10 @@ async function handleDrop(e) {
             const targetSectionId = column.dataset.sectionId;
             const tasksContainer = column.querySelector('.tasks');
             if (!tasksContainer) return;
-
-            const task = document.querySelector(`[data-task-id="${taskId}"]`);
-            if (!task) return;
-
+        
+        const task = document.querySelector(`[data-task-id="${taskId}"]`);
+        if (!task) return;
+        
             const siblings = [...tasksContainer.querySelectorAll('.task')];
             const newIndex = siblings.indexOf(task);
 
@@ -462,8 +454,8 @@ function renderActiveBoard() {
         if (elements.columns) {
             elements.columns.innerHTML = '';
         }
-        return;
-    }
+            return;
+        }
 
     const board = state.boards[state.activeBoard];
     if (!board) {
@@ -474,14 +466,14 @@ function renderActiveBoard() {
         if (elements.columns) {
             elements.columns.innerHTML = '';
         }
-        return;
-    }
+            return;
+        }
 
     if (!elements.currentBoard || !elements.columns) {
         console.error('Required DOM elements not found');
-        return;
-    }
-
+                return;
+            }
+            
     // Update board name and make it editable
     elements.currentBoard.textContent = board.name || 'Unnamed Board';
     makeEditable(elements.currentBoard, async (newName) => {
@@ -499,7 +491,7 @@ function renderActiveBoard() {
                 return true;
             }
             return false;
-        } catch (error) {
+    } catch (error) {
             console.error('Failed to update board name:', error);
             return false;
         }
@@ -903,11 +895,14 @@ function makeEditable(element, onSave) {
         
         const saveEdit = async () => {
             const newText = input.value.trim();
-            if (newText && newText !== text) {
+            if (newText !== text) {
                 const success = await onSave(newText);
                 if (success) {
+                    if (isDescription && !newText) {
+                        renderActiveBoard(); // Re-render to show the arrow hook
+                    } else {
                     element.innerHTML = isDescription ? linkify(newText) : newText;
-                    renderActiveBoard();
+                    }
                 } else {
                     element.innerHTML = isDescription ? linkify(text) : text;
                 }
@@ -1004,11 +999,11 @@ function handleSectionDragStart(e) {
     if (!column) return;
     
     column.classList.add('dragging');
-    e.dataTransfer.setData('application/json', JSON.stringify({
+        e.dataTransfer.setData('application/json', JSON.stringify({
         sectionId: column.dataset.sectionId,
         type: 'section'
-    }));
-    e.dataTransfer.effectAllowed = 'move';
+        }));
+        e.dataTransfer.effectAllowed = 'move';
 }
 
 function handleSectionDragOver(e) {
@@ -1054,7 +1049,7 @@ async function handleSectionDrop(e) {
         if (newIndex !== -1) {
             await handleSectionMove(sectionId, newIndex);
                     }
-                } catch (error) {
+        } catch (error) {
         console.error('Error handling section drop:', error);
         loadBoards();
     }
@@ -1087,23 +1082,23 @@ function renderColumn(section) {
     makeEditable(columnTitle, async (newName) => {
         try {
             const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${section.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: newName })
-            });
-            
-            if (response.ok) {
+                });
+                
+                if (response.ok) {
                 const updatedSection = await response.json();
                 state.sections[section.id] = updatedSection;
-                return true;
-            }
-            return false;
-        } catch (error) {
+                    return true;
+                }
+                return false;
+            } catch (error) {
             console.error('Failed to update section name:', error);
-            return false;
-        }
-    });
-
+                return false;
+            }
+        });
+        
     headerEl.innerHTML = `
         <div class="column-count">${taskCount}</div>
         <div class="column-drag-handle">
@@ -1194,8 +1189,85 @@ function renderTask(task) {
     
     const taskTitle = document.createElement('h3');
     taskTitle.className = 'task-title';
-    taskTitle.textContent = task.title || 'Untitled Task';
-    makeEditable(taskTitle, async (newTitle) => {
+    
+    // Create priority tray
+    const priorityTray = document.createElement('div');
+    priorityTray.className = 'priority-tray';
+    
+    const priorities = [
+        { name: 'low', symbol: '↓' },
+        { name: 'medium', symbol: '⇈' },
+        { name: 'high', symbol: '↑' },
+        { name: 'urgent', symbol: '!' }
+    ];
+    
+    priorities.forEach(priority => {
+        const option = document.createElement('div');
+        option.className = `priority-option ${priority.name}`;
+        option.textContent = priority.symbol;
+        option.setAttribute('title', priority.name.charAt(0).toUpperCase() + priority.name.slice(1));
+        option.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            try {
+                const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ priority: priority.name })
+                });
+
+                if (response.ok) {
+                    const updatedTask = await response.json();
+                    state.tasks[task.id] = updatedTask;
+                    renderActiveBoard();
+                }
+            } catch (error) {
+                console.error('Failed to update task priority:', error);
+            }
+            priorityTray.classList.remove('active');
+        });
+        priorityTray.appendChild(option);
+    });
+    
+    const priorityBadge = document.createElement('span');
+    priorityBadge.className = `badge priority-badge ${task.priority}`;
+    priorityBadge.setAttribute('title', task.priority.charAt(0).toUpperCase() + task.priority.slice(1));
+    priorityBadge.textContent = getPrioritySymbol(task.priority);
+    
+    priorityBadge.appendChild(priorityTray);
+    
+    // Handle priority badge click
+    priorityBadge.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const allTrays = document.querySelectorAll('.priority-tray');
+        allTrays.forEach(tray => {
+            if (tray !== priorityTray) {
+                tray.classList.remove('active');
+            }
+        });
+        priorityTray.classList.toggle('active');
+    });
+    
+    // Close tray when clicking outside or pressing Escape
+    document.addEventListener('click', (e) => {
+        if (!priorityBadge.contains(e.target)) {
+            priorityTray.classList.remove('active');
+        }
+    });
+    
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            priorityTray.classList.remove('active');
+        }
+    });
+    
+    const titleText = document.createElement('span');
+    titleText.className = 'title-text';
+    titleText.textContent = task.title || 'Untitled Task';
+    
+    taskTitle.appendChild(priorityBadge);
+    taskTitle.appendChild(titleText);
+    
+    makeEditable(titleText, async (newTitle) => {
         try {
             const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
                 method: 'PUT',
@@ -1216,17 +1288,9 @@ function renderTask(task) {
     });
     taskHeader.appendChild(taskTitle);
 
-    // Add metadata badges to header if they exist
+    // Create badges container without priority badge
     const metadataBadges = document.createElement('div');
     metadataBadges.className = 'task-badges';
-
-    if (task.priority) {
-        const priorityBadge = document.createElement('span');
-        priorityBadge.className = `badge priority-badge ${task.priority}`;
-        priorityBadge.setAttribute('title', task.priority.charAt(0).toUpperCase() + task.priority.slice(1));
-        priorityBadge.textContent = getPrioritySymbol(task.priority);
-        metadataBadges.appendChild(priorityBadge);
-    }
 
     if (task.assignee) {
         const assigneeBadge = document.createElement('span');
@@ -1258,6 +1322,9 @@ function renderTask(task) {
                 if (response.ok) {
                     const updatedTask = await response.json();
                     state.tasks[task.id] = updatedTask;
+                    if (!newDescription) {
+                        renderActiveBoard(); // Re-render to show the arrow hook
+                    }
                     return true;
                 }
                 return false;
@@ -1270,7 +1337,12 @@ function renderTask(task) {
     } else {
         const arrowHook = document.createElement('span');
         arrowHook.className = 'description-hook';
-        arrowHook.textContent = '▼';
+        arrowHook.innerHTML = `
+            <svg viewBox="0 0 24 24" width="12" height="12">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+    `;
         arrowHook.addEventListener('click', (e) => {
             e.stopPropagation(); // Prevent task modal from opening
             const taskDescription = document.createElement('div');
@@ -1281,22 +1353,19 @@ function renderTask(task) {
             
             const saveDescription = async () => {
                 const newDescription = textarea.value.trim();
-                if (newDescription) {
-                    try {
-                        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ description: newDescription })
-                        });
-                        
-                        if (response.ok) {
-                            const updatedTask = await response.json();
-                            state.tasks[task.id] = updatedTask;
-                            renderActiveBoard();
-                        }
-                    } catch (error) {
-                        console.error('Failed to add task description:', error);
-                    }
+                try {
+                    const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
+                        method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ description: newDescription })
+            });
+            
+            if (response.ok) {
+                        const updatedTask = await response.json();
+                        state.tasks[task.id] = updatedTask;
+            }
+        } catch (error) {
+                    console.error('Failed to add task description:', error);
                 }
                 renderActiveBoard();
             };
