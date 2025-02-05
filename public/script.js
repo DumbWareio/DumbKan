@@ -679,6 +679,22 @@ async function init() {
     }
 
     await loadBoardsWithRetry();
+
+    // Handle credit visibility on scroll
+    function handleCreditVisibility() {
+        const credit = document.querySelector('.dumbware-credit');
+        if (!credit) return;
+
+        const isAtBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 10;
+        credit.classList.toggle('visible', isAtBottom);
+    }
+
+    // Add scroll event listener
+    window.addEventListener('scroll', handleCreditVisibility, { passive: true });
+    window.addEventListener('resize', handleCreditVisibility, { passive: true });
+
+    // Initial check
+    handleCreditVisibility();
 }
 
 // Add this before initLogin function

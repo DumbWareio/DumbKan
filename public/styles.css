@@ -239,15 +239,26 @@ h2 {
 /* Credit styling */
 .dumbware-credit {
     position: fixed;
-    bottom: 4px;
+    bottom: 0;
+    left: 0;
     width: 100%;
     text-align: center;
     font-size: 0.75em;
-    opacity: 0.5;
+    opacity: 0;
     padding: 8px;
+    background: var(--background);
     z-index: 100;
     pointer-events: none;
     margin: 0;
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    transform: translateY(100%);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.dumbware-credit.visible {
+    opacity: 0.5;
+    transform: translateY(0);
 }
 
 .dumbware-credit a {
@@ -296,17 +307,31 @@ h2 {
 /* Board Header */
 .board-header {
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    align-items: flex-start;
-    padding: 1rem;
+    margin-bottom: 2rem;
+    gap: 1rem;
+    flex-wrap: wrap;
     position: relative;
-    margin: -3rem -1.5rem 2rem;
+    padding: 0.5rem;
+}
+
+.app-title {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--text);
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
 }
 
 .board-selector {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    flex: 1;
+    justify-content: flex-start;
 }
 
 .board-selector h1 {
@@ -340,18 +365,6 @@ h2 {
     stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
-}
-
-.app-title {
-    font-size: 1.75rem;
-    font-weight: 600;
-    color: var(--text);
-    user-select: none;
-    margin: 0;
-    padding: 0;
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
 }
 
 /* Board Menu */
@@ -1618,4 +1631,215 @@ h2 {
 
 .task-inline-input:focus {
     border-color: var(--accent-color);
+}
+
+@media (max-width: 768px) {
+    .board-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .app-title {
+        position: static;
+        width: 100%;
+        font-size: 1.2rem;
+        order: 1;
+        transform: none;
+        padding-right: 2.5rem;
+    }
+
+    .board-selector {
+        width: 100%;
+        order: 2;
+        justify-content: flex-start;
+    }
+
+    .board-selector h1 {
+        font-size: 1.1rem;
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    #themeToggle {
+        position: absolute;
+        top: 0.75rem;
+        right: 0.75rem;
+    }
+
+    /* Board container adjustments */
+    .board-container {
+        margin: 0 -0.5rem;
+        padding: 0.5rem;
+    }
+
+    .columns {
+        gap: 0.75rem;
+        padding: 0.2rem 0.5rem;
+    }
+
+    .column {
+        flex: 0 0 280px;
+        width: 280px;
+    }
+
+    /* Task card adjustments */
+    .task {
+        padding: 8px;
+        margin-bottom: 6px;
+    }
+
+    .task-title {
+        font-size: 0.95rem;
+    }
+
+    .task-description {
+        font-size: 0.85rem;
+    }
+
+    .task-badges {
+        gap: 3px;
+    }
+
+    .badge {
+        padding: 1px 4px;
+        font-size: 0.7rem;
+    }
+
+    /* Modal adjustments */
+    .modal-content {
+        padding: 1.5rem;
+        width: 95%;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .modal h2 {
+        font-size: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .modal-actions {
+        position: sticky;
+        bottom: 0;
+        background: var(--container);
+        padding-top: 1rem;
+        margin-top: 1rem;
+        border-top: 1px solid var(--border);
+    }
+
+    /* Interactive elements */
+    .btn-primary,
+    .btn-secondary {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.9rem;
+        min-height: 40px;
+    }
+
+    .column-header {
+        padding: 0.5rem;
+    }
+
+    .add-column-btn {
+        flex: 0 0 50px;
+    }
+
+    .task-move {
+        width: 20px;
+        margin: -8px -8px -8px 0;
+    }
+
+    .dumbware-credit {
+        font-size: 0.7em;
+        padding: 6px;
+    }
+
+    /* Ensure content doesn't get hidden behind the credit */
+    .container {
+        margin-bottom: calc(2rem + 24px);
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 1.5rem 0.75rem 1rem;
+        margin: 0.5rem;
+        width: calc(100% - 1rem);
+    }
+
+    .board-header {
+        margin-bottom: 1rem;
+    }
+
+    .column {
+        flex: 0 0 260px;
+        width: 260px;
+    }
+
+    .modal-content {
+        padding: 1.25rem;
+    }
+
+    .modal-actions {
+        flex-direction: column-reverse;
+        gap: 0.5rem;
+    }
+
+    .modal-actions button {
+        width: 100%;
+    }
+
+    .priority-tray {
+        position: fixed;
+        left: 50%;
+        bottom: 1rem;
+        top: auto;
+        transform: translateX(-50%) translateY(100%);
+        flex-direction: row;
+        padding: 8px;
+        gap: 8px;
+        border-radius: 20px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .priority-tray.active {
+        transform: translateX(-50%) translateY(0);
+    }
+
+    .priority-option {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+    }
+
+    .dumbware-credit {
+        font-size: 0.65em;
+        padding: 4px;
+    }
+}
+
+/* Touch device optimizations */
+@media (hover: none) {
+    .task-move {
+        opacity: 0.6;
+    }
+
+    .column-header {
+        cursor: default;
+    }
+
+    .task {
+        cursor: default;
+    }
+
+    .btn-primary:active,
+    .btn-secondary:active {
+        transform: scale(0.98);
+    }
+
+    .priority-badge {
+        opacity: 1;
+    }
 }
