@@ -328,7 +328,15 @@ async function addTask(sectionId, title, description = '') {
         
         state.tasks[data.id] = data;
         state.sections[sectionId].taskIds.push(data.id);
-        renderActiveBoard();
+        
+        // Update just the tasks container instead of full re-render
+        const tasksContainer = document.querySelector(`.column[data-section-id="${sectionId}"] .tasks`);
+        if (tasksContainer) {
+            const taskEl = renderTask(data);
+            if (taskEl) {
+                tasksContainer.appendChild(taskEl);
+            }
+        }
     } catch (error) {
         console.error('Failed to add task:', error);
     }
@@ -1257,7 +1265,7 @@ function renderColumn(section) {
         </svg>
     `;
     addTaskBtn.addEventListener('click', () => {
-        showTaskModal({ sectionId: section.id });
+        createInlineTaskEditor(section.id, addTaskBtn);
     });
     columnEl.appendChild(addTaskBtn);
 
@@ -1718,4 +1726,63 @@ async function deleteBoard(boardId) {
         console.error('Error deleting board:', error);
         return false;
     }
+}
+
+function createInlineTaskEditor(sectionId, addTaskBtn) {
+    const editor = document.createElement('div');
+    editor.className = 'task-inline-editor';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Enter task name...';
+    input.className = 'task-inline-input';
+    editor.appendChild(input);
+
+    // Hide the add task button and insert editor in its place
+    addTaskBtn.style.display = 'none';
+    addTaskBtn.parentNode.insertBefore(editor, addTaskBtn);
+
+    let isProcessing = false;
+
+    const saveTask = async (keepEditorOpen = false) => {
+        if (isProcessing) return;
+        isProcessing = true;
+
+        const title = input.value.trim();
+        if (title) {
+            await addTask(sectionId, title);
+            if (keepEditorOpen) {
+                input.value = '';
+                input.focus();
+            } else {
+                closeEditor();
+            }
+        } else if (!keepEditorOpen) {
+            closeEditor();
+        }
+        isProcessing = false;
+    };
+
+    const closeEditor = () => {
+        editor.remove();
+        addTaskBtn.style.display = '';
+    };
+
+    let blurTimeout;
+    input.addEventListener('blur', () => {
+        // Delay the blur handling to allow the Enter keydown to prevent it
+        blurTimeout = setTimeout(() => saveTask(false), 100);
+    });
+
+    input.addEventListener('keydown', async (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            clearTimeout(blurTimeout); // Prevent blur from triggering
+            await saveTask(true);
+        } else if (e.key === 'Escape') {
+            clearTimeout(blurTimeout); // Prevent blur from triggering
+            closeEditor();
+        }
+    });
+
+    input.focus();
 }

@@ -1595,3 +1595,27 @@ h2 {
     transform: translateX(-8px);
     color: #ff4444 !important;
 }
+
+.task-inline-editor {
+    margin: 8px;
+    padding: 8px;
+    background: var(--card-bg);
+    border-radius: 4px;
+    box-shadow: var(--card-shadow);
+}
+
+.task-inline-input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--input-bg);
+    color: var(--text-color);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.task-inline-input:focus {
+    border-color: var(--accent-color);
+}
