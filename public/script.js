@@ -1027,6 +1027,23 @@ function renderColumn(section) {
     return columnEl;
 }
 
+// Add this function to handle moving task to the right
+async function moveTaskRight(taskId, currentSectionId) {
+    const board = state.boards[state.activeBoard];
+    if (!board || !board.sectionOrder) return;
+
+    // Find the current section's index
+    const currentIndex = board.sectionOrder.indexOf(currentSectionId);
+    if (currentIndex === -1 || currentIndex >= board.sectionOrder.length - 1) return;
+
+    // Get the next section
+    const nextSectionId = board.sectionOrder[currentIndex + 1];
+    if (!nextSectionId) return;
+
+    // Move the task
+    await handleTaskMove(taskId, currentSectionId, nextSectionId, 0);
+}
+
 function renderTask(task) {
     if (!task) return null;
 
@@ -1035,7 +1052,11 @@ function renderTask(task) {
     taskElement.dataset.taskId = task.id;
     taskElement.draggable = true;
 
-    // Create task header with title
+    // Create content wrapper
+    const contentWrapper = document.createElement('div');
+    contentWrapper.className = 'task-content-wrapper';
+
+    // Create task header with title and move button
     const taskHeader = document.createElement('div');
     taskHeader.className = 'task-header';
     
@@ -1064,7 +1085,7 @@ function renderTask(task) {
     }
 
     taskHeader.appendChild(metadataBadges);
-    taskElement.appendChild(taskHeader);
+    contentWrapper.appendChild(taskHeader);
 
     // Create task content for description and tags
     const taskContent = document.createElement('div');
@@ -1095,7 +1116,34 @@ function renderTask(task) {
         taskContent.appendChild(tagsContainer);
     }
 
-    taskElement.appendChild(taskContent);
+    contentWrapper.appendChild(taskContent);
+    taskElement.appendChild(contentWrapper);
+
+    // Add move right button
+    const moveRightBtn = document.createElement('button');
+    moveRightBtn.className = 'task-move';
+    moveRightBtn.setAttribute('aria-label', 'Move task right');
+    moveRightBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" width="16" height="16">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
+    `;
+    moveRightBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent task modal from opening
+        moveTaskRight(task.id, task.sectionId);
+    });
+
+    // Only show the move right button if there's a section to the right
+    const board = state.boards[state.activeBoard];
+    if (board && board.sectionOrder) {
+        const currentSectionIndex = board.sectionOrder.indexOf(task.sectionId);
+        if (currentSectionIndex === -1 || currentSectionIndex >= board.sectionOrder.length - 1) {
+            moveRightBtn.style.visibility = 'hidden';
+        }
+    }
+
+    taskElement.appendChild(moveRightBtn);
 
     // Set up drag events
     taskElement.addEventListener('dragstart', (e) => {

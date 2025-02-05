@@ -534,12 +534,14 @@ h2 {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     cursor: pointer;
     user-select: none;
-    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    transition: box-shadow 0.2s ease;
+    position: relative;
+    display: flex;
+    gap: 8px;
 }
 
 .task:hover {
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-    transform: translateY(-1px);
 }
 
 .task.dragging {
@@ -563,11 +565,18 @@ h2 {
     flex: 1;
 }
 
+.task-content-wrapper {
+    flex: 1;
+    min-width: 0;
+    transition: transform var(--transition);
+}
+
 .task-badges {
     display: flex;
     gap: 4px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     margin-left: 8px;
+    align-items: center;
 }
 
 .badge {
@@ -714,26 +723,33 @@ h2 {
 }
 
 .task-move {
-    flex: 0 0 auto;
-    background: none;
+    width: 24px;
+    align-self: stretch;
+    margin: -12px -12px -12px 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
     border: none;
-    padding: 0.5rem;
+    border-left: 2px solid transparent;
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
     cursor: pointer;
     color: var(--text);
     opacity: 0.4;
     transition: all var(--transition);
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    align-self: stretch;
-    width: 32px;
 }
 
 .task-move:hover {
     opacity: 1;
     color: var(--primary);
-    background: rgba(33, 150, 243, 0.1);
+    border-left-color: var(--primary);
+    background: linear-gradient(to right, transparent, rgba(33, 150, 243, 0.1));
+}
+
+.task-move:hover ~ .task-content-wrapper {
+    transform: translateX(2px);
 }
 
 .task-move svg {
@@ -744,6 +760,11 @@ h2 {
     stroke-linejoin: round;
     width: 16px;
     height: 16px;
+    transition: transform var(--transition);
+}
+
+.task-move:hover svg {
+    transform: translateX(2px);
 }
 
 /* Buttons */
