@@ -1,0 +1,10 @@
+services:
+  dumbkan:
+    image: dumbwareio/dumbkan:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      DUMBKAN_PIN: 123456
+    restart: unless-stopped
