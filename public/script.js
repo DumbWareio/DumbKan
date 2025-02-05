@@ -188,7 +188,8 @@ async function handleTaskMove(taskId, fromColumnId, toColumnId, newIndex) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 fromColumnId,
-                toColumnId
+                toColumnId,
+                newIndex
             })
         });
 
@@ -228,8 +229,8 @@ function handleDragStart(e) {
     if (!task) return;
     
     task.classList.add('dragging');
-    // Store both the task ID and its original column ID
-    e.dataTransfer.setData('text/plain', JSON.stringify({
+    // Store both the task ID and its original column ID using application/json
+    e.dataTransfer.setData('application/json', JSON.stringify({
         taskId: task.dataset.taskId,
         sourceColumnId: task.closest('.column').dataset.columnId
     }));
@@ -1269,38 +1270,59 @@ function hideConfirmModal() {
 }
 
 function showConfirmModal(id, name, type = 'column', columnId = null) {
-    if (!elements.confirmModal || !elements.confirmModalMessage || !elements.confirmModalConfirmBtn) {
-        console.error('Required modal elements not found');
-        return;
+    // First validate that all required modal elements exist
+    const modalElements = {
+        modal: elements.confirmModal,
+        message: elements.confirmModalMessage,
+        confirmBtn: elements.confirmModalConfirmBtn,
+        title: elements.confirmModal?.querySelector('h2')
+    };
+
+    // Check if any required elements are missing
+    const missingElements = Object.entries(modalElements)
+        .filter(([key, element]) => !element)
+        .map(([key]) => key);
+
+    if (missingElements.length > 0) {
+        console.error(`Required modal elements missing: ${missingElements.join(', ')}`);
+        return false;
     }
 
     // Update modal title based on type
-    const modalTitle = elements.confirmModal.querySelector('h2');
-    if (modalTitle) {
-        modalTitle.textContent = type === 'column' ? 'Delete Column' : 'Delete Task';
+    if (modalElements.title) {
+        modalElements.title.textContent = type === 'column' ? 'Delete Column' : 'Delete Task';
     }
 
     const message = type === 'column' 
         ? `Are you sure you want to delete the column "${name}"? This action cannot be undone.`
         : `Are you sure you want to delete the task "${name}"? This action cannot be undone.`;
 
-    elements.confirmModalMessage.textContent = message;
-    elements.confirmModal.hidden = false;
+    modalElements.message.textContent = message;
+    modalElements.modal.hidden = false;
     
     // Remove any existing event listeners
-    const newConfirmBtn = elements.confirmModalConfirmBtn.cloneNode(true);
-    elements.confirmModalConfirmBtn.parentNode.replaceChild(newConfirmBtn, elements.confirmModalConfirmBtn);
+    const newConfirmBtn = modalElements.confirmBtn.cloneNode(true);
+    modalElements.confirmBtn.parentNode.replaceChild(newConfirmBtn, modalElements.confirmBtn);
     elements.confirmModalConfirmBtn = newConfirmBtn;
     
-    // Add new event listener
+    // Add new event listener with corrected parameter passing
     elements.confirmModalConfirmBtn.addEventListener('click', async () => {
-        if (type === 'column') {
-            await deleteColumn(id);
-        } else {
-            await deleteTask(columnId, id);
+        try {
+            if (type === 'column') {
+                // For columns, 'id' is the columnId
+                await deleteColumn(id);
+            } else {
+                // For tasks, 'id' is the taskId and we use the provided columnId
+                await deleteTask(columnId, id);
+            }
+            hideConfirmModal();
+        } catch (error) {
+            console.error(`Failed to delete ${type}:`, error);
+            // Optionally show an error message to the user here
         }
-        hideConfirmModal();
     });
+
+    return true;
 }
 
 async function deleteColumn(columnId) {
