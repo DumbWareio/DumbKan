@@ -633,6 +633,36 @@ app.delete(BASE_PATH + '/api/boards/:boardId/sections/:sectionId/tasks/:taskId',
     }
 });
 
+// Move section within board
+app.post(BASE_PATH + '/api/boards/:boardId/sections/:sectionId/move', async (req, res) => {
+    try {
+        const { boardId, sectionId } = req.params;
+        const { newIndex } = req.body;
+
+        const data = await readData();
+        const board = data.boards[boardId];
+        
+        if (!board) {
+            return res.status(404).json({ error: 'Board not found' });
+        }
+
+        // Remove section from current position
+        const currentIndex = board.sectionOrder.indexOf(sectionId);
+        if (currentIndex === -1) {
+            return res.status(404).json({ error: 'Section not found in board' });
+        }
+        board.sectionOrder.splice(currentIndex, 1);
+
+        // Insert section at new position
+        board.sectionOrder.splice(newIndex, 0, sectionId);
+
+        await writeData(data);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to move section' });
+    }
+});
+
 app.listen(PORT, () => {
     debugLog('Server Configuration:', {
         port: PORT,

@@ -88,8 +88,8 @@ async function loadBoards() {
 
         // Only render if we have valid data
         if (Object.keys(state.boards).length > 0) {
-            renderBoards();
-            renderActiveBoard();
+        renderBoards();
+        renderActiveBoard();
         } else {
             console.warn('No boards found in the loaded data');
             // Initialize empty state but still render to show empty state
@@ -172,7 +172,7 @@ async function createBoard(name) {
         if (response.ok) {
             const board = await response.json();
             state.boards[board.id] = board;
-            renderBoards();
+        renderBoards();
             switchBoard(board.id);
         }
     } catch (error) {
@@ -303,69 +303,34 @@ async function addTask(sectionId, title, description = '') {
 }
 
 // Drag and Drop
-async function handleTaskMove(taskId, fromSectionId, toSectionId, newIndex) {
-    try {
-        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/tasks/${taskId}/move`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                fromSectionId,
-                toSectionId,
-                newIndex
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to move task');
-        }
-
-        // Update local state
-        const task = state.tasks[taskId];
-        const fromSection = state.sections[fromSectionId];
-        const toSection = state.sections[toSectionId];
-
-        // Remove task from source section
-        const taskIndex = fromSection.taskIds.indexOf(taskId);
-        if (taskIndex !== -1) {
-            fromSection.taskIds.splice(taskIndex, 1);
-        }
-
-        // Add task to target section
-        if (typeof newIndex === 'number') {
-            toSection.taskIds.splice(newIndex, 0, taskId);
-        } else {
-            toSection.taskIds.push(taskId);
-        }
-
-        // Update task's section reference
-        task.sectionId = toSectionId;
-
-        renderActiveBoard();
-    } catch (error) {
-        console.error('Failed to move task:', error);
-        loadBoards(); // Reload the board state in case of error
-    }
-}
-
 function handleDragStart(e) {
     const task = e.target.closest('.task');
-    if (!task) return;
+    const columnHeader = e.target.closest('.column-header');
     
-    task.classList.add('dragging');
-    // Store both the task ID and its original section ID using application/json
-    e.dataTransfer.setData('application/json', JSON.stringify({
-        taskId: task.dataset.taskId,
-        sourceSectionId: task.closest('.column').dataset.sectionId
-    }));
+    if (task && !columnHeader) {
+        task.classList.add('dragging');
+        e.dataTransfer.setData('application/json', JSON.stringify({
+            taskId: task.dataset.taskId,
+            sourceSectionId: task.closest('.column').dataset.sectionId,
+            type: 'task'
+        }));
+    } else if (columnHeader) {
+        const column = columnHeader.closest('.column');
+        if (column) {
+            column.classList.add('dragging');
+            e.dataTransfer.setData('application/json', JSON.stringify({
+                sectionId: column.dataset.sectionId,
+                type: 'section'
+            }));
+        }
+    }
     e.dataTransfer.effectAllowed = 'move';
 }
 
 function handleDragEnd(e) {
-    const task = e.target.closest('.task');
-    if (!task) return;
-    task.classList.remove('dragging');
-    
-    // Remove drag-over class from all columns
+    document.querySelectorAll('.task.dragging, .column.dragging').forEach(el => {
+        el.classList.remove('dragging');
+    });
     document.querySelectorAll('.column').forEach(col => {
         col.classList.remove('drag-over');
     });
@@ -377,84 +342,78 @@ function handleDragOver(e) {
     
     const column = e.target.closest('.column');
     if (!column) return;
-    
-    // Add drag-over class to the column
-    column.classList.add('drag-over');
-    
-    const tasksContainer = column.querySelector('.tasks');
-    const draggingTask = document.querySelector('.task.dragging');
-    if (!draggingTask) return;
-    
-    const siblings = [...tasksContainer.querySelectorAll('.task:not(.dragging)')];
-    const nextSibling = siblings.find(sibling => {
-        const rect = sibling.getBoundingClientRect();
-        const offset = e.clientY - rect.top - rect.height / 2;
-        return offset < 0;
-    });
-    
-    if (nextSibling) {
-        tasksContainer.insertBefore(draggingTask, nextSibling);
-    } else {
-        tasksContainer.appendChild(draggingTask);
+
+    try {
+        const dragData = JSON.parse(e.dataTransfer.getData('application/json'));
+        
+        if (dragData.type === 'task') {
+            column.classList.add('drag-over');
+            const tasksContainer = column.querySelector('.tasks');
+            if (!tasksContainer) return;
+
+            const draggingTask = document.querySelector('.task.dragging');
+            if (!draggingTask) return;
+
+            const siblings = [...tasksContainer.querySelectorAll('.task:not(.dragging)')];
+            const nextSibling = siblings.find(sibling => {
+                const rect = sibling.getBoundingClientRect();
+                return e.clientY < rect.top + rect.height / 2;
+            });
+
+            if (nextSibling) {
+                tasksContainer.insertBefore(draggingTask, nextSibling);
+            } else {
+                tasksContainer.appendChild(draggingTask);
+            }
+        } else if (dragData.type === 'section') {
+            const columns = [...document.querySelectorAll('.column:not(.dragging)')];
+            const afterElement = getDragAfterElement(columns, e.clientX);
+            const draggingColumn = document.querySelector('.column.dragging');
+            
+            if (draggingColumn) {
+                if (afterElement) {
+                    column.parentNode.insertBefore(draggingColumn, afterElement);
+                } else {
+                    column.parentNode.appendChild(draggingColumn);
+                }
+            }
+        }
+    } catch (error) {
+        // Ignore getData errors during dragover
     }
 }
 
 async function handleDrop(e) {
     e.preventDefault();
-    e.stopPropagation();
-    
     const column = e.target.closest('.column');
     if (!column) return;
-    
-    // Remove drag-over class
+
     column.classList.remove('drag-over');
-    
+
     try {
-        // Get the task data from the drag event
         const data = JSON.parse(e.dataTransfer.getData('application/json'));
-        const { taskId, sourceSectionId } = data;
         
-        const task = document.querySelector(`[data-task-id="${taskId}"]`);
-        if (!task) return;
-        
-        const targetSectionId = column.dataset.sectionId;
-        
-        console.log(`Moving task ${taskId} from section ${sourceSectionId} to section ${targetSectionId}`);
-        
-        // Check if we have access to the required state
-        if (!state.sections[sourceSectionId] || !state.sections[targetSectionId]) {
-            console.error('Invalid section state');
-            return;
-        }
+        if (data.type === 'task') {
+            const { taskId, sourceSectionId } = data;
+            const targetSectionId = column.dataset.sectionId;
+            const tasksContainer = column.querySelector('.tasks');
+            if (!tasksContainer) return;
 
-        const sourceSection = state.sections[sourceSectionId];
-        const targetSection = state.sections[targetSectionId];
+            const task = document.querySelector(`[data-task-id="${taskId}"]`);
+            if (!task) return;
 
-        if (!sourceSection?.taskIds || !targetSection?.taskIds) {
-            console.error('Invalid section state');
-            return;
-        }
+            const siblings = [...tasksContainer.querySelectorAll('.task')];
+            const newIndex = siblings.indexOf(task);
 
-        const tasksContainer = column.querySelector('.tasks');
-        const siblings = [...tasksContainer.querySelectorAll('.task')];
-        const newIndex = siblings.indexOf(task);
-        
-        if (sourceSectionId === targetSectionId) {
-            // Same section reordering - use move endpoint with same source/target section
-            const taskObj = state.tasks[taskId];
-            if (!taskObj) {
-                console.error('Task not found in source section');
-                loadBoards();
-                return;
+            await handleTaskMove(taskId, sourceSectionId, targetSectionId, newIndex);
+        } else if (data.type === 'section') {
+            const { sectionId } = data;
+            const columns = [...document.querySelectorAll('.column')];
+            const newIndex = columns.indexOf(column);
+            
+            if (newIndex !== -1) {
+                await handleSectionMove(sectionId, newIndex);
             }
-            
-            const oldIndex = sourceSection.taskIds.indexOf(taskId);
-            
-            // Make the server request using the move endpoint
-            await handleTaskMove(taskId, sourceSectionId, targetSectionId, newIndex);
-        } else {
-            // Moving to different section
-            await handleTaskMove(taskId, sourceSectionId, targetSectionId, newIndex);
         }
     } catch (error) {
         console.error('Error handling drop:', error);
@@ -518,7 +477,7 @@ function renderActiveBoard() {
 
         const columnEl = renderColumn(section);
         if (columnEl) {
-            elements.columns.appendChild(columnEl);
+        elements.columns.appendChild(columnEl);
         }
     });
 
@@ -571,22 +530,22 @@ function initEventListeners() {
 
     // Close task modal when clicking outside
     elements.taskModal?.addEventListener('click', (e) => {
-        if (e.target === elements.taskModal) {
-            hideTaskModal();
-        }
-    });
+            if (e.target === elements.taskModal) {
+                hideTaskModal();
+            }
+        });
 
     // Task form submission
-    elements.taskForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const taskId = elements.taskForm.dataset.taskId;
+        elements.taskForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const taskId = elements.taskForm.dataset.taskId;
         const sectionId = elements.taskForm.dataset.sectionId;
-        const title = elements.taskTitle.value.trim();
-        const description = elements.taskDescription.value.trim();
+            const title = elements.taskTitle.value.trim();
+            const description = elements.taskDescription.value.trim();
 
         if (!title) return;
 
-        try {
+            try {
             if (taskId) {
                 // Update existing task
                 const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks/${taskId}`, {
@@ -594,7 +553,7 @@ function initEventListeners() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ title, description })
                 });
-
+                
                 if (response.ok) {
                     const updatedTask = await response.json();
                     state.tasks[taskId] = updatedTask;
@@ -603,7 +562,7 @@ function initEventListeners() {
                 // Create new task
                 await addTask(sectionId, title, description);
             }
-
+            
             hideTaskModal();
             renderActiveBoard();
         } catch (error) {
@@ -654,7 +613,7 @@ async function init() {
 
     async function loadBoardsWithRetry() {
         try {
-            await loadBoards();
+    await loadBoards();
         } catch (error) {
             console.error(`Failed to load boards (attempt ${retryCount + 1}/${maxRetries}):`, error);
             if (retryCount < maxRetries) {
@@ -962,32 +921,138 @@ function getPrioritySymbol(priority) {
     }
 }
 
+// Section drag and drop
+async function handleSectionMove(sectionId, newIndex) {
+    try {
+        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/move`, {
+            method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ newIndex })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to move section');
+        }
+
+        // Update local state
+        const board = state.boards[state.activeBoard];
+        const currentIndex = board.sectionOrder.indexOf(sectionId);
+        if (currentIndex !== -1) {
+            board.sectionOrder.splice(currentIndex, 1);
+            board.sectionOrder.splice(newIndex, 0, sectionId);
+        }
+
+        renderActiveBoard();
+        } catch (error) {
+        console.error('Failed to move section:', error);
+        loadBoards(); // Reload the board state in case of error
+    }
+}
+
+function handleSectionDragStart(e) {
+    const column = e.target.closest('.column');
+    if (!column) return;
+    
+    column.classList.add('dragging');
+    e.dataTransfer.setData('application/json', JSON.stringify({
+        sectionId: column.dataset.sectionId,
+        type: 'section'
+    }));
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleSectionDragOver(e) {
+    e.preventDefault();
+    const column = e.target.closest('.column');
+    if (!column) return;
+
+    const draggingElement = document.querySelector('.column.dragging');
+    if (!draggingElement) return;
+
+    const columns = [...document.querySelectorAll('.column:not(.dragging)')];
+    const afterElement = getDragAfterElement(columns, e.clientX);
+    
+    if (afterElement) {
+        column.parentNode.insertBefore(draggingElement, afterElement);
+    } else {
+        column.parentNode.appendChild(draggingElement);
+    }
+}
+
+function getDragAfterElement(elements, x) {
+    const draggableElements = elements.filter(element => {
+        const box = element.getBoundingClientRect();
+        return x < box.left + box.width / 2;
+    });
+    
+    return draggableElements[0];
+}
+
+async function handleSectionDrop(e) {
+                e.preventDefault();
+    const column = e.target.closest('.column');
+    if (!column) return;
+
+    try {
+        const data = JSON.parse(e.dataTransfer.getData('application/json'));
+        if (data.type !== 'section') return;
+
+        const { sectionId } = data;
+        const columns = [...document.querySelectorAll('.column')];
+        const newIndex = columns.indexOf(column);
+        
+        if (newIndex !== -1) {
+            await handleSectionMove(sectionId, newIndex);
+                    }
+                } catch (error) {
+        console.error('Error handling section drop:', error);
+        loadBoards();
+    }
+}
+
+// Update renderColumn function to only make the header draggable
 function renderColumn(section) {
     if (!section) return null;
 
     const columnEl = document.createElement('div');
     columnEl.className = 'column';
     columnEl.dataset.sectionId = section.id;
+    columnEl.draggable = false; // Column itself is not draggable
+
+    // Add drag event listeners for columns
+    columnEl.addEventListener('dragover', handleDragOver);
+    columnEl.addEventListener('drop', handleDrop);
 
     // Ensure taskIds exists and is an array
     const taskIds = Array.isArray(section.taskIds) ? section.taskIds : [];
     const taskCount = taskIds.length;
 
-    columnEl.innerHTML = `
-        <div class="column-header">
-            <div class="column-count">${taskCount}</div>
-            <h2 class="column-title">${section.name || 'Unnamed Section'}</h2>
-        </div>
-        <div class="tasks" data-section-id="${section.id}"></div>
-        <button class="add-task-btn" aria-label="Add task">
-            <svg viewBox="0 0 24 24" width="24" height="24">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
+    const headerEl = document.createElement('div');
+    headerEl.className = 'column-header';
+    headerEl.draggable = true; // Only the header is draggable
+    headerEl.innerHTML = `
+        <div class="column-count">${taskCount}</div>
+        <h2 class="column-title">${section.name || 'Unnamed Section'}</h2>
+        <div class="column-drag-handle">
+            <svg viewBox="0 0 24 24" width="16" height="16">
+                <circle cx="9" cy="12" r="1.5"/>
+                <circle cx="15" cy="12" r="1.5"/>
             </svg>
-        </button>
+        </div>
     `;
 
-    const tasksContainer = columnEl.querySelector('.tasks');
+    // Add drag event listeners to the header
+    headerEl.addEventListener('dragstart', handleSectionDragStart);
+    headerEl.addEventListener('dragend', () => columnEl.classList.remove('dragging'));
+
+    columnEl.appendChild(headerEl);
+
+    const tasksContainer = document.createElement('div');
+    tasksContainer.className = 'tasks';
+    tasksContainer.dataset.sectionId = section.id;
+    columnEl.appendChild(tasksContainer);
+
+    // Render tasks
     taskIds.forEach(taskId => {
         const task = state.tasks?.[taskId];
         if (task) {
@@ -999,30 +1064,19 @@ function renderColumn(section) {
     });
 
     // Add task button
-    const addTaskBtn = columnEl.querySelector('.add-task-btn');
-    if (addTaskBtn) {
-        addTaskBtn.addEventListener('click', () => {
-            showTaskModal({ sectionId: section.id });
-        });
-    }
-
-    // Set up drag and drop
-    if (tasksContainer) {
-        tasksContainer.addEventListener('dragover', handleDragOver);
-        tasksContainer.addEventListener('drop', handleDrop);
-        tasksContainer.addEventListener('dragenter', (e) => {
-            const column = e.target.closest('.column');
-            if (column) {
-                column.classList.add('drag-over');
-            }
-        });
-        tasksContainer.addEventListener('dragleave', (e) => {
-            const column = e.target.closest('.column');
-            if (column) {
-                column.classList.remove('drag-over');
-            }
-        });
-    }
+    const addTaskBtn = document.createElement('button');
+    addTaskBtn.className = 'add-task-btn';
+    addTaskBtn.setAttribute('aria-label', 'Add task');
+    addTaskBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" width="24" height="24">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+    `;
+    addTaskBtn.addEventListener('click', () => {
+        showTaskModal({ sectionId: section.id });
+    });
+    columnEl.appendChild(addTaskBtn);
 
     return columnEl;
 }
@@ -1051,6 +1105,10 @@ function renderTask(task) {
     taskElement.className = 'task';
     taskElement.dataset.taskId = task.id;
     taskElement.draggable = true;
+
+    // Add drag event listeners for tasks
+    taskElement.addEventListener('dragstart', handleDragStart);
+    taskElement.addEventListener('dragend', handleDragEnd);
 
     // Create content wrapper
     const contentWrapper = document.createElement('div');
@@ -1145,19 +1203,6 @@ function renderTask(task) {
 
     taskElement.appendChild(moveRightBtn);
 
-    // Set up drag events
-    taskElement.addEventListener('dragstart', (e) => {
-        taskElement.classList.add('dragging');
-        e.dataTransfer.setData('application/json', JSON.stringify({
-            taskId: task.id,
-            sourceSectionId: task.sectionId
-        }));
-    });
-
-    taskElement.addEventListener('dragend', () => {
-        taskElement.classList.remove('dragging');
-    });
-
     // Double click to edit
     taskElement.addEventListener('dblclick', () => {
         showTaskModal(task);
@@ -1175,7 +1220,7 @@ async function deleteTask(taskId, sectionId) {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' }
         });
-
+        
         if (response.ok) {
             // Remove task from state
             delete state.tasks[taskId];
@@ -1197,5 +1242,50 @@ async function deleteTask(taskId, sectionId) {
         }
     } catch (error) {
         console.error('Error deleting task:', error);
+    }
+}
+
+// Add back the handleTaskMove function
+async function handleTaskMove(taskId, fromSectionId, toSectionId, newIndex) {
+    try {
+        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/tasks/${taskId}/move`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                fromSectionId,
+                toSectionId,
+                newIndex
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to move task');
+        }
+
+        // Update local state
+        const task = state.tasks[taskId];
+        const fromSection = state.sections[fromSectionId];
+        const toSection = state.sections[toSectionId];
+
+        // Remove task from source section
+        const taskIndex = fromSection.taskIds.indexOf(taskId);
+        if (taskIndex !== -1) {
+            fromSection.taskIds.splice(taskIndex, 1);
+        }
+
+        // Add task to target section
+        if (typeof newIndex === 'number') {
+            toSection.taskIds.splice(newIndex, 0, taskId);
+        } else {
+            toSection.taskIds.push(taskId);
+        }
+
+        // Update task's section reference
+        task.sectionId = toSectionId;
+        
+        renderActiveBoard();
+    } catch (error) {
+        console.error('Failed to move task:', error);
+        loadBoards(); // Reload the board state in case of error
     }
 }

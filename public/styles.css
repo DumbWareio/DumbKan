@@ -470,6 +470,7 @@ h2 {
     position: relative;
     transition: transform 0.2s ease, border 0.2s ease;
     width: 300px;
+    cursor: grab;
 }
 
 .column-header {
@@ -481,11 +482,17 @@ h2 {
     gap: 0.5rem;
     cursor: grab;
     justify-content: flex-start;
+    background: var(--task-bg);
+    border-bottom: 1px solid var(--border);
+    border-radius: 8px 8px 0 0;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .column-header.dragging {
     cursor: grabbing;
-    opacity: 0.8;
+    opacity: 0.9;
+    transform: scale(1.02);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
 .column.column-drag-over {
@@ -523,6 +530,7 @@ h2 {
     flex: 1;
     overflow-y: auto;
     padding: 0.5rem;
+    min-height: 50px;
 }
 
 /* Task styling */
@@ -1328,4 +1336,47 @@ h2 {
     font-weight: normal;
     color: var(--text);
     opacity: 0.7;
+}
+
+/* Section drag and drop styles */
+.column {
+    cursor: grab;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.column.dragging {
+    cursor: grabbing;
+    opacity: 0.9;
+    transform: scale(1.02);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.column-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: var(--task-bg);
+    border-bottom: 1px solid var(--border);
+    border-radius: 8px 8px 0 0;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.column-drag-handle {
+    margin-left: auto;
+    opacity: 0.5;
+    cursor: grab;
+    transition: opacity 0.2s ease;
+}
+
+.column-drag-handle:hover {
+    opacity: 1;
+}
+
+.column-drag-handle svg {
+    display: block;
+}
+
+.column.dragging .column-drag-handle {
+    cursor: grabbing;
 }
