@@ -243,6 +243,7 @@ function showTaskModal(task) {
     elements.taskModal.querySelector('h2').textContent = isNewTask ? 'Add Task' : 'Edit Task';
     elements.taskTitle.value = isNewTask ? '' : task.title;
     elements.taskDescription.value = isNewTask ? '' : (task.description || '');
+    elements.taskStatus.value = isNewTask ? 'open' : (task.status || 'open');
     elements.taskForm.dataset.taskId = task.id || '';
     elements.taskForm.dataset.sectionId = task.sectionId;
     
@@ -301,7 +302,7 @@ function hideTaskModal() {
     delete elements.taskForm.dataset.sectionId;
 }
 
-async function addTask(sectionId, title, description = '') {
+async function addTask(sectionId, title, description = '', status = 'open') {
     try {
         if (!sectionId) {
             console.error('Section ID is required to add a task');
@@ -311,7 +312,7 @@ async function addTask(sectionId, title, description = '') {
         const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title, description })
+            body: JSON.stringify({ title, description, status })
         });
         
         if (!response.ok) {
@@ -594,6 +595,7 @@ function initEventListeners() {
         const sectionId = elements.taskForm.dataset.sectionId;
             const title = elements.taskTitle.value.trim();
             const description = elements.taskDescription.value.trim();
+            const status = elements.taskStatus.value;
 
         if (!title) return;
 
@@ -603,7 +605,7 @@ function initEventListeners() {
                 const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks/${taskId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title, description })
+                    body: JSON.stringify({ title, description, status })
                 });
                 
                 if (response.ok) {
@@ -612,7 +614,7 @@ function initEventListeners() {
                 }
             } else {
                 // Create new task
-                await addTask(sectionId, title, description);
+                await addTask(sectionId, title, description, status);
             }
             
             hideTaskModal();
@@ -638,6 +640,7 @@ async function init() {
         taskForm: document.getElementById('taskForm'),
         taskTitle: document.getElementById('taskTitle'),
         taskDescription: document.getElementById('taskDescription'),
+        taskStatus: document.getElementById('taskStatus'),
         boardContainer: document.querySelector('.board-container'),
         deleteTaskBtn: document.querySelector('.btn-delete')
     };
@@ -646,7 +649,7 @@ async function init() {
     const requiredElements = [
         'themeToggle', 'boardMenu', 'boardMenuBtn', 'boardList', 
         'addBoardBtn', 'currentBoard', 'columns', 'boardContainer',
-        'taskModal', 'taskForm', 'taskTitle', 'taskDescription'
+        'taskModal', 'taskForm', 'taskTitle', 'taskDescription', 'taskStatus'
     ];
 
     for (const key of requiredElements) {
@@ -1317,17 +1320,46 @@ function renderTask(task) {
     taskElement.addEventListener('dragstart', handleDragStart);
     taskElement.addEventListener('dragend', handleDragEnd);
 
-    // Create content wrapper
-    const contentWrapper = document.createElement('div');
-    contentWrapper.className = 'task-content-wrapper';
-
-    // Create task header with title and move button
-    const taskHeader = document.createElement('div');
-    taskHeader.className = 'task-header';
-    
+    // Create task title
     const taskTitle = document.createElement('h3');
     taskTitle.className = 'task-title';
     
+    const titleText = document.createElement('span');
+    titleText.className = 'title-text';
+    titleText.textContent = task.title || 'Untitled Task';
+    
+    makeEditable(titleText, async (newTitle) => {
+        try {
+            const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: newTitle })
+            });
+            
+            if (response.ok) {
+                const updatedTask = await response.json();
+                state.tasks[task.id] = updatedTask;
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Failed to update task title:', error);
+            return false;
+        }
+    });
+    taskTitle.appendChild(titleText);
+    taskElement.appendChild(taskTitle);
+
+    // Create badges container
+    const metadataBadges = document.createElement('div');
+    metadataBadges.className = 'task-badges';
+
+    // Add status badge
+    const statusBadge = document.createElement('span');
+    statusBadge.className = `badge status-badge ${task.status || 'active'}`;
+    statusBadge.setAttribute('title', (task.status || 'active').charAt(0).toUpperCase() + (task.status || 'active').slice(1));
+    metadataBadges.appendChild(statusBadge);
+
     // Create priority tray
     const priorityTray = document.createElement('div');
     priorityTray.className = 'priority-tray';
@@ -1365,12 +1397,12 @@ function renderTask(task) {
         });
         priorityTray.appendChild(option);
     });
-    
+
+    // Add priority badge
     const priorityBadge = document.createElement('span');
     priorityBadge.className = `badge priority-badge ${task.priority}`;
     priorityBadge.setAttribute('title', task.priority.charAt(0).toUpperCase() + task.priority.slice(1));
     priorityBadge.textContent = getPrioritySymbol(task.priority);
-    
     priorityBadge.appendChild(priorityTray);
     
     // Handle priority badge click
@@ -1385,62 +1417,24 @@ function renderTask(task) {
         priorityTray.classList.toggle('active');
     });
     
-    // Close tray when clicking outside or pressing Escape
-    document.addEventListener('click', (e) => {
-        if (!priorityBadge.contains(e.target)) {
-            priorityTray.classList.remove('active');
-        }
-    });
-    
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            priorityTray.classList.remove('active');
-        }
-    });
-    
-    const titleText = document.createElement('span');
-    titleText.className = 'title-text';
-    titleText.textContent = task.title || 'Untitled Task';
-    
-    taskTitle.appendChild(priorityBadge);
-    taskTitle.appendChild(titleText);
-    
-    makeEditable(titleText, async (newTitle) => {
-        try {
-            const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: newTitle })
-            });
-            
-            if (response.ok) {
-                const updatedTask = await response.json();
-                state.tasks[task.id] = updatedTask;
-                return true;
-            }
-            return false;
-        } catch (error) {
-            console.error('Failed to update task title:', error);
-            return false;
-        }
-    });
-    taskHeader.appendChild(taskTitle);
+    metadataBadges.appendChild(priorityBadge);
 
-    // Create badges container without priority badge
-    const metadataBadges = document.createElement('div');
-    metadataBadges.className = 'task-badges';
+    // Add calendar badge
+    const calendarBadge = document.createElement('span');
+    calendarBadge.className = 'badge calendar-badge';
+    calendarBadge.setAttribute('title', 'Created: ' + new Date(task.createdAt).toLocaleDateString());
+    calendarBadge.innerHTML = `
+        <svg viewBox="0 0 24 24">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+        </svg>
+    `;
+    metadataBadges.appendChild(calendarBadge);
+    taskElement.appendChild(metadataBadges);
 
-    if (task.assignee) {
-        const assigneeBadge = document.createElement('span');
-        assigneeBadge.className = 'badge assignee-badge';
-        assigneeBadge.textContent = task.assignee;
-        metadataBadges.appendChild(assigneeBadge);
-    }
-
-    taskHeader.appendChild(metadataBadges);
-    contentWrapper.appendChild(taskHeader);
-
-    // Create task content for description and tags
+    // Create task content
     const taskContent = document.createElement('div');
     taskContent.className = 'task-content';
 
@@ -1461,7 +1455,7 @@ function renderTask(task) {
                     const updatedTask = await response.json();
                     state.tasks[task.id] = updatedTask;
                     if (!newDescription) {
-                        renderActiveBoard(); // Re-render to show the arrow hook
+                        renderActiveBoard();
                     }
                     return true;
                 }
@@ -1477,12 +1471,12 @@ function renderTask(task) {
         arrowHook.className = 'description-hook';
         arrowHook.innerHTML = `
             <svg viewBox="0 0 24 24" width="12" height="12">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
-    `;
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+        `;
         arrowHook.addEventListener('click', (e) => {
-            e.stopPropagation(); // Prevent task modal from opening
+            e.stopPropagation();
             const taskDescription = document.createElement('div');
             taskDescription.className = 'task-description';
             const textarea = document.createElement('textarea');
@@ -1525,25 +1519,7 @@ function renderTask(task) {
         taskContent.appendChild(arrowHook);
     }
 
-    // Add tags if they exist
-    if (Array.isArray(task.tags) && task.tags.length > 0) {
-        const tagsContainer = document.createElement('div');
-        tagsContainer.className = 'task-tags';
-        
-        task.tags.forEach(tag => {
-            if (tag) {
-                const tagBadge = document.createElement('span');
-                tagBadge.className = 'badge tag-badge';
-                tagBadge.textContent = tag;
-                tagsContainer.appendChild(tagBadge);
-            }
-        });
-        
-        taskContent.appendChild(tagsContainer);
-    }
-
-    contentWrapper.appendChild(taskContent);
-    taskElement.appendChild(contentWrapper);
+    taskElement.appendChild(taskContent);
 
     // Add move right button
     const moveRightBtn = document.createElement('button');
@@ -1556,7 +1532,7 @@ function renderTask(task) {
         </svg>
     `;
     moveRightBtn.addEventListener('click', (e) => {
-        e.stopPropagation(); // Prevent task modal from opening
+        e.stopPropagation();
         moveTaskRight(task.id, task.sectionId);
     });
 
