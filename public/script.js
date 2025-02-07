@@ -701,8 +701,6 @@ async function init() {
 
     // Initial check
     handleCreditVisibility();
-
-    initCalendarInputSlide();
 }
 
 // Add this before initLogin function
@@ -1210,9 +1208,21 @@ function renderColumn(section) {
     columnEl.dataset.sectionId = section.id;
     columnEl.draggable = false; // Column itself is not draggable
 
-    // Add drag event listeners for columns
+    // Add drag event listeners for tasks and sections
     columnEl.addEventListener('dragover', handleDragOver);
     columnEl.addEventListener('drop', handleDrop);
+    columnEl.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        if (document.querySelector('.task.dragging')) {
+            columnEl.classList.add('drag-over');
+        }
+    });
+    columnEl.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        if (!e.relatedTarget || !columnEl.contains(e.relatedTarget)) {
+            columnEl.classList.remove('drag-over');
+        }
+    });
 
     // Ensure taskIds exists and is an array
     const taskIds = Array.isArray(section.taskIds) ? section.taskIds : [];
@@ -1249,8 +1259,7 @@ function renderColumn(section) {
         <div class="column-count">${taskCount}</div>
         <div class="column-drag-handle">
             <svg viewBox="0 0 24 24" width="16" height="16">
-                <circle cx="9" cy="12" r="1.5"/>
-                <circle cx="15" cy="12" r="1.5"/>
+                <path d="M10.5 6H9c-.4 0-.8-.2-.9-.6-.2-.4-.1-.8.2-1.1l3-3c.4-.4 1-.4 1.4 0l3 3c.3.3.4.7.2 1.1-.2.4-.5.6-.9.6h-1.5v4.5H18V9c0-.4.2-.8.6-.9.4-.2.8-.1 1.1.2l3 3c.4.4.4 1 0 1.4l-3 3c-.3.3-.7.4-1.1.2-.4-.2-.6-.5-.6-.9v-1.5h-4.5V18H15c.4 0 .8.2.9.6.2.4.1.8-.2 1.1l-3 3c-.4.4-1 .4-1.4 0l-3-3c-.3-.3-.4-.7-.2-1.1.2-.4.5.6.9.6.9v1.5h4.5V6z"/>
             </svg>
         </div>
     `;
@@ -1320,6 +1329,20 @@ function renderTask(task) {
     taskElement.className = 'task';
     taskElement.dataset.taskId = task.id;
     taskElement.draggable = true;
+
+    // Add drag event listeners for tasks
+    taskElement.addEventListener('dragstart', handleDragStart);
+    taskElement.addEventListener('dragend', handleDragEnd);
+
+    // Add drag handle
+    const dragHandle = document.createElement('div');
+    dragHandle.className = 'task-drag-handle';
+    dragHandle.innerHTML = `
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.5 6H9c-.4 0-.8-.2-.9-.6-.2-.4-.1-.8.2-1.1l3-3c.4-.4 1-.4 1.4 0l3 3c.3.3.4.7.2 1.1-.2.4-.5.6-.9.6h-1.5v4.5H18V9c0-.4.2-.8.6-.9.4-.2.8-.1 1.1.2l3 3c.4.4.4 1 0 1.4l-3 3c-.3.3-.7.4-1.1.2-.4-.2-.6-.5-.6-.9v-1.5h-4.5V18H15c.4 0 .8.2.9.6.2.4.1.8-.2 1.1l-3 3c-.4.4-1 .4-1.4 0l-3-3c-.3-.3-.4-.7-.2-1.1.2-.4.5-.6.9-.6h1.5v-4.5H6V15c0 .4-.2.8-.6.9-.4.2-.8.1-1.1-.2l-3-3c-.4-.4-.4-1 0-1.4l3-3c.3-.3.7-.4 1.1-.2.4.2.6.5.6.9v1.5h4.5V6z"/>
+        </svg>
+    `;
+    taskElement.appendChild(dragHandle);
 
     // Create main content wrapper
     const contentWrapper = document.createElement('div');
@@ -1456,6 +1479,95 @@ function renderTask(task) {
             <path d="M8 18h4" stroke="currentColor" stroke-linecap="round"></path>
         </svg>
     `;
+    
+    // Create date tray
+    const dateTray = document.createElement('div');
+    dateTray.className = 'calendar-date-tray';
+    
+    // Create input
+    const dateInput = document.createElement('input');
+    dateInput.type = 'text';
+    dateInput.placeholder = 'Enter due date';
+    
+    // Append input to tray
+    dateTray.appendChild(dateInput);
+    
+    // Position the tray relative to the badge
+    calendarBadge.style.position = 'relative';
+    calendarBadge.appendChild(dateTray);
+    
+    // Toggle tray
+    calendarBadge.addEventListener('click', (e) => {
+        e.stopPropagation();
+        
+        // Close any other open date trays
+        const allDateTrays = document.querySelectorAll('.calendar-date-tray.open');
+        allDateTrays.forEach(tray => {
+            if (tray !== dateTray) {
+                tray.classList.remove('open');
+            }
+        });
+        
+        // Toggle this tray
+        dateTray.classList.toggle('open');
+        
+        // Focus the input when opening
+        if (dateTray.classList.contains('open')) {
+            dateInput.focus();
+            
+            // Set the current task's due date if it exists
+            if (task.dueDate) {
+                dateInput.value = new Date(task.dueDate).toLocaleDateString();
+            }
+        }
+    });
+    
+    // Handle input interactions
+    dateInput.addEventListener('blur', async () => {
+        const inputValue = dateInput.value.trim();
+        
+        try {
+            // Try to parse the date
+            let parsedDate = null;
+            if (inputValue) {
+                parsedDate = new Date(inputValue);
+                // If date is invalid, keep it as null
+                if (isNaN(parsedDate.getTime())) {
+                    parsedDate = null;
+                }
+            }
+            
+            const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dueDate: parsedDate ? parsedDate.toISOString() : null })
+            });
+            
+            if (response.ok) {
+                const updatedTask = await response.json();
+                state.tasks[task.id] = updatedTask;
+                
+                // Update badge to show due date is set
+                calendarBadge.classList.toggle('has-due-date', !!parsedDate);
+                calendarBadge.setAttribute('title', parsedDate ? `Due: ${parsedDate.toLocaleDateString()}` : 'No due date set');
+                
+                // Close the tray
+                dateTray.classList.remove('open');
+            }
+        } catch (error) {
+            console.error('Failed to update task due date:', error);
+        }
+    });
+    
+    // Handle Enter and Escape keys
+    dateInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            dateInput.blur(); // This will trigger the save logic
+        } else if (e.key === 'Escape') {
+            dateTray.classList.remove('open');
+        }
+    });
+    
     // Add a visual indication if the due date is set
     if (task.dueDate) {
         calendarBadge.classList.add('has-due-date');
@@ -1474,9 +1586,9 @@ function renderTask(task) {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ description: newDescription })
-            });
-            
-            if (response.ok) {
+                });
+                
+                if (response.ok) {
                     const updatedTask = await response.json();
                     state.tasks[task.id] = updatedTask;
                     if (!newDescription) {
