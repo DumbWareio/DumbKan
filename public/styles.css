@@ -122,6 +122,7 @@ main {
     min-height: calc(100vh - 4rem);
     transition: background var(--transition), box-shadow var(--transition);
     margin: 1rem auto;
+    overflow: hidden;
 }
 
 /* Form styling */
@@ -448,21 +449,24 @@ h2 {
     color: white;
 }
 
-/* Kanban Board */
+/* Board container */
 .board-container {
     overflow-x: auto;
-    padding-bottom: 1rem;
+    padding: 0.5rem;
     margin: 0;
-    padding: 0;
     width: 100%;
+    height: calc(100vh - 10rem);
+    -webkit-overflow-scrolling: touch;
 }
 
+/* Columns container */
 .columns {
-    display: inline-flex;
+    display: flex;
     gap: 1rem;
     min-height: 70vh;
     padding: 0.2rem;
     align-items: flex-start;
+    width: max-content;
 }
 
 /* Add Column Button */
@@ -578,6 +582,7 @@ h2 {
     overflow-y: auto;
     padding: 0.5rem;
     min-height: 50px;
+    max-height: calc(100vh - 15rem);
 }
 
 /* Task styling */
@@ -588,7 +593,7 @@ h2 {
     padding: 8px;
     margin-bottom: 8px;
     cursor: grab;
-    transition: all var(--transition);
+    transition: box-shadow var(--transition);
     border: 1px solid var(--border);
     display: flex;
     min-height: 60px;
@@ -1700,201 +1705,79 @@ h2 {
 }
 
 @media (max-width: 768px) {
-    .board-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
-    }
-
-    .app-title {
-        position: static;
-        width: 100%;
-        font-size: 1.2rem;
-        order: 1;
-        transform: none;
-        padding-right: 2.5rem;
-    }
-
-    .board-selector {
-        width: 100%;
-        order: 2;
-        justify-content: flex-start;
-    }
-
-    .board-selector h1 {
-        font-size: 1.1rem;
-        flex: 1;
-        white-space: nowrap;
+    .container {
+        padding: 1rem 0.5rem;
+        margin: 0.5rem;
+        width: calc(100% - 1rem);
         overflow: hidden;
-        text-overflow: ellipsis;
     }
 
-    #themeToggle {
-        position: absolute;
-        top: 0.75rem;
-        right: 0.75rem;
-    }
-
-    /* Board container adjustments */
     .board-container {
-        margin: 0 -0.5rem;
-        padding: 0.5rem;
+        padding: 0.25rem;
+        margin-top: 0.5rem;
+        overflow-x: auto;
+        height: calc(100vh - 8rem);
+        width: 100%;
     }
 
     .columns {
-        gap: 0.75rem;
-        padding: 0.2rem 0.5rem;
+        display: flex;
+        gap: 0.5rem;
+        padding: 0.25rem;
+        overflow-x: visible;
+        width: max-content;
+        align-items: flex-start;
     }
 
     .column {
-        flex: 0 0 280px;
-        width: 280px;
+        min-width: 280px;
+        max-width: 280px;
+        scroll-snap-align: start;
+        margin-bottom: 0.5rem;
+        padding: 0.75rem;
+        height: auto;
     }
 
-    /* Task card adjustments */
-    .task {
-        padding: 6px;
-        margin-bottom: 6px;
-    }
-
-    .task-title {
-        font-size: 0.9rem;
-    }
-
-    .task-badges {
-        gap: 4px;
-        margin: 3px 0;
-    }
-
-    .badge {
-        width: 18px;
-        height: 18px;
-    }
-
-    /* Modal adjustments */
-    .modal-content {
-        padding: 1.5rem;
-        width: 95%;
-        max-height: 90vh;
-        overflow-y: auto;
-    }
-
-    .modal h2 {
-        font-size: 1.25rem;
-        margin-bottom: 1.5rem;
-    }
-
-    .modal-actions {
-        position: sticky;
-        bottom: 0;
-        background: var(--container);
-        padding-top: 1rem;
-        margin-top: 1rem;
-        border-top: 1px solid var(--border);
-    }
-
-    /* Interactive elements */
-    .btn-primary,
-    .btn-secondary {
-        padding: 0.5rem 0.75rem;
-        font-size: 0.9rem;
-        min-height: 40px;
-    }
-
-    .column-header {
-        padding: 0.5rem;
-    }
-
-    .add-column-btn {
-        flex: 0 0 50px;
-    }
-
-    .task-move {
-        width: 20px;
-        margin: -8px -8px -8px 0;
-    }
-
-    .dumbware-credit {
-        font-size: 0.7em;
-        padding: 6px;
-    }
-
-    /* Ensure content doesn't get hidden behind the credit */
-    .container {
-        margin-bottom: calc(2rem + 24px);
+    .tasks {
+        max-height: calc(100vh - 12rem);
     }
 }
 
 @media (max-width: 480px) {
     .container {
-        padding: 1.5rem 0.75rem 1rem;
-        margin: 0.5rem;
-        width: calc(100% - 1rem);
-    }
-
-    .board-header {
-        margin-bottom: 1rem;
-    }
-
-    .column {
-        flex: 0 0 260px;
-        width: 260px;
-    }
-
-    .modal-content {
-        padding: 1.25rem;
-    }
-
-    .modal-actions {
-        flex-direction: column-reverse;
-        gap: 0.5rem;
-    }
-
-    .modal-actions button {
+        padding: 0.5rem 0.25rem;
+        margin: 0;
+        border-radius: 0;
         width: 100%;
     }
 
-    .priority-tray {
-        position: fixed;
-        left: 50%;
-        bottom: 1rem;
-        top: auto;
-        transform: translateX(-50%) translateY(100%);
-        flex-direction: row;
-        padding: 8px;
-        gap: 8px;
-        border-radius: 20px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    .board-container {
+        padding: 0.25rem;
+        height: calc(100vh - 7rem);
     }
 
-    .priority-tray.active {
-        transform: translateX(-50%) translateY(0);
+    .column {
+        min-width: 260px;
+        max-width: 260px;
+        padding: 0.5rem;
     }
 
-    .priority-option {
-        width: 32px;
-        height: 32px;
-        font-size: 14px;
-    }
-
-    .dumbware-credit {
-        font-size: 0.65em;
-        padding: 4px;
+    .tasks {
+        max-height: calc(100vh - 10rem);
     }
 }
 
-/* Touch device optimizations */
+/* Add touch-specific optimizations */
 @media (hover: none) {
-    .task-move {
-        opacity: 0.6;
-    }
-
-    .column-header {
-        cursor: default;
+    .task-move,
+    .column-drag-handle,
+    .task-drag-handle {
+        opacity: 1;
+        visibility: visible;
     }
 
     .task {
-        cursor: default;
+        -webkit-tap-highlight-color: transparent;
     }
 
     .btn-primary:active,
@@ -1902,8 +1785,17 @@ h2 {
         transform: scale(0.98);
     }
 
-    .priority-badge {
-        opacity: 1;
+    /* Only scale interactive elements within tasks */
+    .task .priority-badge:active,
+    .task .status-badge:active,
+    .task .task-move:active,
+    .task .task-drag-handle:active {
+        transform: scale(0.95);
+    }
+
+    .priority-badge,
+    .status-badge {
+        -webkit-tap-highlight-color: rgba(0,0,0,0);
     }
 }
 
