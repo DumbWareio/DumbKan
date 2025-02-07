@@ -583,6 +583,7 @@ h2 {
     padding: 0.5rem;
     min-height: 50px;
     max-height: calc(100vh - 15rem);
+    -webkit-overflow-scrolling: touch;
 }
 
 /* Task styling */
@@ -598,6 +599,8 @@ h2 {
     display: flex;
     min-height: 60px;
     padding-right: 32px;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .task-content-wrapper {
@@ -655,6 +658,7 @@ h2 {
     margin-top: 2px;
 }
 
+/* Task move button */
 .task-move {
     width: 24px;
     position: absolute;
@@ -699,8 +703,92 @@ h2 {
     transform: translate(-50%, -50%);
 }
 
-.task-move:hover svg {
-    transform: translate(-40%, -50%);
+/* Task drag handle */
+.task-drag-handle {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.4;
+    transition: opacity var(--transition);
+    cursor: grab;
+    z-index: 10;
+    background: var(--background);
+    border-radius: 50%;
+}
+
+.task-drag-handle:hover {
+    opacity: 1;
+}
+
+.task.dragging {
+    cursor: grabbing;
+    opacity: 0.9;
+    transform: scale(1.02);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+}
+
+.task.dragging .task-drag-handle {
+    cursor: grabbing;
+}
+
+@media (max-width: 768px) {
+    .task-drag-handle {
+        width: 32px;
+        height: 32px;
+        top: 4px;
+        right: 4px;
+        opacity: 0.8;
+        background: var(--background);
+        border-radius: 50%;
+        border: 1px solid var(--border);
+    }
+
+    .task {
+        padding-right: 44px;
+        touch-action: none;
+        -webkit-touch-callout: none;
+    }
+
+    .task.dragging {
+        opacity: 0.8;
+        transform: scale(1.02);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        background: var(--primary);
+        color: white;
+    }
+
+    .tasks {
+        touch-action: pan-y;
+    }
+
+    .board-container {
+        touch-action: pan-x;
+    }
+}
+
+@media (hover: none) {
+    .task-drag-handle {
+        opacity: 0.8;
+        visibility: visible;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .task-drag-handle:active {
+        opacity: 1;
+        background: var(--primary);
+        color: white;
+    }
+
+    .task.dragging .task-drag-handle {
+        background: white;
+        color: var(--primary);
+    }
 }
 
 .task-title .priority-badge {
@@ -1532,17 +1620,6 @@ h2 {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
-.column-header {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem;
-    background: var(--task-bg);
-    border-bottom: 1px solid var(--border);
-    border-radius: 8px 8px 0 0;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
 .column-drag-handle {
     margin-left: auto;
     opacity: 0.5;
@@ -1891,51 +1968,4 @@ select#taskStatus:focus {
 
 .calendar-date-tray .date-actions {
     display: none;
-}
-
-/* Task drag handle */
-.task-drag-handle {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 20px;
-    height: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0.4;
-    transition: opacity var(--transition);
-    cursor: grab;
-    z-index: 10;
-}
-
-.task-drag-handle:hover {
-    opacity: 1;
-}
-
-.task.dragging {
-    cursor: grabbing;
-    opacity: 0.9;
-    transform: scale(1.02);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-}
-
-.task.dragging .task-drag-handle {
-    cursor: grabbing;
-}
-
-/* Media query adjustments for drag handle */
-@media (max-width: 768px) {
-    .task-drag-handle {
-        width: 18px;
-        height: 18px;
-        top: 3px;
-        right: 3px;
-    }
-}
-
-@media (hover: none) {
-    .task-drag-handle {
-        opacity: 0.6;
-    }
 }
