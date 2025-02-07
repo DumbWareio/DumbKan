@@ -620,6 +620,7 @@ h2 {
 }
 
 .task-badges {
+    position: relative;
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -706,17 +707,76 @@ h2 {
 }
 
 .calendar-badge {
-    background-color: var(--background);
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity var(--transition);
+}
+
+.calendar-badge:hover {
+    opacity: 1;
 }
 
 .calendar-badge svg {
-    width: 14px;
-    height: 14px;
-    stroke: currentColor;
+    stroke: var(--text);
     fill: none;
     stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    width: 16px;
+    height: 16px;
+}
+
+.calendar-badge.has-due-date svg {
+    stroke: var(--primary);
+}
+
+.calendar-badge.hidden {
+    visibility: hidden;
+}
+
+.calendar-badge.hidden svg {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.calendar-input-container {
+    position: absolute;
+    top: -2px;  /* Adjust to match task-badges positioning */
+    left: -100%;  /* Start from the left edge of the calendar badge */
+    width: 0;
+    height: calc(100% + 4px);  /* Match task-badges total height including margin */
+    background: rgba(255, 255, 255, 0.03);
+    display: flex;
+    align-items: center;
+    transition: width 0.3s ease-in-out;
+    z-index: 10;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.calendar-input-container.open {
+    left: 0;  /* Align with the start of the calendar badge */
+    width: calc(100% + 100px);  /* Expand beyond the original badge width */
+}
+
+.calendar-input-container input {
+    width: 100%;
+    height: 100%;
+    padding: 2px 8px;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font-size: 0.875rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.calendar-input-container.open input {
+    opacity: 1;
 }
 
 .task-description {
@@ -1494,7 +1554,7 @@ h2 {
     top: 50%;
     transform: translateY(-50%) scaleX(0);
     background: var(--container);
-    border: 1px solid var(--border);
+    border: none;
     border-radius: 12px;
     box-shadow: var(--shadow);
     padding: 4px;
@@ -1506,6 +1566,7 @@ h2 {
     transform-origin: left;
     transition: transform 0.2s ease, opacity 0.2s ease;
     pointer-events: none;
+    width: auto;
 }
 
 .priority-tray.active {
@@ -1563,6 +1624,7 @@ h2 {
     border-radius: 50%;
     font-weight: bold;
     font-size: 12px;
+    z-index: 10;
 }
 
 .priority-badge.urgent {
@@ -1886,4 +1948,45 @@ select#taskStatus:focus {
     outline: none;
     border-color: var(--primary);
     box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+}
+
+.calendar-date-tray {
+    position: absolute;
+    left: -4px;
+    top: 50%;
+    transform: translateY(-50%) scaleX(0);
+    background: var(--container);
+    border: none;
+    border-radius: 12px 0 0 12px;
+    box-shadow: var(--shadow);
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 1005;
+    opacity: 0;
+    transform-origin: left;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+    pointer-events: none;
+    width: calc(100% - 24px);
+}
+
+.calendar-date-tray.open {
+    transform: translateY(-50%) scaleX(1);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.calendar-date-tray input {
+    width: 100%;
+    min-width: 120px;
+    padding: 4px 8px;
+    border: none;
+    background: var(--container);
+    color: var(--text);
+    font-size: 0.875rem;
+}
+
+.calendar-date-tray .date-actions {
+    display: none;
 }

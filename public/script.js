@@ -241,7 +241,7 @@ function showTaskModal(task) {
     
     const isNewTask = !task.id;
     elements.taskModal.querySelector('h2').textContent = isNewTask ? 'Add Task' : 'Edit Task';
-    elements.taskTitle.value = isNewTask ? '' : task.title;
+    elements.taskTitle.value = isNewTask ? '' : (task.title || '');
     elements.taskDescription.value = isNewTask ? '' : (task.description || '');
     elements.taskStatus.value = isNewTask ? 'open' : (task.status || 'open');
     elements.taskForm.dataset.taskId = task.id || '';
@@ -623,6 +623,9 @@ function initEventListeners() {
             console.error('Failed to save task:', error);
         }
     });
+
+    // Add calendar input slide functionality
+    initCalendarInputSlide();
 }
 
 // Initialize the application
@@ -698,6 +701,8 @@ async function init() {
 
     // Initial check
     handleCreditVisibility();
+
+    initCalendarInputSlide();
 }
 
 // Add this before initLogin function
@@ -1440,15 +1445,21 @@ function renderTask(task) {
     // Add calendar badge
     const calendarBadge = document.createElement('span');
     calendarBadge.className = 'badge calendar-badge';
-    calendarBadge.setAttribute('title', 'Created: ' + new Date(task.createdAt).toLocaleDateString());
+    calendarBadge.setAttribute('title', task.dueDate ? 'Due: ' + new Date(task.dueDate).toLocaleDateString() : 'No due date set');
     calendarBadge.innerHTML = `
-        <svg viewBox="0 0 24 24">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-            <line x1="16" y1="2" x2="16" y2="6"></line>
-            <line x1="8" y1="2" x2="8" y2="6"></line>
-            <line x1="3" y1="10" x2="21" y2="10"></line>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" fill="none"></rect>
+            <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor"></line>
+            <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor"></line>
+            <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor"></line>
+            <path d="M8 14h8" stroke="currentColor" stroke-linecap="round"></path>
+            <path d="M8 18h4" stroke="currentColor" stroke-linecap="round"></path>
         </svg>
     `;
+    // Add a visual indication if the due date is set
+    if (task.dueDate) {
+        calendarBadge.classList.add('has-due-date');
+    }
     metadataBadges.appendChild(calendarBadge);
     contentWrapper.appendChild(metadataBadges);
 
@@ -1791,4 +1802,121 @@ function createInlineTaskEditor(sectionId, addTaskBtn) {
     });
 
     input.focus();
+}
+
+// Add this function to handle calendar input slide functionality
+function initCalendarInputSlide() {
+    const calendarBadges = document.querySelectorAll('.calendar-badge');
+    
+    calendarBadges.forEach(badge => {
+        const badgeSvg = badge.querySelector('svg');
+        
+        // Create date tray
+        const dateTray = document.createElement('div');
+        dateTray.className = 'calendar-date-tray';
+        
+        // Create input
+        const dateInput = document.createElement('input');
+        dateInput.type = 'text';
+        dateInput.placeholder = 'Enter due date';
+        
+        // Append input to tray
+        dateTray.appendChild(dateInput);
+        
+        // Position the tray relative to the badge
+        badge.style.position = 'relative';
+        badge.appendChild(dateTray);
+        
+        // Toggle tray
+        badge.addEventListener('click', (e) => {
+            e.stopPropagation();
+            
+            // Close any other open date trays
+            const allDateTrays = document.querySelectorAll('.calendar-date-tray.open');
+            allDateTrays.forEach(tray => {
+                if (tray !== dateTray) {
+                    tray.classList.remove('open');
+                }
+            });
+            
+            // Toggle this tray
+            dateTray.classList.toggle('open');
+            
+            // Focus the input when opening
+            if (dateTray.classList.contains('open')) {
+                dateInput.focus();
+                
+                // Set the current task's due date if it exists
+                const taskElement = badge.closest('.task');
+                const taskId = taskElement.dataset.taskId;
+                const task = state.tasks[taskId];
+                
+                if (task && task.dueDate) {
+                    dateInput.value = new Date(task.dueDate).toLocaleDateString();
+                }
+            }
+        });
+        
+        // Handle input interactions
+        dateInput.addEventListener('blur', async () => {
+            const inputValue = dateInput.value.trim();
+            const taskElement = badge.closest('.task');
+            const taskId = taskElement.dataset.taskId;
+            const sectionId = taskElement.closest('.column').dataset.sectionId;
+            
+            try {
+                // Try to parse the date
+                let parsedDate = null;
+                if (inputValue) {
+                    parsedDate = new Date(inputValue);
+                    // If date is invalid, keep it as null
+                    if (isNaN(parsedDate.getTime())) {
+                        parsedDate = null;
+                    }
+                }
+                
+                const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks/${taskId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ dueDate: parsedDate ? parsedDate.toISOString() : null })
+                });
+                
+                if (response.ok) {
+                    const updatedTask = await response.json();
+                    state.tasks[taskId] = updatedTask;
+                    
+                    // Update badge to show due date is set
+                    badge.classList.toggle('has-due-date', !!parsedDate);
+                    badge.setAttribute('title', parsedDate ? `Due: ${parsedDate.toLocaleDateString()}` : 'No due date set');
+                    
+                    // Close the tray
+                    dateTray.classList.remove('open');
+                }
+            } catch (error) {
+                console.error('Failed to update task due date:', error);
+            }
+        });
+        
+        // Handle Enter and Escape keys
+        dateInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                dateInput.blur(); // This will trigger the save logic
+            } else if (e.key === 'Escape') {
+                dateTray.classList.remove('open');
+            }
+        });
+    });
+    
+    // Close tray when clicking outside
+    document.addEventListener('click', (event) => {
+        const openDateTrays = document.querySelectorAll('.calendar-date-tray.open');
+        openDateTrays.forEach(tray => {
+            const isClickInsideTray = tray.contains(event.target);
+            const isClickOnCalendarBadge = Array.from(document.querySelectorAll('.calendar-badge')).some(badge => badge.contains(event.target));
+            
+            if (!isClickInsideTray && !isClickOnCalendarBadge) {
+                tray.classList.remove('open');
+            }
+        });
+    });
 }
