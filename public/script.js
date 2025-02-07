@@ -1322,6 +1322,135 @@ async function moveTaskRight(taskId, currentSectionId) {
     await handleTaskMove(taskId, currentSectionId, nextSectionId, 0);
 }
 
+// Touch event handling for mobile drag and drop
+let touchStartX = 0;
+let touchStartY = 0;
+let isDragging = false;
+let draggedElement = null;
+let placeholder = null;
+
+function handleTouchStart(e) {
+    const dragHandle = e.target.closest('.task-drag-handle');
+    if (!dragHandle) return;
+
+    const task = dragHandle.closest('.task');
+    if (!task) return;
+
+    e.preventDefault(); // Prevent scrolling while dragging
+    isDragging = true;
+    draggedElement = task;
+    
+    // Store initial touch position
+    const touch = e.touches[0];
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+    
+    // Create visual feedback
+    draggedElement.classList.add('dragging');
+    draggedElement.style.position = 'fixed';
+    draggedElement.style.zIndex = '1000';
+    draggedElement.style.width = `${draggedElement.offsetWidth}px`;
+    
+    // Create and insert placeholder
+    placeholder = draggedElement.cloneNode(true);
+    placeholder.style.visibility = 'hidden';
+    draggedElement.parentNode.insertBefore(placeholder, draggedElement);
+    
+    // Set initial position
+    updateDraggedPosition(touch.clientX, touch.clientY);
+}
+
+function handleTouchMove(e) {
+    if (!isDragging || !draggedElement) return;
+    
+    e.preventDefault();
+    const touch = e.touches[0];
+    
+    // Update dragged element position
+    updateDraggedPosition(touch.clientX, touch.clientY);
+    
+    // Find and update drop target
+    const dropTarget = findDropTarget(touch.clientX, touch.clientY);
+    if (dropTarget && dropTarget.tasksContainer) {
+        const siblings = [...dropTarget.tasksContainer.querySelectorAll('.task:not(.dragging)')];
+        const nextSibling = siblings.find(sibling => {
+            const rect = sibling.getBoundingClientRect();
+            return touch.clientY < rect.top + rect.height / 2;
+        });
+        
+        if (nextSibling) {
+            dropTarget.tasksContainer.insertBefore(placeholder, nextSibling);
+        } else {
+            dropTarget.tasksContainer.appendChild(placeholder);
+        }
+    }
+}
+
+function handleTouchEnd(e) {
+    if (!isDragging || !draggedElement) return;
+    
+    e.preventDefault();
+    isDragging = false;
+    
+    // Reset dragged element styles
+    draggedElement.classList.remove('dragging');
+    draggedElement.style.position = '';
+    draggedElement.style.top = '';
+    draggedElement.style.left = '';
+    draggedElement.style.width = '';
+    draggedElement.style.zIndex = '';
+    
+    // Get final position and handle the move
+    const dropTarget = findDropTarget(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+    if (dropTarget) {
+        const fromSectionId = draggedElement.closest('.column').dataset.sectionId;
+        const toSectionId = dropTarget.column.dataset.sectionId;
+        const taskId = draggedElement.dataset.taskId;
+        
+        // Get the new index
+        const siblings = [...dropTarget.tasksContainer.querySelectorAll('.task:not(.dragging)')];
+        const newIndex = siblings.indexOf(placeholder);
+        
+        // Replace placeholder with dragged element
+        placeholder.parentNode.replaceChild(draggedElement, placeholder);
+        
+        // Handle the task move
+        handleTaskMove(taskId, fromSectionId, toSectionId, newIndex);
+    } else {
+        // If no valid drop target, return to original position
+        placeholder.parentNode.replaceChild(draggedElement, placeholder);
+    }
+    
+    draggedElement = null;
+    placeholder = null;
+}
+
+function updateDraggedPosition(x, y) {
+    if (!draggedElement) return;
+    
+    const deltaX = x - touchStartX;
+    const deltaY = y - touchStartY;
+    
+    draggedElement.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+}
+
+function findDropTarget(x, y) {
+    const elements = document.elementsFromPoint(x, y);
+    
+    for (const element of elements) {
+        const column = element.closest('.column');
+        if (column) {
+            const tasksContainer = column.querySelector('.tasks');
+            if (tasksContainer) {
+                return { column, tasksContainer };
+            }
+        }
+    }
+    
+    return null;
+}
+
+// Update renderTask to add touch event listeners
 function renderTask(task) {
     if (!task) return null;
 
@@ -1330,9 +1459,14 @@ function renderTask(task) {
     taskElement.dataset.taskId = task.id;
     taskElement.draggable = true;
 
-    // Add drag event listeners for tasks
+    // Add both drag and touch event listeners
     taskElement.addEventListener('dragstart', handleDragStart);
     taskElement.addEventListener('dragend', handleDragEnd);
+    
+    // Add touch event listeners
+    taskElement.addEventListener('touchstart', handleTouchStart, { passive: false });
+    taskElement.addEventListener('touchmove', handleTouchMove, { passive: false });
+    taskElement.addEventListener('touchend', handleTouchEnd, { passive: false });
 
     // Add drag handle with simpler icon
     const dragHandle = document.createElement('div');
@@ -1368,8 +1502,8 @@ function renderTask(task) {
                 return true;
             }
             return false;
-                } catch (error) {
-            console.error('Failed to update task title:', error);
+        } catch (error) {
+                console.error('Failed to update task title:', error);
             return false;
         }
     });
