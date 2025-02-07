@@ -522,7 +522,7 @@ app.post(BASE_PATH + '/api/boards/:boardId/sections', async (req, res) => {
 app.post(BASE_PATH + '/api/boards/:boardId/sections/:sectionId/tasks', async (req, res) => {
     try {
         const { boardId, sectionId } = req.params;
-        const { title, description, priority = 'medium' } = req.body;
+        const { title, description, priority = 'medium', dueDate = null, startDate = null } = req.body;
         
         if (!title) {
             return res.status(400).json({ error: 'Task title is required' });
@@ -540,7 +540,7 @@ app.post(BASE_PATH + '/api/boards/:boardId/sections/:sectionId/tasks', async (re
         const taskId = generateTaskId();
         const now = new Date().toISOString();
 
-        // Create new task with validated priority
+        // Create new task with validated priority and optional dates
         const task = {
             id: taskId,
             title,
@@ -550,9 +550,11 @@ app.post(BASE_PATH + '/api/boards/:boardId/sections/:sectionId/tasks', async (re
             sectionId,
             boardId,
             priority: taskPriority,
-            status: 'open',
+            status: 'active',
             tags: [],
-            assignee: null
+            assignee: null,
+            dueDate,
+            startDate
         };
 
         // Add task to tasks collection
