@@ -1259,7 +1259,7 @@ function renderColumn(section) {
         <div class="column-count">${taskCount}</div>
         <div class="column-drag-handle">
             <svg viewBox="0 0 24 24" width="16" height="16">
-                <path d="M10.5 6H9c-.4 0-.8-.2-.9-.6-.2-.4-.1-.8.2-1.1l3-3c.4-.4 1-.4 1.4 0l3 3c.3.3.4.7.2 1.1-.2.4-.5.6-.9.6h-1.5v4.5H18V9c0-.4.2-.8.6-.9.4-.2.8-.1 1.1.2l3 3c.4.4.4 1 0 1.4l-3 3c-.3.3-.7.4-1.1.2-.4-.2-.6-.5-.6-.9v-1.5h-4.5V18H15c.4 0 .8.2.9.6.2.4.1.8-.2 1.1l-3 3c-.4.4-1 .4-1.4 0l-3-3c-.3-.3-.4-.7-.2-1.1.2-.4.5.6.9.6.9v1.5h4.5V6z"/>
+                <path d="M8 6h8M8 12h8M8 18h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             </svg>
         </div>
     `;
@@ -1338,10 +1338,8 @@ function renderTask(task) {
     const dragHandle = document.createElement('div');
     dragHandle.className = 'task-drag-handle';
     dragHandle.innerHTML = `
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="6" r="2"/>
-            <circle cx="12" cy="12" r="2"/>
-            <circle cx="12" cy="18" r="2"/>
+        <svg viewBox="0 0 24 24" width="16" height="16">
+            <path d="M8 6h8M8 12h8M8 18h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
     `;
     taskElement.appendChild(dragHandle);
