@@ -178,8 +178,17 @@ app.get(BASE_PATH + '/config.js', (req, res) => {
         window.appConfig = {
             basePath: '${BASE_PATH}',
             debug: ${DEBUG},
-            title: '${siteTitle}'
+            siteTitle: '${siteTitle}',
+            version: '1.0.0'
         };
+
+        // Set the site title
+        document.title = window.appConfig.siteTitle;
+
+        // Also update any elements with the site title placeholder
+        document.querySelectorAll('.app-title').forEach(element => {
+            element.textContent = window.appConfig.siteTitle;
+        });
     `);
 });
 
@@ -192,6 +201,21 @@ app.use(BASE_PATH + '/icons', express.static('public/icons'));
 app.use(BASE_PATH + '/logo.png', express.static('public/logo.png'));
 app.use(BASE_PATH + '/favicon.svg', express.static('public/favicon.svg'));
 app.use(BASE_PATH + '/marked.min.js', express.static('public/marked.min.js'));
+
+// Serve dumbdateparser.js with explicit MIME type
+app.get(BASE_PATH + '/dumbdateparser.js', (req, res) => {
+    res.setHeader('Content-Type', 'application/javascript');
+    res.sendFile(path.join(__dirname, 'public', 'dumbdateparser.js'));
+});
+
+// Add this near the top with other middleware
+app.use(express.static('public', {
+    setHeaders: (res, path) => {
+        if (path.endsWith('.js')) {
+            res.setHeader('Content-Type', 'application/javascript');
+        }
+    }
+}));
 
 // Routes
 app.get(BASE_PATH + '/', authMiddleware, async (req, res, next) => {

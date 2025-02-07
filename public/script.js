@@ -1334,12 +1334,14 @@ function renderTask(task) {
     taskElement.addEventListener('dragstart', handleDragStart);
     taskElement.addEventListener('dragend', handleDragEnd);
 
-    // Add drag handle
+    // Add drag handle with simpler icon
     const dragHandle = document.createElement('div');
     dragHandle.className = 'task-drag-handle';
     dragHandle.innerHTML = `
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M10.5 6H9c-.4 0-.8-.2-.9-.6-.2-.4-.1-.8.2-1.1l3-3c.4-.4 1-.4 1.4 0l3 3c.3.3.4.7.2 1.1-.2.4-.5.6-.9.6h-1.5v4.5H18V9c0-.4.2-.8.6-.9.4-.2.8-.1 1.1.2l3 3c.4.4.4 1 0 1.4l-3 3c-.3.3-.7.4-1.1.2-.4-.2-.6-.5-.6-.9v-1.5h-4.5V18H15c.4 0 .8.2.9.6.2.4.1.8-.2 1.1l-3 3c-.4.4-1 .4-1.4 0l-3-3c-.3-.3-.4-.7-.2-1.1.2-.4.5-.6.9-.6h1.5v-4.5H6V15c0 .4-.2.8-.6.9-.4.2-.8.1-1.1-.2l-3-3c-.4-.4-.4-1 0-1.4l3-3c.3-.3.7-.4 1.1-.2.4.2.6.5.6.9v1.5h4.5V6z"/>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="6" r="2"/>
+            <circle cx="12" cy="12" r="2"/>
+            <circle cx="12" cy="18" r="2"/>
         </svg>
     `;
     taskElement.appendChild(dragHandle);
@@ -1526,36 +1528,29 @@ function renderTask(task) {
     dateInput.addEventListener('blur', async () => {
         const inputValue = dateInput.value.trim();
         
-        try {
-            // Try to parse the date
-            let parsedDate = null;
-            if (inputValue) {
-                parsedDate = new Date(inputValue);
-                // If date is invalid, keep it as null
-                if (isNaN(parsedDate.getTime())) {
-                    parsedDate = null;
-                }
-            }
+        // Dumb date parsing - if it works, it works!
+        let parsedDate = null;
+        if (inputValue) {
+            parsedDate = DumbDateParser.parseDate(inputValue);
+        }
+        
+        // If we got a date, use it. If not, no date!
+        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dueDate: parsedDate ? parsedDate.toISOString() : null })
+        });
+        
+        if (response.ok) {
+            const updatedTask = await response.json();
+            state.tasks[task.id] = updatedTask;
             
-            const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ dueDate: parsedDate ? parsedDate.toISOString() : null })
-            });
+            // Show it worked
+            calendarBadge.classList.toggle('has-due-date', !!parsedDate);
+            calendarBadge.setAttribute('title', parsedDate ? `Due: ${parsedDate.toLocaleDateString()}` : 'No due date');
             
-            if (response.ok) {
-                const updatedTask = await response.json();
-                state.tasks[task.id] = updatedTask;
-                
-                // Update badge to show due date is set
-                calendarBadge.classList.toggle('has-due-date', !!parsedDate);
-                calendarBadge.setAttribute('title', parsedDate ? `Due: ${parsedDate.toLocaleDateString()}` : 'No due date set');
-                
-                // Close the tray
-                dateTray.classList.remove('open');
-            }
-        } catch (error) {
-            console.error('Failed to update task due date:', error);
+            // Close it
+            dateTray.classList.remove('open');
         }
     });
     
@@ -1972,40 +1967,30 @@ function initCalendarInputSlide() {
         // Handle input interactions
         dateInput.addEventListener('blur', async () => {
             const inputValue = dateInput.value.trim();
-            const taskElement = badge.closest('.task');
-            const taskId = taskElement.dataset.taskId;
-            const sectionId = taskElement.closest('.column').dataset.sectionId;
             
-            try {
-                // Try to parse the date
-                let parsedDate = null;
-                if (inputValue) {
-                    parsedDate = new Date(inputValue);
-                    // If date is invalid, keep it as null
-                    if (isNaN(parsedDate.getTime())) {
-                        parsedDate = null;
-                    }
-                }
+            // Dumb date parsing - if it works, it works!
+            let parsedDate = null;
+            if (inputValue) {
+                parsedDate = DumbDateParser.parseDate(inputValue);
+            }
+            
+            // If we got a date, use it. If not, no date!
+            const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dueDate: parsedDate ? parsedDate.toISOString() : null })
+            });
+            
+            if (response.ok) {
+                const updatedTask = await response.json();
+                state.tasks[task.id] = updatedTask;
                 
-                const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks/${taskId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ dueDate: parsedDate ? parsedDate.toISOString() : null })
-                });
+                // Show it worked
+                badge.classList.toggle('has-due-date', !!parsedDate);
+                badge.setAttribute('title', parsedDate ? `Due: ${parsedDate.toLocaleDateString()}` : 'No due date');
                 
-                if (response.ok) {
-                    const updatedTask = await response.json();
-                    state.tasks[taskId] = updatedTask;
-                    
-                    // Update badge to show due date is set
-                    badge.classList.toggle('has-due-date', !!parsedDate);
-                    badge.setAttribute('title', parsedDate ? `Due: ${parsedDate.toLocaleDateString()}` : 'No due date set');
-                    
-                    // Close the tray
-                    dateTray.classList.remove('open');
-                }
-            } catch (error) {
-                console.error('Failed to update task due date:', error);
+                // Close it
+                dateTray.classList.remove('open');
             }
         });
         
