@@ -1373,15 +1373,28 @@ function handleTouchMove(e) {
     // Update drag clone position
     updateDraggedPosition(touch.clientX, touch.clientY);
     
-    // Use the same drag over handling as desktop
+    // Find drop target and handle drag over
     const dropTarget = findDropTarget(touch.clientX, touch.clientY);
     if (dropTarget?.column) {
-        handleDragOver({
-            preventDefault: () => {},
-            clientY: touch.clientY,
-            target: dropTarget.column,
-            dataTransfer: { dropEffect: 'move' }
+        const tasksContainer = dropTarget.tasksContainer;
+        const siblings = [...tasksContainer.querySelectorAll('.task:not(.dragging)')];
+        
+        // Find the task we should insert before based on Y position
+        const nextSibling = siblings.find(sibling => {
+            const rect = sibling.getBoundingClientRect();
+            return touch.clientY < rect.top + rect.height / 2;
         });
+        
+        // Move the dragged element to the correct position
+        if (nextSibling) {
+            tasksContainer.insertBefore(draggedElement, nextSibling);
+        } else {
+            tasksContainer.appendChild(draggedElement);
+        }
+        
+        // Add visual feedback
+        document.querySelectorAll('.column').forEach(col => col.classList.remove('drag-over'));
+        dropTarget.column.classList.add('drag-over');
     }
 }
 
@@ -1397,28 +1410,26 @@ function handleTouchEnd(e) {
         dragClone = null;
     }
     
-    // Get final position and simulate drop
+    // Find drop target and handle drop
     const dropTarget = findDropTarget(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
     if (dropTarget?.column) {
-        const fromSectionId = draggedElement.closest('.column').dataset.sectionId;
+        const taskId = draggedElement.dataset.taskId;
+        const sourceSectionId = draggedElement.closest('.column').dataset.sectionId;
+        const targetSectionId = dropTarget.column.dataset.sectionId;
+        const tasksContainer = dropTarget.tasksContainer;
         
-        // Create a synthetic drop event using the same data structure as desktop
-        handleDrop({
-            preventDefault: () => {},
-            target: dropTarget.column,
-            dataTransfer: {
-                getData: () => JSON.stringify({
-                    taskId: draggedElement.dataset.taskId,
-                    sourceSectionId: fromSectionId,
-                    type: 'task'
-                })
-            }
-        });
+        // Calculate the new index
+        const siblings = [...tasksContainer.querySelectorAll('.task')];
+        const newIndex = siblings.indexOf(draggedElement);
+        
+        // Move the task using the same function as desktop
+        handleTaskMove(taskId, sourceSectionId, targetSectionId, newIndex);
     }
     
-    // Reset dragged element styles
+    // Reset styles
     draggedElement.classList.remove('dragging');
     draggedElement = null;
+    document.querySelectorAll('.column').forEach(col => col.classList.remove('drag-over'));
 }
 
 function findDropTarget(x, y) {
@@ -1886,7 +1897,7 @@ async function handleTaskMove(taskId, fromSectionId, toSectionId, newIndex) {
         renderActiveBoard();
     } catch (error) {
         console.error('Failed to move task:', error);
-        loadBoards(); // Reload the board state in case of error
+        throw error; // Re-throw to allow proper error handling upstream
     }
 }
 

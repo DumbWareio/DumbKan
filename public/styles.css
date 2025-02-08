@@ -769,13 +769,25 @@ h2 {
         cursor: -webkit-grab;
         cursor: grab;
         z-index: 10;
-        background: transparent;
+        background: transparent !important;
         border: none;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+        user-select: none;
+    }
+
+    .task-drag-handle:active {
+        background: transparent !important;
     }
 
     .task.dragging {
         opacity: 0.4; /* Lower opacity for the placeholder */
         pointer-events: none;
+    }
+
+    .task.dragging .task-drag-handle,
+    .task.dragging .task-drag-handle:active {
+        background: transparent !important;
     }
 
     .task.drag-clone {
@@ -828,9 +840,12 @@ h2 {
         opacity: 0.8;
         visibility: visible;
         -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
     }
 
-    .task-drag-handle:active {
+    .task:not(.dragging):not(.drag-clone) .task-drag-handle:active {
         opacity: 1;
         background: var(--primary);
         color: white;
