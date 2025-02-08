@@ -1340,10 +1340,11 @@ function handleTouchStart(e) {
     isDragging = true;
     draggedElement = task;
     
-    // Store initial touch position
+    // Store initial touch position relative to the drag handle
     const touch = e.touches[0];
-    touchStartX = touch.clientX;
-    touchStartY = touch.clientY;
+    const handleRect = dragHandle.getBoundingClientRect();
+    touchStartX = touch.clientX - handleRect.right;
+    touchStartY = touch.clientY - handleRect.top;
     
     // Create drag clone
     dragClone = task.cloneNode(true);
@@ -1359,13 +1360,8 @@ function handleTouchStart(e) {
 
 function updateDraggedPosition(x, y) {
     if (!dragClone) return;
-    
-    const rect = dragClone.getBoundingClientRect();
-    const offsetX = rect.width / 2;
-    const offsetY = rect.height / 2;
-    
-    dragClone.style.left = `${x - offsetX}px`;
-    dragClone.style.top = `${y - offsetY}px`;
+    dragClone.style.left = `${x - touchStartX - dragClone.offsetWidth}px`;
+    dragClone.style.top = `${y - touchStartY}px`;
 }
 
 function handleTouchMove(e) {
@@ -2007,8 +2003,6 @@ function createInlineTaskEditor(sectionId, addTaskBtn) {
         } else {
                 closeEditor();
             }
-        } else if (!keepEditorOpen) {
-            closeEditor();
         }
         isProcessing = false;
     };
