@@ -1327,7 +1327,7 @@ let touchStartX = 0;
 let touchStartY = 0;
 let isDragging = false;
 let draggedElement = null;
-let placeholder = null;
+let dragClone = null;
 
 function handleTouchStart(e) {
     const dragHandle = e.target.closest('.task-drag-handle');
@@ -1345,19 +1345,27 @@ function handleTouchStart(e) {
     touchStartX = touch.clientX;
     touchStartY = touch.clientY;
     
-    // Create visual feedback
+    // Create drag clone
+    dragClone = task.cloneNode(true);
+    dragClone.classList.add('drag-clone');
+    document.body.appendChild(dragClone);
+    
+    // Add dragging class to original task (becomes placeholder)
     draggedElement.classList.add('dragging');
-    draggedElement.style.position = 'fixed';
-    draggedElement.style.zIndex = '1000';
-    draggedElement.style.width = `${draggedElement.offsetWidth}px`;
     
-    // Create and insert placeholder
-    placeholder = draggedElement.cloneNode(true);
-    placeholder.style.visibility = 'hidden';
-    draggedElement.parentNode.insertBefore(placeholder, draggedElement);
-    
-    // Set initial position
+    // Set initial position of drag clone
     updateDraggedPosition(touch.clientX, touch.clientY);
+}
+
+function updateDraggedPosition(x, y) {
+    if (!dragClone) return;
+    
+    const rect = dragClone.getBoundingClientRect();
+    const offsetX = rect.width / 2;
+    const offsetY = rect.height / 2;
+    
+    dragClone.style.left = `${x - offsetX}px`;
+    dragClone.style.top = `${y - offsetY}px`;
 }
 
 function handleTouchMove(e) {
@@ -1366,7 +1374,7 @@ function handleTouchMove(e) {
     e.preventDefault();
     const touch = e.touches[0];
     
-    // Update dragged element position
+    // Update drag clone position
     updateDraggedPosition(touch.clientX, touch.clientY);
     
     // Find and update drop target
@@ -1379,9 +1387,9 @@ function handleTouchMove(e) {
         });
         
         if (nextSibling) {
-            dropTarget.tasksContainer.insertBefore(placeholder, nextSibling);
+            dropTarget.tasksContainer.insertBefore(draggedElement, nextSibling);
         } else {
-            dropTarget.tasksContainer.appendChild(placeholder);
+            dropTarget.tasksContainer.appendChild(draggedElement);
         }
     }
 }
@@ -1392,13 +1400,14 @@ function handleTouchEnd(e) {
     e.preventDefault();
     isDragging = false;
     
+    // Remove drag clone
+    if (dragClone) {
+        dragClone.remove();
+        dragClone = null;
+    }
+    
     // Reset dragged element styles
     draggedElement.classList.remove('dragging');
-    draggedElement.style.position = '';
-    draggedElement.style.top = '';
-    draggedElement.style.left = '';
-    draggedElement.style.width = '';
-    draggedElement.style.zIndex = '';
     
     // Get final position and handle the move
     const dropTarget = findDropTarget(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
@@ -1408,30 +1417,14 @@ function handleTouchEnd(e) {
         const taskId = draggedElement.dataset.taskId;
         
         // Get the new index
-        const siblings = [...dropTarget.tasksContainer.querySelectorAll('.task:not(.dragging)')];
-        const newIndex = siblings.indexOf(placeholder);
+        const siblings = [...dropTarget.tasksContainer.querySelectorAll('.task')];
+        const newIndex = siblings.indexOf(draggedElement);
         
-        // Replace placeholder with dragged element
-        placeholder.parentNode.replaceChild(draggedElement, placeholder);
-        
-        // Handle the task move
+        // Use the same handleTaskMove function as desktop
         handleTaskMove(taskId, fromSectionId, toSectionId, newIndex);
-    } else {
-        // If no valid drop target, return to original position
-        placeholder.parentNode.replaceChild(draggedElement, placeholder);
     }
     
     draggedElement = null;
-    placeholder = null;
-}
-
-function updateDraggedPosition(x, y) {
-    if (!draggedElement) return;
-    
-    const deltaX = x - touchStartX;
-    const deltaY = y - touchStartY;
-    
-    draggedElement.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
 }
 
 function findDropTarget(x, y) {
@@ -1650,7 +1643,11 @@ function renderTask(task) {
             dateInput.focus();
             
             // Set the current task's due date if it exists
-            if (task.dueDate) {
+            const taskElement = calendarBadge.closest('.task');
+            const taskId = taskElement.dataset.taskId;
+            const task = state.tasks[taskId];
+            
+            if (task && task.dueDate) {
                 dateInput.value = new Date(task.dueDate).toLocaleDateString();
             }
         }

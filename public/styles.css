@@ -664,7 +664,9 @@ h2 {
     position: absolute;
     right: -1px;
     bottom: -1px;
-    height: 70%;
+    height: auto;
+    top: 40px;
+    bottom: 0;
     padding: 0;
     display: flex;
     align-items: center;
@@ -707,7 +709,7 @@ h2 {
 .task-drag-handle {
     position: absolute;
     top: 4px;
-    right: 4px;
+    right: 0px;
     width: 24px;
     height: 24px;
     display: flex;
@@ -717,8 +719,10 @@ h2 {
     transition: opacity var(--transition);
     cursor: grab;
     z-index: 10;
-    background: var(--background);
-    border-radius: 50%;
+    background: transparent;
+    border: none;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
 }
 
 .task-drag-handle:hover {
@@ -735,6 +739,7 @@ h2 {
 
 .task.dragging .task-drag-handle {
     cursor: grabbing;
+    outline: none;
 }
 
 @media (max-width: 768px) {
@@ -757,26 +762,37 @@ h2 {
         width: 32px;
         height: 32px;
         top: 4px;
-        right: 4px;
+        right: 0px;
         opacity: 0.8;
-        background: var(--background);
-        border-radius: 50%;
-        border: 1px solid var(--border);
         touch-action: none;
         cursor: move;
         cursor: -webkit-grab;
         cursor: grab;
         z-index: 10;
+        background: transparent;
+        border: none;
     }
 
     .task.dragging {
+        opacity: 0.4; /* Lower opacity for the placeholder */
+        pointer-events: none;
+    }
+
+    .task.drag-clone {
+        position: fixed;
         opacity: 0.9;
         transform: scale(1.02);
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         z-index: 1000;
+        width: 260px !important;
+        pointer-events: none;
+        background: var(--container);
+        border-radius: 8px;
+        padding: 8px;
+        border: 1px solid var(--border);
     }
 
-    .task.dragging .task-drag-handle {
+    .task.drag-clone .task-drag-handle {
         cursor: -webkit-grabbing;
         cursor: grabbing;
         background: var(--primary);
