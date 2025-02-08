@@ -1377,20 +1377,15 @@ function handleTouchMove(e) {
     // Update drag clone position
     updateDraggedPosition(touch.clientX, touch.clientY);
     
-    // Find and update drop target
+    // Use the same drag over handling as desktop
     const dropTarget = findDropTarget(touch.clientX, touch.clientY);
-    if (dropTarget && dropTarget.tasksContainer) {
-        const siblings = [...dropTarget.tasksContainer.querySelectorAll('.task:not(.dragging)')];
-        const nextSibling = siblings.find(sibling => {
-            const rect = sibling.getBoundingClientRect();
-            return touch.clientY < rect.top + rect.height / 2;
+    if (dropTarget?.column) {
+        handleDragOver({
+            preventDefault: () => {},
+            clientY: touch.clientY,
+            target: dropTarget.column,
+            dataTransfer: { dropEffect: 'move' }
         });
-        
-        if (nextSibling) {
-            dropTarget.tasksContainer.insertBefore(draggedElement, nextSibling);
-        } else {
-            dropTarget.tasksContainer.appendChild(draggedElement);
-        }
     }
 }
 
@@ -1406,24 +1401,27 @@ function handleTouchEnd(e) {
         dragClone = null;
     }
     
-    // Reset dragged element styles
-    draggedElement.classList.remove('dragging');
-    
-    // Get final position and handle the move
+    // Get final position and simulate drop
     const dropTarget = findDropTarget(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
-    if (dropTarget) {
+    if (dropTarget?.column) {
         const fromSectionId = draggedElement.closest('.column').dataset.sectionId;
-        const toSectionId = dropTarget.column.dataset.sectionId;
-        const taskId = draggedElement.dataset.taskId;
         
-        // Get the new index
-        const siblings = [...dropTarget.tasksContainer.querySelectorAll('.task')];
-        const newIndex = siblings.indexOf(draggedElement);
-        
-        // Use the same handleTaskMove function as desktop
-        handleTaskMove(taskId, fromSectionId, toSectionId, newIndex);
+        // Create a synthetic drop event using the same data structure as desktop
+        handleDrop({
+            preventDefault: () => {},
+            target: dropTarget.column,
+            dataTransfer: {
+                getData: () => JSON.stringify({
+                    taskId: draggedElement.dataset.taskId,
+                    sourceSectionId: fromSectionId,
+                    type: 'task'
+                })
+            }
+        });
     }
     
+    // Reset dragged element styles
+    draggedElement.classList.remove('dragging');
     draggedElement = null;
 }
 
