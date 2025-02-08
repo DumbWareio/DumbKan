@@ -9,6 +9,46 @@ let state = {
 // DOM Elements placeholder
 let elements = {};
 
+// API Logging wrapper
+async function loggedFetch(url, options = {}) {
+    const method = options.method || 'GET';
+    const requestBody = options.body ? JSON.parse(options.body) : null;
+    
+    // Only log if debugging is enabled
+    if (window.appConfig?.debug) {
+        console.group(`🌐 API Call: ${method} ${url}`);
+        console.log('Request:', {
+            method,
+            headers: options.headers,
+            body: requestBody
+        });
+    }
+    
+    try {
+        const response = await fetch(url, options);
+        const responseData = response.ok ? await response.clone().json() : null;
+        
+        // Only log if debugging is enabled
+        if (window.appConfig?.debug) {
+            console.log('Response:', {
+                status: response.status,
+                ok: response.ok,
+                data: responseData
+            });
+            console.groupEnd();
+        }
+        
+        return response;
+    } catch (error) {
+        // Always log errors, even if debugging is disabled
+        console.error('Error:', error);
+        if (window.appConfig?.debug) {
+            console.groupEnd();
+        }
+        throw error;
+    }
+}
+
 // Theme Management
 function initTheme() {
     const savedTheme = localStorage.getItem('theme');
@@ -38,7 +78,7 @@ async function loadBoards() {
         }
 
         // Add cache-busting query parameter and no-cache headers
-        const response = await fetch(`${window.appConfig.basePath}/api/boards?_t=${Date.now()}`, {
+        const response = await loggedFetch(`${window.appConfig.basePath}/api/boards?_t=${Date.now()}`, {
             headers: {
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
                 'Pragma': 'no-cache',
@@ -48,59 +88,32 @@ async function loadBoards() {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            if (errorData.offline) {
-                console.warn('Application is offline, using cached data if available');
-                // Continue with empty state but don't show error
-                state = {
-                    boards: {},
-                    sections: {},
-                    tasks: {},
-                    activeBoard: null
-                };
-                renderBoards();
-                return;
-            }
-            throw new Error(`Failed to load boards: ${response.status} - ${errorData.error || response.statusText}`);
+            throw new Error(errorData.error || 'Failed to load boards');
         }
 
         const data = await response.json();
-        
-        // Validate the data structure
-        if (!data || typeof data !== 'object') {
-            throw new Error('Invalid data structure received');
-        }
+        state = data;
 
-        // Initialize state with empty objects if they don't exist
-        state = {
-            boards: data.boards || {},
-            sections: data.sections || {},
-            tasks: data.tasks || {},
-            activeBoard: data.activeBoard || null
-        };
-        
-        // Ensure we have a valid active board
-        if (!state.activeBoard || !state.boards[state.activeBoard]) {
-            const firstBoard = Object.keys(state.boards)[0];
-            if (firstBoard) {
-                state.activeBoard = firstBoard;
+        // Set active board from URL or localStorage
+        const urlParams = new URLSearchParams(window.location.search);
+        const boardId = urlParams.get('board');
+        if (boardId && state.boards[boardId]) {
+            state.activeBoard = boardId;
+        } else {
+            const lastActiveBoard = localStorage.getItem('lastActiveBoard');
+            if (lastActiveBoard && state.boards[lastActiveBoard]) {
+                state.activeBoard = lastActiveBoard;
+            } else if (Object.keys(state.boards).length > 0) {
+                state.activeBoard = Object.keys(state.boards)[0];
             }
         }
 
-        // Only render if we have valid data
-        if (Object.keys(state.boards).length > 0) {
-        renderBoards();
-        renderActiveBoard();
-        } else {
-            console.warn('No boards found in the loaded data');
-            // Initialize empty state but still render to show empty state
-            state = {
-                boards: {},
-                sections: {},
-                tasks: {},
-                activeBoard: null
-            };
-            renderBoards();
+        // If we have an active board, load it
+        if (state.activeBoard) {
+            await switchBoard(state.activeBoard);
         }
+
+        renderBoards();
     } catch (error) {
         console.error('Failed to load boards:', error);
         // Initialize empty state on error
@@ -176,26 +189,26 @@ function renderBoards() {
 }
 
 async function switchBoard(boardId) {
-    try {
-        const response = await fetch(window.appConfig.basePath + '/api/boards/active', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ boardId })
-        });
-        if (response.ok) {
-            state.activeBoard = boardId;
-            elements.currentBoard.textContent = state.boards[boardId].name;
-            renderActiveBoard();
-            elements.boardMenu.hidden = true;
-        }
-    } catch (error) {
-        console.error('Failed to switch board:', error);
-    }
+    if (!state.boards[boardId]) return;
+    
+    state.activeBoard = boardId;
+    localStorage.setItem('lastActiveBoard', boardId);
+    
+    // Update URL without reloading the page
+    const url = new URL(window.location);
+    url.searchParams.set('board', boardId);
+    window.history.pushState({}, '', url);
+    
+    renderBoards();
+    renderActiveBoard();
+    
+    // Update page title
+    document.title = `${state.boards[boardId].name || 'Unnamed Board'} - DumbKan`;
 }
 
 async function createBoard(name) {
     try {
-        const response = await fetch(window.appConfig.basePath + '/api/boards', {
+        const response = await loggedFetch(window.appConfig.basePath + '/api/boards', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name })
@@ -204,7 +217,7 @@ async function createBoard(name) {
         if (response.ok) {
             const board = await response.json();
             state.boards[board.id] = board;
-        renderBoards();
+            renderBoards();
             switchBoard(board.id);
         }
     } catch (error) {
@@ -218,7 +231,7 @@ async function addColumn(boardId) {
     if (!name) return;
 
     try {
-        const response = await fetch(`${window.appConfig.basePath}/api/boards/${boardId}/sections`, {
+        const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${boardId}/sections`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name })
@@ -309,7 +322,7 @@ async function addTask(sectionId, title, description = '', status = 'open') {
             return;
         }
         
-        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks`, {
+        const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title, description, status })
@@ -987,21 +1000,11 @@ function makeEditable(element, onSave) {
                 try {
                     let success = false;
                     if (itemType === 'task') {
-                        const task = element.closest('.task');
-                        const taskId = task.dataset.taskId;
-                        const sectionId = task.closest('.tasks').dataset.sectionId;
                         success = await deleteTask(taskId, sectionId);
                     } else if (itemType === 'section') {
-                        const column = element.closest('.column');
-                        const sectionId = column.dataset.sectionId;
                         success = await deleteSection(sectionId);
                     } else if (itemType === 'board') {
-                        const boardElement = element.closest('li[data-board-id]');
-                        if (!boardElement) {
-                            console.error('Could not find valid board element');
-                            return;
-                        }
-                        success = await deleteBoard(boardElement.dataset.boardId);
+                        success = await deleteBoard(boardId);
                     }
                     
                     if (success) {
@@ -1113,9 +1116,9 @@ function getPrioritySymbol(priority) {
 // Section drag and drop
 async function handleSectionMove(sectionId, newIndex) {
     try {
-        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/move`, {
+        const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/move`, {
             method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ newIndex })
         });
 
@@ -1132,7 +1135,7 @@ async function handleSectionMove(sectionId, newIndex) {
         }
 
         renderActiveBoard();
-        } catch (error) {
+    } catch (error) {
         console.error('Failed to move section:', error);
         loadBoards(); // Reload the board state in case of error
     }
@@ -1323,12 +1326,6 @@ async function moveTaskRight(taskId, currentSectionId) {
 }
 
 // Touch event handling for mobile drag and drop
-let touchStartX = 0;
-let touchStartY = 0;
-let isDragging = false;
-let draggedElement = null;
-let dragClone = null;
-
 function handleTouchStart(e) {
     const dragHandle = e.target.closest('.task-drag-handle');
     if (!dragHandle) return;
@@ -1337,115 +1334,83 @@ function handleTouchStart(e) {
     if (!task) return;
 
     e.preventDefault(); // Prevent scrolling while dragging
-    isDragging = true;
-    draggedElement = task;
-    
-    // Store initial touch position relative to the drag handle
-    const touch = e.touches[0];
-    const handleRect = dragHandle.getBoundingClientRect();
-    touchStartX = touch.clientX - handleRect.right;
-    touchStartY = touch.clientY - handleRect.top;
-    
-    // Create drag clone
-    dragClone = task.cloneNode(true);
-    dragClone.classList.add('drag-clone');
-    document.body.appendChild(dragClone);
-    
-    // Add dragging class to original task (becomes placeholder)
-    draggedElement.classList.add('dragging');
-    
-    // Set initial position of drag clone
-    updateDraggedPosition(touch.clientX, touch.clientY);
-}
 
-function updateDraggedPosition(x, y) {
-    if (!dragClone) return;
-    dragClone.style.left = `${x - touchStartX - dragClone.offsetWidth}px`;
-    dragClone.style.top = `${y - touchStartY}px`;
+    // Create and dispatch dragstart event
+    const dragStartEvent = new DragEvent('dragstart', {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer: new DataTransfer()
+    });
+
+    // Set the data that would normally be set in dragstart
+    dragStartEvent.dataTransfer.setData('application/json', JSON.stringify({
+        taskId: task.dataset.taskId,
+        sourceSectionId: task.closest('.column').dataset.sectionId,
+        type: 'task'
+    }));
+
+    task.dispatchEvent(dragStartEvent);
 }
 
 function handleTouchMove(e) {
-    if (!isDragging || !draggedElement) return;
+    if (!document.querySelector('.task.dragging')) return;
     
     e.preventDefault();
     const touch = e.touches[0];
     
-    // Update drag clone position
-    updateDraggedPosition(touch.clientX, touch.clientY);
+    // Create and dispatch dragover event
+    const dragOverEvent = new DragEvent('dragover', {
+        bubbles: true,
+        cancelable: true,
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        dataTransfer: new DataTransfer()
+    });
     
-    // Find drop target and handle drag over
-    const dropTarget = findDropTarget(touch.clientX, touch.clientY);
-    if (dropTarget?.column) {
-        const tasksContainer = dropTarget.tasksContainer;
-        const siblings = [...tasksContainer.querySelectorAll('.task:not(.dragging)')];
-        
-        // Find the task we should insert before based on Y position
-        const nextSibling = siblings.find(sibling => {
-            const rect = sibling.getBoundingClientRect();
-            return touch.clientY < rect.top + rect.height / 2;
-        });
-        
-        // Move the dragged element to the correct position
-        if (nextSibling) {
-            tasksContainer.insertBefore(draggedElement, nextSibling);
-        } else {
-            tasksContainer.appendChild(draggedElement);
-        }
-        
-        // Add visual feedback
-        document.querySelectorAll('.column').forEach(col => col.classList.remove('drag-over'));
-        dropTarget.column.classList.add('drag-over');
+    // Find the element under the touch point
+    const elementUnderTouch = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (elementUnderTouch) {
+        elementUnderTouch.dispatchEvent(dragOverEvent);
     }
 }
 
 function handleTouchEnd(e) {
-    if (!isDragging || !draggedElement) return;
+    const draggedTask = document.querySelector('.task.dragging');
+    if (!draggedTask) return;
     
     e.preventDefault();
-    isDragging = false;
+    const touch = e.changedTouches[0];
     
-    // Remove drag clone
-    if (dragClone) {
-        dragClone.remove();
-        dragClone = null;
-    }
+    // Create and dispatch drop event
+    const dropEvent = new DragEvent('drop', {
+        bubbles: true,
+        cancelable: true,
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        dataTransfer: new DataTransfer()
+    });
     
-    // Find drop target and handle drop
-    const dropTarget = findDropTarget(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
-    if (dropTarget?.column) {
-        const taskId = draggedElement.dataset.taskId;
-        const sourceSectionId = draggedElement.closest('.column').dataset.sectionId;
-        const targetSectionId = dropTarget.column.dataset.sectionId;
-        const tasksContainer = dropTarget.tasksContainer;
+    // Find the element under the touch point
+    const elementUnderTouch = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (elementUnderTouch) {
+        // Set the data that would normally be set in dragstart
+        const taskId = draggedTask.dataset.taskId;
+        const sourceSectionId = draggedTask.closest('.column').dataset.sectionId;
+        dropEvent.dataTransfer.setData('application/json', JSON.stringify({
+            taskId,
+            sourceSectionId,
+            type: 'task'
+        }));
         
-        // Calculate the new index
-        const siblings = [...tasksContainer.querySelectorAll('.task')];
-        const newIndex = siblings.indexOf(draggedElement);
-        
-        // Move the task using the same function as desktop
-        handleTaskMove(taskId, sourceSectionId, targetSectionId, newIndex);
+        elementUnderTouch.dispatchEvent(dropEvent);
     }
     
-    // Reset styles
-    draggedElement.classList.remove('dragging');
-    draggedElement = null;
-    document.querySelectorAll('.column').forEach(col => col.classList.remove('drag-over'));
-}
-
-function findDropTarget(x, y) {
-    const elements = document.elementsFromPoint(x, y);
-    
-    for (const element of elements) {
-        const column = element.closest('.column');
-        if (column) {
-            const tasksContainer = column.querySelector('.tasks');
-            if (tasksContainer) {
-                return { column, tasksContainer };
-            }
-        }
-    }
-    
-    return null;
+    // Create and dispatch dragend event
+    const dragEndEvent = new DragEvent('dragend', {
+        bubbles: true,
+        cancelable: true
+    });
+    draggedTask.dispatchEvent(dragEndEvent);
 }
 
 // Update renderTask to add touch event listeners
@@ -1488,20 +1453,20 @@ function renderTask(task) {
     titleText.textContent = task.title || 'Untitled Task';
     makeEditable(titleText, async (newTitle) => {
         try {
-            const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
+            const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ title: newTitle })
-                    });
+            });
                     
-                    if (response.ok) {
+            if (response.ok) {
                 const updatedTask = await response.json();
                 state.tasks[task.id] = updatedTask;
                 return true;
             }
             return false;
         } catch (error) {
-                console.error('Failed to update task title:', error);
+            console.error('Failed to update task title:', error);
             return false;
         }
     });
@@ -1517,24 +1482,23 @@ function renderTask(task) {
     statusBadge.className = `badge status-badge ${task.status || 'active'}`;
     statusBadge.setAttribute('title', (task.status || 'active').charAt(0).toUpperCase() + (task.status || 'active').slice(1));
     statusBadge.addEventListener('click', async (e) => {
-            e.stopPropagation();
+        e.stopPropagation();
         const newStatus = task.status === 'active' ? 'inactive' : 'active';
-            try {
-            const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
+        try {
+            const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
                 method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus })
-                });
+            });
 
-                if (response.ok) {
+            if (response.ok) {
                 const updatedTask = await response.json();
                 state.tasks[task.id] = updatedTask;
-                // Update the badge's class and title immediately
                 statusBadge.className = `badge status-badge ${newStatus}`;
                 statusBadge.setAttribute('title', newStatus.charAt(0).toUpperCase() + newStatus.slice(1));
-                task.status = newStatus; // Update the local task object
-                }
-            } catch (error) {
+                task.status = newStatus;
+            }
+        } catch (error) {
             console.error('Failed to update task status:', error);
         }
     });
@@ -1563,9 +1527,9 @@ function renderTask(task) {
         option.textContent = priority.symbol;
         option.setAttribute('title', priority.name.charAt(0).toUpperCase() + priority.name.slice(1));
         option.addEventListener('click', async (e) => {
-        e.stopPropagation();
+            e.stopPropagation();
             try {
-                const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
+                const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ priority: priority.name })
@@ -1669,7 +1633,7 @@ function renderTask(task) {
         }
         
         // If we got a date, use it. If not, no date!
-        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
+        const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ dueDate: parsedDate ? parsedDate.toISOString() : null })
@@ -1711,7 +1675,7 @@ function renderTask(task) {
         taskDescription.innerHTML = linkify(task.description);
         makeEditable(taskDescription, async (newDescription) => {
             try {
-                const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
+                const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ description: newDescription })
@@ -1752,7 +1716,7 @@ function renderTask(task) {
             const saveDescription = async () => {
                 const newDescription = textarea.value.trim();
                 try {
-                    const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
+                    const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ description: newDescription })
@@ -1824,16 +1788,13 @@ function renderTask(task) {
 // Add the deleteTask function
 async function deleteTask(taskId, sectionId) {
     try {
-        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks/${taskId}`, {
+        const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks/${taskId}`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' }
-            });
-            
-            if (response.ok) {
-            // Remove task from state
+        });
+        
+        if (response.ok) {
             delete state.tasks[taskId];
-            
-            // Remove task from section's taskIds
             const section = state.sections[sectionId];
             if (section) {
                 const taskIndex = section.taskIds.indexOf(taskId);
@@ -1841,16 +1802,12 @@ async function deleteTask(taskId, sectionId) {
                     section.taskIds.splice(taskIndex, 1);
                 }
             }
-            
-            // Close modal and refresh board
             hideTaskModal();
-                renderActiveBoard();
+            renderActiveBoard();
             return true;
-            } else {
-            console.error('Failed to delete task:', response.statusText);
-            return false;
-            }
-        } catch (error) {
+        }
+        return false;
+    } catch (error) {
         console.error('Error deleting task:', error);
         return false;
     }
@@ -1859,7 +1816,7 @@ async function deleteTask(taskId, sectionId) {
 // Add back the handleTaskMove function
 async function handleTaskMove(taskId, fromSectionId, toSectionId, newIndex) {
     try {
-        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/tasks/${taskId}/move`, {
+        const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/tasks/${taskId}/move`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1870,30 +1827,48 @@ async function handleTaskMove(taskId, fromSectionId, toSectionId, newIndex) {
         });
 
         if (!response.ok) {
-            throw new Error('Failed to move task');
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Failed to move task');
         }
 
-        // Update local state
-        const task = state.tasks[taskId];
-        const fromSection = state.sections[fromSectionId];
-        const toSection = state.sections[toSectionId];
-
-        // Remove task from source section
-        const taskIndex = fromSection.taskIds.indexOf(taskId);
-        if (taskIndex !== -1) {
-            fromSection.taskIds.splice(taskIndex, 1);
-        }
-
-        // Add task to target section
-        if (typeof newIndex === 'number') {
-            toSection.taskIds.splice(newIndex, 0, taskId);
-        } else {
-            toSection.taskIds.push(taskId);
-        }
-
-        // Update task's section reference
-        task.sectionId = toSectionId;
+        // Get the updated task data from the response
+        const updatedData = await response.json();
         
+        // Update local state with the response data
+        if (updatedData.task) {
+            state.tasks[taskId] = updatedData.task;
+        }
+        
+        if (updatedData.sections) {
+            // Update the sections with their new task orders
+            Object.assign(state.sections, updatedData.sections);
+        } else {
+            // Fallback to manual state update if server doesn't provide section data
+            const fromSection = state.sections[fromSectionId];
+            const toSection = state.sections[toSectionId];
+
+            if (fromSection && toSection) {
+                // Remove task from source section
+                const taskIndex = fromSection.taskIds.indexOf(taskId);
+                if (taskIndex !== -1) {
+                    fromSection.taskIds.splice(taskIndex, 1);
+                }
+
+                // Add task to target section
+                if (typeof newIndex === 'number') {
+                    toSection.taskIds.splice(newIndex, 0, taskId);
+                } else {
+                    toSection.taskIds.push(taskId);
+                }
+
+                // Update task's section reference
+                if (state.tasks[taskId]) {
+                    state.tasks[taskId].sectionId = toSectionId;
+                }
+            }
+        }
+        
+        // Only re-render if we successfully updated the state
         renderActiveBoard();
     } catch (error) {
         console.error('Failed to move task:', error);
@@ -1904,37 +1879,27 @@ async function handleTaskMove(taskId, fromSectionId, toSectionId, newIndex) {
 // Add the deleteSection function
 async function deleteSection(sectionId) {
     try {
-        const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}`, {
+        const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' }
         });
         
         if (response.ok) {
-            // Remove section from state
             delete state.sections[sectionId];
-            
-            // Remove section from board's sectionOrder
             const board = state.boards[state.activeBoard];
             if (board) {
                 const sectionIndex = board.sectionOrder.indexOf(sectionId);
                 if (sectionIndex !== -1) {
                     board.sectionOrder.splice(sectionIndex, 1);
                 }
-                
-                // Remove all tasks in this section
                 const section = state.sections[sectionId];
                 if (section && Array.isArray(section.taskIds)) {
-                    section.taskIds.forEach(taskId => {
-                        delete state.tasks[taskId];
-                    });
+                    section.taskIds.forEach(taskId => delete state.tasks[taskId]);
                 }
             }
-
-    return true;
-        } else {
-            console.error('Failed to delete section:', response.statusText);
-            return false;
+            return true;
         }
+        return false;
     } catch (error) {
         console.error('Error deleting section:', error);
         return false;
@@ -1944,42 +1909,26 @@ async function deleteSection(sectionId) {
 // Add the deleteBoard function
 async function deleteBoard(boardId) {
     try {
-        const response = await fetch(`${window.appConfig.basePath}/api/boards/${boardId}`, {
+        const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${boardId}`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' }
         });
         
         if (response.ok) {
-            // Remove all tasks and sections associated with this board
             Object.entries(state.sections).forEach(([sectionId, section]) => {
                 if (section.boardId === boardId) {
-                    // Remove all tasks in this section
-                    section.taskIds.forEach(taskId => {
-                        delete state.tasks[taskId];
-                    });
-                    // Remove the section
+                    section.taskIds.forEach(taskId => delete state.tasks[taskId]);
                     delete state.sections[sectionId];
                 }
             });
-            
-            // Remove the board
             delete state.boards[boardId];
-            
-            // If this was the active board, switch to another board
             if (state.activeBoard === boardId) {
                 const remainingBoards = Object.keys(state.boards);
-                if (remainingBoards.length > 0) {
-                    state.activeBoard = remainingBoards[0];
-                } else {
-                    state.activeBoard = null;
-                }
+                state.activeBoard = remainingBoards.length > 0 ? remainingBoards[0] : null;
             }
-            
             return true;
-        } else {
-            console.error('Failed to delete board:', response.statusText);
-            return false;
         }
+        return false;
     } catch (error) {
         console.error('Error deleting board:', error);
         return false;
@@ -2107,7 +2056,7 @@ function initCalendarInputSlide() {
             }
             
             // If we got a date, use it. If not, no date!
-            const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
+            const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ dueDate: parsedDate ? parsedDate.toISOString() : null })

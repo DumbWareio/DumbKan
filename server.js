@@ -9,7 +9,7 @@ const fs = require('fs').promises;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DEBUG = process.env.DEBUG === 'TRUE';
+const DEBUG = process.env.DUMBKAN_DEBUG === 'true' || process.env.DEBUG === 'TRUE';
 
 // Get site title from environment variable or use default
 const siteTitle = process.env.SITE_TITLE || 'DumbKan';
