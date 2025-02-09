@@ -256,9 +256,18 @@ function showTaskModal(task) {
     elements.taskModal.querySelector('h2').textContent = isNewTask ? 'Add Task' : 'Edit Task';
     elements.taskTitle.value = isNewTask ? '' : (task.title || '');
     elements.taskDescription.value = isNewTask ? '' : (task.description || '');
-    elements.taskStatus.value = isNewTask ? 'open' : (task.status || 'open');
+    elements.taskStatus.value = isNewTask ? 'active' : (task.status || 'active');
     elements.taskForm.dataset.taskId = task.id || '';
     elements.taskForm.dataset.sectionId = task.sectionId;
+
+    // Set date fields
+    if (!isNewTask) {
+        elements.taskDueDate.value = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '';
+        elements.taskStartDate.value = task.startDate ? new Date(task.startDate).toLocaleDateString() : '';
+    } else {
+        elements.taskDueDate.value = '';
+        elements.taskStartDate.value = '';
+    }
     
     // Show/hide delete button based on whether it's a new task
     const deleteBtn = elements.taskModal.querySelector('.btn-delete');
@@ -315,7 +324,7 @@ function hideTaskModal() {
     delete elements.taskForm.dataset.sectionId;
 }
 
-async function addTask(sectionId, title, description = '', status = 'open') {
+async function addTask(sectionId, title, description = '', status = 'open', dueDate = null, startDate = null) {
     try {
         if (!sectionId) {
             console.error('Section ID is required to add a task');
@@ -325,7 +334,7 @@ async function addTask(sectionId, title, description = '', status = 'open') {
         const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title, description, status })
+            body: JSON.stringify({ title, description, status, dueDate: dueDate ? dueDate.toISOString() : null, startDate: startDate ? startDate.toISOString() : null })
         });
         
         if (!response.ok) {
@@ -605,23 +614,44 @@ function initEventListeners() {
         });
 
     // Task form submission
-        elements.taskForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const taskId = elements.taskForm.dataset.taskId;
+    elements.taskForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const taskId = elements.taskForm.dataset.taskId;
         const sectionId = elements.taskForm.dataset.sectionId;
-            const title = elements.taskTitle.value.trim();
-            const description = elements.taskDescription.value.trim();
-            const status = elements.taskStatus.value;
+        const title = elements.taskTitle.value.trim();
+        const description = elements.taskDescription.value.trim();
+        const status = elements.taskStatus.value;
+        
+        // Get date values
+        const dueDate = document.getElementById('taskDueDate').value.trim();
+        const startDate = document.getElementById('taskStartDate').value.trim();
+        
+        // Parse dates using DumbDateParser
+        let parsedDueDate = null;
+        let parsedStartDate = null;
+        
+        if (dueDate) {
+            parsedDueDate = DumbDateParser.parseDate(dueDate);
+        }
+        if (startDate) {
+            parsedStartDate = DumbDateParser.parseDate(startDate);
+        }
 
         if (!title) return;
 
-            try {
+        try {
             if (taskId) {
                 // Update existing task
                 const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks/${taskId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title, description, status })
+                    body: JSON.stringify({ 
+                        title, 
+                        description, 
+                        status,
+                        dueDate: parsedDueDate ? parsedDueDate.toISOString() : null,
+                        startDate: parsedStartDate ? parsedStartDate.toISOString() : null
+                    })
                 });
                 
                 if (response.ok) {
@@ -630,7 +660,7 @@ function initEventListeners() {
                 }
             } else {
                 // Create new task
-                await addTask(sectionId, title, description, status);
+                await addTask(sectionId, title, description, status, parsedDueDate, parsedStartDate);
             }
             
             hideTaskModal();
@@ -642,6 +672,37 @@ function initEventListeners() {
 
     // Add calendar input slide functionality
     initCalendarInputSlide();
+
+    // Add date input handlers
+    const handleDateInput = (input) => {
+        const handleDateBlur = () => {
+            const value = input.value.trim();
+            if (value) {
+                const parsedDate = DumbDateParser.parseDate(value);
+                if (parsedDate) {
+                    input.value = parsedDate.toLocaleDateString();
+                }
+            }
+        };
+
+        input.addEventListener('blur', handleDateBlur);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab' || e.key === 'Enter') {
+                handleDateBlur();
+            }
+        });
+        
+        // Add touch event handling for mobile
+        input.addEventListener('touchend', (e) => {
+            if (document.activeElement !== input) {
+                handleDateBlur();
+            }
+        });
+    };
+
+    // Apply handlers to date inputs
+    handleDateInput(elements.taskDueDate);
+    handleDateInput(elements.taskStartDate);
 }
 
 // Initialize the application
@@ -660,6 +721,8 @@ async function init() {
         taskTitle: document.getElementById('taskTitle'),
         taskDescription: document.getElementById('taskDescription'),
         taskStatus: document.getElementById('taskStatus'),
+        taskDueDate: document.getElementById('taskDueDate'),
+        taskStartDate: document.getElementById('taskStartDate'),
         boardContainer: document.querySelector('.board-container'),
         deleteTaskBtn: document.querySelector('.btn-delete')
     };
@@ -668,7 +731,8 @@ async function init() {
     const requiredElements = [
         'themeToggle', 'boardMenu', 'boardMenuBtn', 'boardList', 
         'addBoardBtn', 'currentBoard', 'columns', 'boardContainer',
-        'taskModal', 'taskForm', 'taskTitle', 'taskDescription', 'taskStatus'
+        'taskModal', 'taskForm', 'taskTitle', 'taskDescription', 'taskStatus',
+        'taskDueDate', 'taskStartDate'
     ];
 
     for (const key of requiredElements) {
@@ -1003,10 +1067,15 @@ function makeEditable(element, onSave) {
                 try {
                     let success = false;
                     if (itemType === 'task') {
+                        const taskElement = element.closest('.task');
+                        const taskId = taskElement.dataset.taskId;
+                        const sectionId = taskElement.closest('.column').dataset.sectionId;
                         success = await deleteTask(taskId, sectionId);
                     } else if (itemType === 'section') {
+                        const sectionId = element.closest('.column').dataset.sectionId;
                         success = await deleteSection(sectionId);
                     } else if (itemType === 'board') {
+                        const boardId = element.closest('li').dataset.boardId;
                         success = await deleteBoard(boardId);
                     }
                     
