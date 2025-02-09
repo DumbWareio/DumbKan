@@ -440,16 +440,19 @@ async function handleDrop(e) {
         const data = JSON.parse(e.dataTransfer.getData('application/json'));
         
         if (data.type === 'task') {
-            const { taskId, sourceSectionId } = data;
-            const targetSectionId = column.dataset.sectionId;
+            const { taskId, sourceSectionId, toSectionId, newIndex: providedIndex } = data;
+            const targetSectionId = toSectionId || column.dataset.sectionId;
             const tasksContainer = column.querySelector('.tasks');
             if (!tasksContainer) return;
         
         const task = document.querySelector(`[data-task-id="${taskId}"]`);
         if (!task) return;
         
-            const siblings = [...tasksContainer.querySelectorAll('.task')];
-            const newIndex = siblings.indexOf(task);
+            let newIndex = providedIndex;
+            if (typeof newIndex !== 'number') {
+                const siblings = [...tasksContainer.querySelectorAll('.task')];
+                newIndex = siblings.indexOf(task);
+            }
 
             await handleTaskMove(taskId, sourceSectionId, targetSectionId, newIndex);
         } else if (data.type === 'section') {
@@ -1378,8 +1381,54 @@ function handleTouchEnd(e) {
     const draggedTask = document.querySelector('.task.dragging');
     if (!draggedTask) return;
     
-    e.preventDefault();
     const touch = e.changedTouches[0];
+    
+    // Find the element under the touch point
+    const elementUnderTouch = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (!elementUnderTouch) return;
+    
+    // Find the target column
+    const targetColumn = elementUnderTouch.closest('.column');
+    if (!targetColumn) return;
+    
+    // Get the target section ID
+    const targetSectionId = targetColumn.dataset.sectionId;
+    if (!targetSectionId) return;
+    
+    // Get the task ID and original section ID
+    const taskId = draggedTask.dataset.taskId;
+    // Get the original section ID from the task's data in the state
+    const task = state.tasks[taskId];
+    if (!task) return;
+    const sourceSectionId = task.sectionId;
+    
+    // Find the index where the task should be inserted
+    const tasksContainer = targetColumn.querySelector('.tasks');
+    if (!tasksContainer) return;
+    
+    const siblings = [...tasksContainer.querySelectorAll('.task:not(.dragging)')];
+    const nextSibling = siblings.find(sibling => {
+        const rect = sibling.getBoundingClientRect();
+        return touch.clientY < rect.top + rect.height / 2;
+    });
+    
+    const newIndex = nextSibling ? siblings.indexOf(nextSibling) : siblings.length;
+    
+    // Only proceed if we're moving to a different section or a different position in the same section
+    if (sourceSectionId === targetSectionId) {
+        const currentIndex = state.sections[sourceSectionId].taskIds.indexOf(taskId);
+        if (currentIndex === newIndex) return; // Don't proceed if position hasn't changed
+    }
+    
+    // Create DataTransfer object with all necessary data
+    const dataTransfer = new DataTransfer();
+    dataTransfer.setData('application/json', JSON.stringify({
+        taskId,
+        sourceSectionId,
+        type: 'task',
+        toSectionId: targetSectionId,
+        newIndex
+    }));
     
     // Create and dispatch drop event
     const dropEvent = new DragEvent('drop', {
@@ -1387,23 +1436,11 @@ function handleTouchEnd(e) {
         cancelable: true,
         clientX: touch.clientX,
         clientY: touch.clientY,
-        dataTransfer: new DataTransfer()
+        dataTransfer
     });
     
-    // Find the element under the touch point
-    const elementUnderTouch = document.elementFromPoint(touch.clientX, touch.clientY);
-    if (elementUnderTouch) {
-        // Set the data that would normally be set in dragstart
-        const taskId = draggedTask.dataset.taskId;
-        const sourceSectionId = draggedTask.closest('.column').dataset.sectionId;
-        dropEvent.dataTransfer.setData('application/json', JSON.stringify({
-            taskId,
-            sourceSectionId,
-            type: 'task'
-        }));
-        
-        elementUnderTouch.dispatchEvent(dropEvent);
-    }
+    // Dispatch the event on the target column
+    targetColumn.dispatchEvent(dropEvent);
     
     // Create and dispatch dragend event
     const dragEndEvent = new DragEvent('dragend', {
