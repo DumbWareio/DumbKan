@@ -201,12 +201,7 @@ app.use(BASE_PATH + '/icons', express.static('public/icons'));
 app.use(BASE_PATH + '/logo.png', express.static('public/logo.png'));
 app.use(BASE_PATH + '/favicon.svg', express.static('public/favicon.svg'));
 app.use(BASE_PATH + '/marked.min.js', express.static('public/marked.min.js'));
-
-// Serve dumbdateparser.js with explicit MIME type
-app.get(BASE_PATH + '/dumbdateparser.js', (req, res) => {
-    res.setHeader('Content-Type', 'application/javascript');
-    res.sendFile(path.join(__dirname, 'public', 'dumbdateparser.js'));
-});
+app.use(BASE_PATH + '/dumbdateparser.js', express.static('node_modules/dumbdateparser/src/browser.js'));
 
 // Add this near the top with other middleware
 app.use(express.static('public', {

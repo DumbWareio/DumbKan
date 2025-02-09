@@ -140,3 +140,8 @@ reference.md
 
 dumbdata/
 .DS_Store
+# Temporary directories and their subdirectories
+tmp/
+**/tmp/
+**/tmp/**
+
