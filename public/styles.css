@@ -921,6 +921,24 @@ h2 {
     cursor: pointer;
     opacity: 0.6;
     transition: opacity var(--transition);
+    padding: 2px 8px;
+    border-radius: 10px;
+    width: auto;
+    min-width: 20px;
+    height: 20px;
+    font-size: 0.75rem;
+}
+
+.calendar-badge.has-due-date {
+    opacity: 0.8;
+    background: var(--primary);
+    color: var(--text-on-primary);
+}
+
+.calendar-badge.past-due {
+    background: var(--error, #ff4444);
+    color: white;
+    opacity: 0.8;
 }
 
 .calendar-badge:hover {
@@ -938,7 +956,7 @@ h2 {
 }
 
 .calendar-badge.has-due-date svg {
-    stroke: var(--primary);
+    display: none;
 }
 
 .calendar-badge.hidden {

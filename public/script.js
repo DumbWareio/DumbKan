@@ -273,7 +273,16 @@ function showTaskModal(task) {
         // Set values with human-readable formatting
         if (task.dueDate) {
             // Always show formatted date when opening modal
-            elements.taskDueDate.value = formatDateHumanReadable(task.dueDate);
+            const dueDate = new Date(task.dueDate);
+            // Check if time is midnight
+            const isMidnight = dueDate.getHours() === 0 && dueDate.getMinutes() === 0 && dueDate.getSeconds() === 0;
+            if (isMidnight) {
+                // If midnight, just show the date
+                elements.taskDueDate.value = dueDate.toISOString().split('T')[0];
+            } else {
+                // If has time, show full format
+                elements.taskDueDate.value = formatDateHumanReadable(task.dueDate);
+            }
             elements.taskDueDate.dataset.originalDate = task.dueDate;
         } else {
             elements.taskDueDate.value = '';
@@ -281,7 +290,16 @@ function showTaskModal(task) {
         
         if (task.startDate) {
             // Always show formatted date when opening modal
-            elements.taskStartDate.value = formatDateHumanReadable(task.startDate);
+            const startDate = new Date(task.startDate);
+            // Check if time is midnight
+            const isMidnight = startDate.getHours() === 0 && startDate.getMinutes() === 0 && startDate.getSeconds() === 0;
+            if (isMidnight) {
+                // If midnight, just show the date
+                elements.taskStartDate.value = startDate.toISOString().split('T')[0];
+            } else {
+                // If has time, show full format
+                elements.taskStartDate.value = formatDateHumanReadable(task.startDate);
+            }
             elements.taskStartDate.dataset.originalDate = task.startDate;
         } else {
             elements.taskStartDate.value = '';
@@ -324,36 +342,10 @@ function showTaskModal(task) {
     // Show/hide delete button based on whether it's a new task
     const deleteBtn = elements.taskModal.querySelector('.btn-delete');
     if (deleteBtn) {
-        deleteBtn.hidden = isNewTask;
-        deleteBtn.classList.remove('confirm');
-        // Update button content to include check icon
-        deleteBtn.innerHTML = `
-            <span class="button-text">Delete Task</span>
-            <svg class="confirm-check" viewBox="0 0 24 24">
-                <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-        `;
-        let confirmTimeout;
-        deleteBtn.onclick = isNewTask ? null : (e) => {
-            if (!deleteBtn.classList.contains('confirm')) {
-                e.preventDefault();
-                deleteBtn.classList.add('confirm');
-                deleteBtn.querySelector('.button-text').textContent = 'You Sure?';
-                // Reset confirmation state after 3 seconds
-                confirmTimeout = setTimeout(() => {
-                    deleteBtn.classList.remove('confirm');
-                    deleteBtn.querySelector('.button-text').textContent = 'Delete Task';
-                }, 3000);
-            } else {
-                clearTimeout(confirmTimeout);
-                deleteBtn.classList.remove('confirm');
-                deleteBtn.querySelector('.button-text').textContent = 'Delete Task';
-            }
-        };
+        deleteBtn.style.display = isNewTask ? 'none' : '';
     }
-    
+
     elements.taskModal.hidden = false;
-    elements.taskTitle.focus();
 }
 
 // Update hideTaskModal function
@@ -694,37 +686,20 @@ function initEventListeners() {
         const rawDueDate = elements.taskDueDate.value.trim();
         const rawStartDate = elements.taskStartDate.value.trim();
         
-        // Log values for debugging
-        console.log('Raw due date value:', rawDueDate);
-        console.log('Raw start date value:', rawStartDate);
-        
         // Only parse dates if they were entered
         let parsedDueDate = null;
         let parsedStartDate = null;
         
         if (rawDueDate) {
             try {
-                console.log('Attempting to parse due date with DumbDateParser:', rawDueDate);
                 parsedDueDate = DumbDateParser.parseDate(rawDueDate);
-                console.log('DumbDateParser result for due date:', parsedDueDate);
                 
-                if (!parsedDueDate) {
-                    console.error('Failed to parse due date:', rawDueDate);
-                } else {
-                    console.log('Successfully parsed due date:', {
-                        input: rawDueDate,
-                        parsed: parsedDueDate,
-                        isoString: parsedDueDate.toISOString()
-                    });
-                    
-                    // If no time specified, set to midnight
-                    if (!rawDueDate.toLowerCase().includes('@') && 
-                        !rawDueDate.toLowerCase().includes('at') && 
-                        !rawDueDate.toLowerCase().includes('am') && 
-                        !rawDueDate.toLowerCase().includes('pm')) {
-                        parsedDueDate.setHours(0, 0, 0, 0);
-                        console.log('Set due date to midnight:', parsedDueDate.toISOString());
-                    }
+                // If no time specified, set to midnight
+                if (parsedDueDate && !rawDueDate.toLowerCase().includes('@') && 
+                    !rawDueDate.toLowerCase().includes('at') && 
+                    !rawDueDate.toLowerCase().includes('am') && 
+                    !rawDueDate.toLowerCase().includes('pm')) {
+                    parsedDueDate.setHours(0, 0, 0, 0);
                 }
             } catch (err) {
                 console.error('Error parsing due date:', err);
@@ -733,27 +708,14 @@ function initEventListeners() {
         
         if (rawStartDate) {
             try {
-                console.log('Attempting to parse start date with DumbDateParser:', rawStartDate);
                 parsedStartDate = DumbDateParser.parseDate(rawStartDate);
-                console.log('DumbDateParser result for start date:', parsedStartDate);
                 
-                if (!parsedStartDate) {
-                    console.error('Failed to parse start date:', rawStartDate);
-                } else {
-                    console.log('Successfully parsed start date:', {
-                        input: rawStartDate,
-                        parsed: parsedStartDate,
-                        isoString: parsedStartDate.toISOString()
-                    });
-                    
-                    // If no time specified, set to midnight
-                    if (!rawStartDate.toLowerCase().includes('@') && 
-                        !rawStartDate.toLowerCase().includes('at') && 
-                        !rawStartDate.toLowerCase().includes('am') && 
-                        !rawStartDate.toLowerCase().includes('pm')) {
-                        parsedStartDate.setHours(0, 0, 0, 0);
-                        console.log('Set start date to midnight:', parsedStartDate.toISOString());
-                    }
+                // If no time specified, set to midnight
+                if (parsedStartDate && !rawStartDate.toLowerCase().includes('@') && 
+                    !rawStartDate.toLowerCase().includes('at') && 
+                    !rawStartDate.toLowerCase().includes('am') && 
+                    !rawStartDate.toLowerCase().includes('pm')) {
+                    parsedStartDate.setHours(0, 0, 0, 0);
                 }
             } catch (err) {
                 console.error('Error parsing start date:', err);
@@ -771,9 +733,6 @@ function initEventListeners() {
             startDate: parsedStartDate ? parsedStartDate.toISOString() : null
         };
 
-        // Log the task data being sent
-        console.log('Sending task data:', taskData);
-
         try {
             if (taskId) {
                 // Update existing task
@@ -786,7 +745,6 @@ function initEventListeners() {
                 if (response.ok) {
                     const updatedTask = await response.json();
                     state.tasks[taskId] = updatedTask;
-                    console.log('Updated task:', updatedTask);
                 }
             } else {
                 // Create new task
@@ -1869,17 +1827,30 @@ function renderTask(task) {
     // Add calendar badge
     const calendarBadge = document.createElement('span');
     calendarBadge.className = 'badge calendar-badge';
-    calendarBadge.setAttribute('title', task.dueDate ? 'Due: ' + new Date(task.dueDate).toLocaleDateString() : 'No due date set');
-    calendarBadge.innerHTML = `
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" fill="none"></rect>
-            <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor"></line>
-            <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor"></line>
-            <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor"></line>
-            <path d="M8 14h8" stroke="currentColor" stroke-linecap="round"></path>
-            <path d="M8 18h4" stroke="currentColor" stroke-linecap="round"></path>
-        </svg>
-    `;
+    
+    // Set the calendar badge content based on due date
+    if (task.dueDate) {
+        const formattedDate = formatDueDate(task.dueDate);
+        calendarBadge.textContent = formattedDate;
+        calendarBadge.classList.add('has-due-date');
+        
+        if (isPastDue(task.dueDate)) {
+            calendarBadge.classList.add('past-due');
+        }
+    } else {
+        calendarBadge.innerHTML = `
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" fill="none"></rect>
+                <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor"></line>
+                <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor"></line>
+                <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor"></line>
+                <path d="M8 14h8" stroke="currentColor" stroke-linecap="round"></path>
+                <path d="M8 18h4" stroke="currentColor" stroke-linecap="round"></path>
+            </svg>
+        `;
+    }
+    
+    calendarBadge.setAttribute('title', task.dueDate ? `Due: ${new Date(task.dueDate).toLocaleDateString()}` : 'No due date set');
     
     // Create date tray
     const dateTray = document.createElement('div');
@@ -1890,14 +1861,25 @@ function renderTask(task) {
     dateInput.type = 'text';
     dateInput.placeholder = 'Enter due date';
     
+    // Set current value if exists
+    if (task.dueDate) {
+        const date = new Date(task.dueDate);
+        // If time is midnight, show just the date
+        if (date.getHours() === 0 && date.getMinutes() === 0 && date.getSeconds() === 0) {
+            dateInput.value = date.toISOString().split('T')[0];
+        } else {
+            dateInput.value = formatDateHumanReadable(task.dueDate);
+        }
+    }
+    
     // Append input to tray
     dateTray.appendChild(dateInput);
     
     // Position the tray relative to the badge
     calendarBadge.style.position = 'relative';
     calendarBadge.appendChild(dateTray);
-    
-    // Toggle tray
+
+    // Single click handler for the calendar badge
     calendarBadge.addEventListener('click', (e) => {
         e.stopPropagation();
         
@@ -1912,18 +1894,21 @@ function renderTask(task) {
         // Toggle this tray
         dateTray.classList.toggle('open');
         
-        // Focus the input when opening
+        // Focus and set up the input when opening
         if (dateTray.classList.contains('open')) {
-            dateInput.focus();
-            
-            // Set the current task's due date if it exists
-            const taskElement = calendarBadge.closest('.task');
-            const taskId = taskElement.dataset.taskId;
-            const task = state.tasks[taskId];
-            
-            if (task && task.dueDate) {
-                dateInput.value = new Date(task.dueDate).toLocaleDateString();
+            if (task.dueDate) {
+                const date = new Date(task.dueDate);
+                // If time is midnight, show just the date
+                if (date.getHours() === 0 && date.getMinutes() === 0 && date.getSeconds() === 0) {
+                    dateInput.value = date.toISOString().split('T')[0];
+                } else {
+                    dateInput.value = formatDateHumanReadable(task.dueDate);
+                }
+            } else {
+                dateInput.value = '';
             }
+            dateInput.dataset.wasEdited = '';
+            dateInput.focus();
         }
     });
     
@@ -1931,13 +1916,29 @@ function renderTask(task) {
     dateInput.addEventListener('blur', async () => {
         const inputValue = dateInput.value.trim();
         
-        // Dumb date parsing - if it works, it works!
+        // If input is empty but there was no actual change (user just clicked away),
+        // keep the existing date
+        if (!inputValue && !dateInput.dataset.wasEdited) {
+            dateTray.classList.remove('open');
+            return;
+        }
+        
+        // Parse date using DumbDateParser
         let parsedDate = null;
         if (inputValue) {
             parsedDate = DumbDateParser.parseDate(inputValue);
+            
+            // If we got a date and no time was specified in the input,
+            // set it to midnight of that day
+            if (parsedDate && !inputValue.toLowerCase().includes('@') && 
+                !inputValue.toLowerCase().includes('at') && 
+                !inputValue.toLowerCase().includes('am') && 
+                !inputValue.toLowerCase().includes('pm')) {
+                parsedDate.setHours(0, 0, 0, 0);
+            }
         }
         
-        // If we got a date, use it. If not, no date!
+        // Update the task with the new date
         const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -1948,28 +1949,55 @@ function renderTask(task) {
             const updatedTask = await response.json();
             state.tasks[task.id] = updatedTask;
             
-            // Show it worked
-            calendarBadge.classList.toggle('has-due-date', !!parsedDate);
-            calendarBadge.setAttribute('title', parsedDate ? `Due: ${parsedDate.toLocaleDateString()}` : 'No due date');
+            // Update the badge display
+            if (parsedDate) {
+                const formattedDate = formatDueDate(parsedDate.toISOString());
+                calendarBadge.textContent = formattedDate;
+                calendarBadge.classList.add('has-due-date');
+                
+                if (isPastDue(parsedDate)) {
+                    calendarBadge.classList.add('past-due');
+                } else {
+                    calendarBadge.classList.remove('past-due');
+                }
+            } else {
+                calendarBadge.innerHTML = `
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" fill="none"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor"></line>
+                        <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor"></line>
+                        <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor"></line>
+                        <path d="M8 14h8" stroke="currentColor" stroke-linecap="round"></path>
+                        <path d="M8 18h4" stroke="currentColor" stroke-linecap="round"></path>
+                    </svg>
+                `;
+                calendarBadge.classList.remove('has-due-date', 'past-due');
+            }
             
-            // Close it
-            dateTray.classList.remove('open');
+            calendarBadge.setAttribute('title', parsedDate ? `Due: ${new Date(parsedDate).toLocaleDateString()}` : 'No due date set');
         }
+        
+        // Close the tray
+        dateTray.classList.remove('open');
+        // Reset the edit flag
+        dateInput.dataset.wasEdited = '';
     });
     
+    // Add input handler to track when the input has been edited
+    dateInput.addEventListener('input', () => {
+        dateInput.dataset.wasEdited = 'true';
+    });
+
     // Handle Enter and Escape keys
     dateInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             dateInput.blur(); // This will trigger the save logic
         } else if (e.key === 'Escape') {
+            dateInput.dataset.wasEdited = ''; // Clear edit flag on escape
             dateTray.classList.remove('open');
         }
     });
     
-    // Add a visual indication if the due date is set
-    if (task.dueDate) {
-        calendarBadge.classList.add('has-due-date');
-    }
     metadataBadges.appendChild(calendarBadge);
     contentWrapper.appendChild(metadataBadges);
 
@@ -2437,4 +2465,40 @@ function formatDateHumanReadable(dateStr) {
         const dateStr = date.toISOString().split('T')[0];
         return `${dateStr}${timeStr}`;
     }
+}
+
+// Add this helper function to format dates for display
+function formatDueDate(dateStr) {
+    if (!dateStr) return '';
+    
+    const date = new Date(dateStr);
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    // Reset time parts for comparison
+    const dateNoTime = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const todayNoTime = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrowNoTime = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
+    
+    if (dateNoTime.getTime() === todayNoTime.getTime()) {
+        return 'Today';
+    } else if (dateNoTime.getTime() === tomorrowNoTime.getTime()) {
+        return 'Tomorrow';
+    } else {
+        return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+    }
+}
+
+// Add this helper function to check if a date is in the past
+function isPastDue(dateStr) {
+    if (!dateStr) return false;
+    const date = new Date(dateStr);
+    const now = new Date();
+    
+    // Reset time parts for comparison
+    const dateNoTime = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const todayNoTime = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    return dateNoTime < todayNoTime;
 }
