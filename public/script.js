@@ -273,6 +273,14 @@ function showTaskModal(task) {
         elements.taskDueDate = newDueDateInput;
         elements.taskStartDate = newStartDateInput;
 
+        // Add focus handlers to select all text
+        elements.taskDueDate.addEventListener('focus', (e) => {
+            e.target.select();
+        });
+        elements.taskStartDate.addEventListener('focus', (e) => {
+            e.target.select();
+        });
+
         // Set values with human-readable formatting
         if (currentTask.dueDate) {
             // Always show formatted date when opening modal
@@ -1862,6 +1870,11 @@ function renderTask(task) {
         dateInput.value = new Date(task.dueDate).toISOString().split('T')[0];
     }
 
+    // Add focus handler to select all text
+    dateInput.addEventListener('focus', (e) => {
+        e.target.select();
+    });
+
     // Create calendar icon
     const calendarIcon = document.createElement('div');
     calendarIcon.className = 'calendar-icon';
@@ -2295,6 +2308,11 @@ function initCalendarInputSlide() {
         const dateInput = document.createElement('input');
         dateInput.type = 'text';
         dateInput.placeholder = 'Enter due date';
+        
+        // Add focus handler to select all text
+        dateInput.addEventListener('focus', (e) => {
+            e.target.select(); // Select all text when focused
+        });
         
         // Append input to tray
         dateTray.appendChild(dateInput);

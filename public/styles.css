@@ -970,6 +970,7 @@ h2 {
     background: var(--container);
     color: var(--text);
     width: 100px;
+    user-select: all;
 }
 
 .calendar-date-input:focus {
@@ -2068,6 +2069,7 @@ select#taskStatus:focus {
     background: var(--container);
     color: var(--text);
     width: 100px;
+    user-select: all;
 }
 
 .calendar-date-input:focus {
