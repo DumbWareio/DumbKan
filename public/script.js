@@ -1824,180 +1824,101 @@ function renderTask(task) {
     });
     metadataBadges.appendChild(priorityBadge);
 
-    // Add calendar badge
-    const calendarBadge = document.createElement('span');
-    calendarBadge.className = 'badge calendar-badge';
-    
-    // Set the calendar badge content based on due date
-    if (task.dueDate) {
-        const formattedDate = formatDueDate(task.dueDate);
-        calendarBadge.textContent = formattedDate;
-        calendarBadge.classList.add('has-due-date');
-        
-        if (isPastDue(task.dueDate)) {
-            calendarBadge.classList.add('past-due');
-        }
-    } else {
-        calendarBadge.innerHTML = `
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" fill="none"></rect>
-                <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor"></line>
-                <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor"></line>
-                <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor"></line>
-                <path d="M8 14h8" stroke="currentColor" stroke-linecap="round"></path>
-                <path d="M8 18h4" stroke="currentColor" stroke-linecap="round"></path>
-            </svg>
-        `;
+    // Create calendar badge
+    const calendarBadge = document.createElement('div');
+    calendarBadge.className = 'calendar-badge' + (task.dueDate ? ' has-due-date' : '');
+    if (task.dueDate && isPastDue(task.dueDate)) {
+        calendarBadge.classList.add('past-due');
     }
-    
-    calendarBadge.setAttribute('title', task.dueDate ? `Due: ${new Date(task.dueDate).toLocaleDateString()}` : 'No due date set');
-    
-    // Create date tray
-    const dateTray = document.createElement('div');
-    dateTray.className = 'calendar-date-tray';
-    
-    // Create input
+
+    // Create date input
     const dateInput = document.createElement('input');
     dateInput.type = 'text';
+    dateInput.className = 'calendar-date-input';
     dateInput.placeholder = 'Enter due date';
-    
-    // Set current value if exists
+    dateInput.hidden = true;
     if (task.dueDate) {
-        const date = new Date(task.dueDate);
-        // If time is midnight, show just the date
-        if (date.getHours() === 0 && date.getMinutes() === 0 && date.getSeconds() === 0) {
-            dateInput.value = date.toISOString().split('T')[0];
-        } else {
-            dateInput.value = formatDateHumanReadable(task.dueDate);
-        }
+        dateInput.value = new Date(task.dueDate).toISOString().split('T')[0];
     }
-    
-    // Append input to tray
-    dateTray.appendChild(dateInput);
-    
-    // Position the tray relative to the badge
-    calendarBadge.style.position = 'relative';
-    calendarBadge.appendChild(dateTray);
 
-    // Single click handler for the calendar badge
-    calendarBadge.addEventListener('click', (e) => {
+    // Create calendar icon
+    const calendarIcon = document.createElement('div');
+    calendarIcon.className = 'calendar-icon';
+    calendarIcon.innerHTML = task.dueDate ? formatDueDate(task.dueDate) : '<svg viewBox="0 0 24 24" width="12" height="12"><path d="M8 2v3M16 2v3M3.5 8h17M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+    // Add elements to badge
+    calendarBadge.appendChild(dateInput);
+    calendarBadge.appendChild(calendarIcon);
+
+    // Toggle input on icon click
+    calendarIcon.addEventListener('click', (e) => {
         e.stopPropagation();
-        
-        // Close any other open date trays
-        const allDateTrays = document.querySelectorAll('.calendar-date-tray.open');
-        allDateTrays.forEach(tray => {
-            if (tray !== dateTray) {
-                tray.classList.remove('open');
-            }
-        });
-        
-        // Toggle this tray
-        dateTray.classList.toggle('open');
-        
-        // Focus and set up the input when opening
-        if (dateTray.classList.contains('open')) {
-            if (task.dueDate) {
-                const date = new Date(task.dueDate);
-                // If time is midnight, show just the date
-                if (date.getHours() === 0 && date.getMinutes() === 0 && date.getSeconds() === 0) {
-                    dateInput.value = date.toISOString().split('T')[0];
-                } else {
-                    dateInput.value = formatDateHumanReadable(task.dueDate);
-                }
-            } else {
-                dateInput.value = '';
-            }
-            dateInput.dataset.wasEdited = '';
+        dateInput.hidden = !dateInput.hidden;
+        if (!dateInput.hidden) {
             dateInput.focus();
         }
     });
-    
-    // Handle input interactions
-    dateInput.addEventListener('blur', async () => {
+
+    // Handle date saving
+    const saveDueDate = async () => {
         const inputValue = dateInput.value.trim();
-        
-        // If input is empty but there was no actual change (user just clicked away),
-        // keep the existing date
-        if (!inputValue && !dateInput.dataset.wasEdited) {
-            dateTray.classList.remove('open');
-            return;
-        }
-        
-        // Parse date using DumbDateParser
         let parsedDate = null;
+        
         if (inputValue) {
-            parsedDate = DumbDateParser.parseDate(inputValue);
-            
-            // If we got a date and no time was specified in the input,
-            // set it to midnight of that day
-            if (parsedDate && !inputValue.toLowerCase().includes('@') && 
-                !inputValue.toLowerCase().includes('at') && 
-                !inputValue.toLowerCase().includes('am') && 
-                !inputValue.toLowerCase().includes('pm')) {
-                parsedDate.setHours(0, 0, 0, 0);
+            try {
+                parsedDate = DumbDateParser.parseDate(inputValue);
+                if (!parsedDate) return;
+                
+                // If no time specified, set to midnight
+                if (!inputValue.toLowerCase().includes('@') && 
+                    !inputValue.toLowerCase().includes('at') && 
+                    !inputValue.toLowerCase().includes('am') && 
+                    !inputValue.toLowerCase().includes('pm')) {
+                    parsedDate.setHours(0, 0, 0, 0);
+                }
+            } catch (err) {
+                console.error('Error parsing due date:', err);
+                return;
             }
         }
-        
-        // Update the task with the new date
-        const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ dueDate: parsedDate ? parsedDate.toISOString() : null })
-        });
-        
-        if (response.ok) {
-            const updatedTask = await response.json();
-            state.tasks[task.id] = updatedTask;
+
+        try {
+            const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dueDate: parsedDate ? parsedDate.toISOString() : null })
+            });
             
-            // Update the badge display
-            if (parsedDate) {
-                const formattedDate = formatDueDate(parsedDate.toISOString());
-                calendarBadge.textContent = formattedDate;
-                calendarBadge.classList.add('has-due-date');
-                
-                if (isPastDue(parsedDate)) {
+            if (response.ok) {
+                const updatedTask = await response.json();
+                state.tasks[task.id] = updatedTask;
+                calendarIcon.innerHTML = formatDueDate(updatedTask.dueDate);
+                calendarBadge.classList.toggle('has-due-date', !!parsedDate);
+                if (parsedDate && isPastDue(parsedDate)) {
                     calendarBadge.classList.add('past-due');
                 } else {
                     calendarBadge.classList.remove('past-due');
                 }
-            } else {
-                calendarBadge.innerHTML = `
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" fill="none"></rect>
-                        <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor"></line>
-                        <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor"></line>
-                        <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor"></line>
-                        <path d="M8 14h8" stroke="currentColor" stroke-linecap="round"></path>
-                        <path d="M8 18h4" stroke="currentColor" stroke-linecap="round"></path>
-                    </svg>
-                `;
-                calendarBadge.classList.remove('has-due-date', 'past-due');
             }
-            
-            calendarBadge.setAttribute('title', parsedDate ? `Due: ${new Date(parsedDate).toLocaleDateString()}` : 'No due date set');
+        } catch (error) {
+            console.error('Failed to update due date:', error);
         }
-        
-        // Close the tray
-        dateTray.classList.remove('open');
-        // Reset the edit flag
-        dateInput.dataset.wasEdited = '';
-    });
-    
-    // Add input handler to track when the input has been edited
-    dateInput.addEventListener('input', () => {
-        dateInput.dataset.wasEdited = 'true';
-    });
+        dateInput.hidden = true;
+    };
+
+    // Handle input blur
+    dateInput.addEventListener('blur', saveDueDate);
 
     // Handle Enter and Escape keys
     dateInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
-            dateInput.blur(); // This will trigger the save logic
+            e.preventDefault();
+            saveDueDate();
         } else if (e.key === 'Escape') {
-            dateInput.dataset.wasEdited = ''; // Clear edit flag on escape
-            dateTray.classList.remove('open');
+            dateInput.hidden = true;
         }
     });
-    
+
     metadataBadges.appendChild(calendarBadge);
     contentWrapper.appendChild(metadataBadges);
 
