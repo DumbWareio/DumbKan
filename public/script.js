@@ -252,13 +252,16 @@ async function addColumn(boardId) {
 function showTaskModal(task) {
     if (!elements.taskModal) return;
     
-    const isNewTask = !task.id;
+    // Get the latest task data from state
+    const currentTask = state.tasks[task.id] || task;
+    
+    const isNewTask = !currentTask.id;
     elements.taskModal.querySelector('h2').textContent = isNewTask ? 'Add Task' : 'Edit Task';
-    elements.taskTitle.value = isNewTask ? '' : (task.title || '');
-    elements.taskDescription.value = isNewTask ? '' : (task.description || '');
-    elements.taskStatus.value = isNewTask ? 'active' : (task.status || 'active');
-    elements.taskForm.dataset.taskId = task.id || '';
-    elements.taskForm.dataset.sectionId = task.sectionId;
+    elements.taskTitle.value = isNewTask ? '' : (currentTask.title || '');
+    elements.taskDescription.value = isNewTask ? '' : (currentTask.description || '');
+    elements.taskStatus.value = isNewTask ? 'active' : (currentTask.status || 'active');
+    elements.taskForm.dataset.taskId = currentTask.id || '';
+    elements.taskForm.dataset.sectionId = currentTask.sectionId;
 
     // Set date fields - keep raw input
     if (!isNewTask) {
@@ -271,9 +274,9 @@ function showTaskModal(task) {
         elements.taskStartDate = newStartDateInput;
 
         // Set values with human-readable formatting
-        if (task.dueDate) {
+        if (currentTask.dueDate) {
             // Always show formatted date when opening modal
-            const dueDate = new Date(task.dueDate);
+            const dueDate = new Date(currentTask.dueDate);
             // Check if time is midnight
             const isMidnight = dueDate.getHours() === 0 && dueDate.getMinutes() === 0 && dueDate.getSeconds() === 0;
             if (isMidnight) {
@@ -281,16 +284,16 @@ function showTaskModal(task) {
                 elements.taskDueDate.value = dueDate.toISOString().split('T')[0];
             } else {
                 // If has time, show full format
-                elements.taskDueDate.value = formatDateHumanReadable(task.dueDate);
+                elements.taskDueDate.value = formatDateHumanReadable(currentTask.dueDate);
             }
-            elements.taskDueDate.dataset.originalDate = task.dueDate;
+            elements.taskDueDate.dataset.originalDate = currentTask.dueDate;
         } else {
             elements.taskDueDate.value = '';
         }
         
-        if (task.startDate) {
+        if (currentTask.startDate) {
             // Always show formatted date when opening modal
-            const startDate = new Date(task.startDate);
+            const startDate = new Date(currentTask.startDate);
             // Check if time is midnight
             const isMidnight = startDate.getHours() === 0 && startDate.getMinutes() === 0 && startDate.getSeconds() === 0;
             if (isMidnight) {
@@ -298,9 +301,9 @@ function showTaskModal(task) {
                 elements.taskStartDate.value = startDate.toISOString().split('T')[0];
             } else {
                 // If has time, show full format
-                elements.taskStartDate.value = formatDateHumanReadable(task.startDate);
+                elements.taskStartDate.value = formatDateHumanReadable(currentTask.startDate);
             }
-            elements.taskStartDate.dataset.originalDate = task.startDate;
+            elements.taskStartDate.dataset.originalDate = currentTask.startDate;
         } else {
             elements.taskStartDate.value = '';
         }
@@ -745,6 +748,24 @@ function initEventListeners() {
                 if (response.ok) {
                     const updatedTask = await response.json();
                     state.tasks[taskId] = updatedTask;
+                    
+                    // Update calendar badge in the task card
+                    const taskElement = document.querySelector(`.task[data-task-id="${taskId}"]`);
+                    if (taskElement) {
+                        const calendarBadge = taskElement.querySelector('.calendar-badge');
+                        const calendarIcon = taskElement.querySelector('.calendar-icon');
+                        if (calendarBadge && calendarIcon) {
+                            calendarIcon.innerHTML = updatedTask.dueDate ? formatDueDate(updatedTask.dueDate) : '<svg viewBox="0 0 24 24" width="12" height="12"><path d="M8 2v3M16 2v3M3.5 8h17M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+                            calendarBadge.classList.toggle('has-due-date', !!updatedTask.dueDate);
+                            calendarBadge.classList.toggle('past-due', updatedTask.dueDate && isPastDue(updatedTask.dueDate));
+                            
+                            // Update the calendar input if it exists
+                            const dateInput = calendarBadge.querySelector('.calendar-date-input');
+                            if (dateInput && updatedTask.dueDate) {
+                                dateInput.value = new Date(updatedTask.dueDate).toISOString().split('T')[0];
+                            }
+                        }
+                    }
                 }
             } else {
                 // Create new task
@@ -1892,12 +1913,25 @@ function renderTask(task) {
             if (response.ok) {
                 const updatedTask = await response.json();
                 state.tasks[task.id] = updatedTask;
-                calendarIcon.innerHTML = formatDueDate(updatedTask.dueDate);
-                calendarBadge.classList.toggle('has-due-date', !!parsedDate);
-                if (parsedDate && isPastDue(parsedDate)) {
-                    calendarBadge.classList.add('past-due');
-                } else {
-                    calendarBadge.classList.remove('past-due');
+                
+                // Update calendar badge display
+                calendarIcon.innerHTML = updatedTask.dueDate ? formatDueDate(updatedTask.dueDate) : '<svg viewBox="0 0 24 24" width="12" height="12"><path d="M8 2v3M16 2v3M3.5 8h17M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+                calendarBadge.classList.toggle('has-due-date', !!updatedTask.dueDate);
+                calendarBadge.classList.toggle('past-due', updatedTask.dueDate && isPastDue(updatedTask.dueDate));
+
+                // Update task modal if it's for this task
+                const taskModal = document.getElementById('taskModal');
+                const taskForm = document.getElementById('taskForm');
+                const taskDueDate = document.getElementById('taskDueDate');
+                
+                if (taskForm && taskDueDate && taskForm.dataset.taskId === task.id) {
+                    if (updatedTask.dueDate) {
+                        taskDueDate.value = new Date(updatedTask.dueDate).toISOString().split('T')[0];
+                        taskDueDate.dataset.originalDate = updatedTask.dueDate;
+                    } else {
+                        taskDueDate.value = '';
+                        delete taskDueDate.dataset.originalDate;
+                    }
                 }
             }
         } catch (error) {
