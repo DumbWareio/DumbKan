@@ -312,16 +312,24 @@ function showTaskModal(task) {
     elements.taskTitle.focus();
 }
 
+// Update hideTaskModal function
 function hideTaskModal() {
     if (!elements.taskModal) return;
-    const deleteBtn = elements.taskModal.querySelector('.btn-delete');
-    if (deleteBtn) {
-        deleteBtn.classList.remove('confirm');
-    }
-    elements.taskModal.hidden = true;
-    elements.taskForm.reset();
-    delete elements.taskForm.dataset.taskId;
-    delete elements.taskForm.dataset.sectionId;
+    
+    // Add closing class to trigger slide down animation
+    elements.taskModal.classList.add('closing');
+    
+    // Wait for animation to complete before hiding
+    setTimeout(() => {
+        elements.taskModal.classList.remove('closing');
+        elements.taskModal.hidden = true;
+        // Reset form if it exists
+        if (elements.taskForm) {
+            elements.taskForm.reset();
+            elements.taskForm.dataset.taskId = '';
+            elements.taskForm.dataset.sectionId = '';
+        }
+    }, 300); // Match the animation duration
 }
 
 async function addTask(sectionId, title, description = '', status = 'open', dueDate = null, startDate = null) {
@@ -705,6 +713,62 @@ function initEventListeners() {
     handleDateInput(elements.taskStartDate);
 }
 
+// Add function to handle modal closing
+function initModalHandlers() {
+    // Handle task modal
+    if (elements.taskModal) {
+        const closeBtn = elements.taskModal.querySelector('.modal-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => hideTaskModal());
+        }
+        
+        // Close on backdrop click
+        elements.taskModal.addEventListener('click', (e) => {
+            if (e.target === elements.taskModal) {
+                hideTaskModal();
+            }
+        });
+    }
+    
+    // Handle confirm modal
+    const confirmModal = document.getElementById('confirmModal');
+    if (confirmModal) {
+        const closeBtn = confirmModal.querySelector('.modal-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                confirmModal.classList.add('closing');
+                setTimeout(() => {
+                    confirmModal.classList.remove('closing');
+                    confirmModal.hidden = true;
+                }, 300);
+            });
+        }
+        
+        // Close on backdrop click
+        confirmModal.addEventListener('click', (e) => {
+            if (e.target === confirmModal) {
+                confirmModal.classList.add('closing');
+                setTimeout(() => {
+                    confirmModal.classList.remove('closing');
+                    confirmModal.hidden = true;
+                }, 300);
+            }
+        });
+        
+        // Handle confirm/cancel actions
+        const actions = confirmModal.querySelectorAll('[data-action]');
+        actions.forEach(button => {
+            button.addEventListener('click', () => {
+                confirmModal.classList.add('closing');
+                setTimeout(() => {
+                    confirmModal.classList.remove('closing');
+                    confirmModal.hidden = true;
+                }, 300);
+            });
+        });
+    }
+}
+
 // Initialize the application
 async function init() {
     // Initialize DOM elements
@@ -781,6 +845,9 @@ async function init() {
 
     // Initial check
     handleCreditVisibility();
+
+    // Initialize modal handlers
+    initModalHandlers();
 }
 
 // Add this before initLogin function

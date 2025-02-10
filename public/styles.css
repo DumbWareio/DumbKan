@@ -1201,7 +1201,7 @@ h2 {
     bottom: 0;
     background: rgba(0, 0, 0, 0.5);
     display: flex;
-    align-items: center;
+    align-items: flex-end;  /* Changed from center to flex-end */
     justify-content: center;
     z-index: 1000;
     backdrop-filter: blur(4px);
@@ -1214,19 +1214,21 @@ h2 {
 
 .modal-content {
     background: var(--container);
-    border-radius: 12px;
+    border-radius: 12px 12px 0 0;  /* Rounded only on top corners */
     padding: 2rem;
-    width: 90%;
-    max-width: 500px;
+    width: 100%;  /* Full width on mobile */
+    max-width: 600px;  /* Slightly wider for better form layout */
     position: relative;
     box-shadow: var(--shadow);
-    animation: modalSlideIn 0.3s ease;
+    animation: modalSlideUp 0.3s ease;
+    max-height: 85vh;  /* Maximum height */
+    overflow-y: auto;  /* Enable scrolling if content is too tall */
 }
 
-@keyframes modalSlideIn {
+@keyframes modalSlideUp {
     from {
-        transform: translateY(20px);
-        opacity: 0;
+        transform: translateY(100%);
+        opacity: 0.5;
     }
     to {
         transform: translateY(0);
@@ -1234,9 +1236,43 @@ h2 {
     }
 }
 
+/* Add slide down animation for closing */
+@keyframes modalSlideDown {
+    from {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateY(100%);
+        opacity: 0.5;
+    }
+}
+
+.modal.closing .modal-content {
+    animation: modalSlideDown 0.3s ease forwards;
+}
+
+/* Add a drag handle at the top of the modal */
+.modal-drag-handle {
+    position: absolute;
+    top: 0.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    cursor: grab;
+}
+
+.modal-drag-handle:active {
+    cursor: grabbing;
+}
+
+/* Adjust the close button position */
 .modal-close {
     position: absolute;
-    top: 1rem;
+    top: 1.5rem;  /* Moved down slightly to account for drag handle */
     right: 1rem;
     background: none;
     border: none;
@@ -1259,6 +1295,7 @@ h2 {
     background: rgba(128, 128, 128, 0.1);
 }
 
+/* Adjust modal title spacing */
 .modal h2 {
     font-size: 1.5rem;
     font-weight: 600;
@@ -1267,6 +1304,8 @@ h2 {
     opacity: 1;
     text-align: left;
     padding-right: 2rem;
+    margin-top: 0.5rem;  /* Add space for the drag handle */
+    padding-top: 1rem;
 }
 
 .modal form {
