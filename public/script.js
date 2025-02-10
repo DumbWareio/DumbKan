@@ -270,15 +270,19 @@ function showTaskModal(task) {
         elements.taskDueDate = newDueDateInput;
         elements.taskStartDate = newStartDateInput;
 
-        // Set values without formatting
+        // Set values with human-readable formatting
         if (task.dueDate) {
-            elements.taskDueDate.value = elements.taskDueDate.dataset.rawInput || task.dueDate;
+            // Always show formatted date when opening modal
+            elements.taskDueDate.value = formatDateHumanReadable(task.dueDate);
+            elements.taskDueDate.dataset.originalDate = task.dueDate;
         } else {
             elements.taskDueDate.value = '';
         }
         
         if (task.startDate) {
-            elements.taskStartDate.value = elements.taskStartDate.dataset.rawInput || task.startDate;
+            // Always show formatted date when opening modal
+            elements.taskStartDate.value = formatDateHumanReadable(task.startDate);
+            elements.taskStartDate.dataset.originalDate = task.startDate;
         } else {
             elements.taskStartDate.value = '';
         }
@@ -290,19 +294,31 @@ function showTaskModal(task) {
     // Store raw input when user types
     elements.taskDueDate.addEventListener('input', (e) => {
         e.target.dataset.rawInput = e.target.value;
+        delete e.target.dataset.originalDate; // Clear original date when user starts typing
     });
     
     elements.taskStartDate.addEventListener('input', (e) => {
         e.target.dataset.rawInput = e.target.value;
+        delete e.target.dataset.originalDate; // Clear original date when user starts typing
     });
 
     // Remove any auto-formatting on blur
     elements.taskDueDate.addEventListener('blur', (e) => {
-        e.target.value = e.target.dataset.rawInput || e.target.value;
+        if (!e.target.dataset.rawInput && e.target.dataset.originalDate) {
+            // If no raw input but we have original date, show formatted date
+            e.target.value = formatDateHumanReadable(e.target.dataset.originalDate);
+        } else {
+            e.target.value = e.target.dataset.rawInput || e.target.value;
+        }
     });
     
     elements.taskStartDate.addEventListener('blur', (e) => {
-        e.target.value = e.target.dataset.rawInput || e.target.value;
+        if (!e.target.dataset.rawInput && e.target.dataset.originalDate) {
+            // If no raw input but we have original date, show formatted date
+            e.target.value = formatDateHumanReadable(e.target.dataset.originalDate);
+        } else {
+            e.target.value = e.target.dataset.rawInput || e.target.value;
+        }
     });
     
     // Show/hide delete button based on whether it's a new task
@@ -351,11 +367,20 @@ function hideTaskModal() {
     setTimeout(() => {
         elements.taskModal.classList.remove('closing');
         elements.taskModal.hidden = true;
-        // Reset form if it exists
+        // Reset form and clear all datasets if it exists
         if (elements.taskForm) {
             elements.taskForm.reset();
             elements.taskForm.dataset.taskId = '';
             elements.taskForm.dataset.sectionId = '';
+            // Clear raw input datasets
+            if (elements.taskDueDate) {
+                delete elements.taskDueDate.dataset.rawInput;
+                delete elements.taskDueDate.dataset.originalDate;
+            }
+            if (elements.taskStartDate) {
+                delete elements.taskStartDate.dataset.rawInput;
+                delete elements.taskStartDate.dataset.originalDate;
+            }
         }
     }, 300); // Match the animation duration
 }
@@ -679,10 +704,27 @@ function initEventListeners() {
         
         if (rawDueDate) {
             try {
+                console.log('Attempting to parse due date with DumbDateParser:', rawDueDate);
                 parsedDueDate = DumbDateParser.parseDate(rawDueDate);
-                console.log('Parsed due date:', parsedDueDate);
+                console.log('DumbDateParser result for due date:', parsedDueDate);
+                
                 if (!parsedDueDate) {
                     console.error('Failed to parse due date:', rawDueDate);
+                } else {
+                    console.log('Successfully parsed due date:', {
+                        input: rawDueDate,
+                        parsed: parsedDueDate,
+                        isoString: parsedDueDate.toISOString()
+                    });
+                    
+                    // If no time specified, set to midnight
+                    if (!rawDueDate.toLowerCase().includes('@') && 
+                        !rawDueDate.toLowerCase().includes('at') && 
+                        !rawDueDate.toLowerCase().includes('am') && 
+                        !rawDueDate.toLowerCase().includes('pm')) {
+                        parsedDueDate.setHours(0, 0, 0, 0);
+                        console.log('Set due date to midnight:', parsedDueDate.toISOString());
+                    }
                 }
             } catch (err) {
                 console.error('Error parsing due date:', err);
@@ -691,10 +733,27 @@ function initEventListeners() {
         
         if (rawStartDate) {
             try {
+                console.log('Attempting to parse start date with DumbDateParser:', rawStartDate);
                 parsedStartDate = DumbDateParser.parseDate(rawStartDate);
-                console.log('Parsed start date:', parsedStartDate);
+                console.log('DumbDateParser result for start date:', parsedStartDate);
+                
                 if (!parsedStartDate) {
                     console.error('Failed to parse start date:', rawStartDate);
+                } else {
+                    console.log('Successfully parsed start date:', {
+                        input: rawStartDate,
+                        parsed: parsedStartDate,
+                        isoString: parsedStartDate.toISOString()
+                    });
+                    
+                    // If no time specified, set to midnight
+                    if (!rawStartDate.toLowerCase().includes('@') && 
+                        !rawStartDate.toLowerCase().includes('at') && 
+                        !rawStartDate.toLowerCase().includes('am') && 
+                        !rawStartDate.toLowerCase().includes('pm')) {
+                        parsedStartDate.setHours(0, 0, 0, 0);
+                        console.log('Set start date to midnight:', parsedStartDate.toISOString());
+                    }
                 }
             } catch (err) {
                 console.error('Error parsing start date:', err);
@@ -2343,4 +2402,39 @@ function initCalendarInputSlide() {
             }
         });
     });
+}
+
+// Add this helper function at the top level
+function formatDateHumanReadable(dateStr) {
+    if (!dateStr) return '';
+    
+    const date = new Date(dateStr);
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    // Reset time parts for today/tomorrow comparison
+    const dateNoTime = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const todayNoTime = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrowNoTime = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
+    
+    // Check if time is midnight (00:00)
+    const isMidnight = date.getHours() === 0 && date.getMinutes() === 0;
+    
+    // Only add time if it's not midnight
+    const timeStr = isMidnight ? '' : ` @ ${date.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: false 
+    })}`;
+    
+    if (dateNoTime.getTime() === todayNoTime.getTime()) {
+        return `Today${timeStr}`;
+    } else if (dateNoTime.getTime() === tomorrowNoTime.getTime()) {
+        return `Tomorrow${timeStr}`;
+    } else {
+        // Format as YYYY-MM-DD
+        const dateStr = date.toISOString().split('T')[0];
+        return `${dateStr}${timeStr}`;
+    }
 }
