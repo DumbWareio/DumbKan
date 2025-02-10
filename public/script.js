@@ -260,14 +260,50 @@ function showTaskModal(task) {
     elements.taskForm.dataset.taskId = task.id || '';
     elements.taskForm.dataset.sectionId = task.sectionId;
 
-    // Set date fields
+    // Set date fields - keep raw input
     if (!isNewTask) {
-        elements.taskDueDate.value = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '';
-        elements.taskStartDate.value = task.startDate ? new Date(task.startDate).toLocaleDateString() : '';
+        // Clear any existing event listeners
+        const newDueDateInput = elements.taskDueDate.cloneNode(true);
+        const newStartDateInput = elements.taskStartDate.cloneNode(true);
+        elements.taskDueDate.parentNode.replaceChild(newDueDateInput, elements.taskDueDate);
+        elements.taskStartDate.parentNode.replaceChild(newStartDateInput, elements.taskStartDate);
+        elements.taskDueDate = newDueDateInput;
+        elements.taskStartDate = newStartDateInput;
+
+        // Set values without formatting
+        if (task.dueDate) {
+            elements.taskDueDate.value = elements.taskDueDate.dataset.rawInput || task.dueDate;
+        } else {
+            elements.taskDueDate.value = '';
+        }
+        
+        if (task.startDate) {
+            elements.taskStartDate.value = elements.taskStartDate.dataset.rawInput || task.startDate;
+        } else {
+            elements.taskStartDate.value = '';
+        }
     } else {
         elements.taskDueDate.value = '';
         elements.taskStartDate.value = '';
     }
+    
+    // Store raw input when user types
+    elements.taskDueDate.addEventListener('input', (e) => {
+        e.target.dataset.rawInput = e.target.value;
+    });
+    
+    elements.taskStartDate.addEventListener('input', (e) => {
+        e.target.dataset.rawInput = e.target.value;
+    });
+
+    // Remove any auto-formatting on blur
+    elements.taskDueDate.addEventListener('blur', (e) => {
+        e.target.value = e.target.dataset.rawInput || e.target.value;
+    });
+    
+    elements.taskStartDate.addEventListener('blur', (e) => {
+        e.target.value = e.target.dataset.rawInput || e.target.value;
+    });
     
     // Show/hide delete button based on whether it's a new task
     const deleteBtn = elements.taskModal.querySelector('.btn-delete');
@@ -298,14 +334,6 @@ function showTaskModal(task) {
                 deleteBtn.querySelector('.button-text').textContent = 'Delete Task';
             }
         };
-        // Reset confirmation state when modal is closed
-        const resetConfirmation = () => {
-            clearTimeout(confirmTimeout);
-            deleteBtn.classList.remove('confirm');
-            deleteBtn.querySelector('.button-text').textContent = 'Delete Task';
-        };
-        elements.taskModal.querySelector('.modal-close').addEventListener('click', resetConfirmation);
-        elements.taskForm.addEventListener('submit', resetConfirmation);
     }
     
     elements.taskModal.hidden = false;
@@ -332,7 +360,7 @@ function hideTaskModal() {
     }, 300); // Match the animation duration
 }
 
-async function addTask(sectionId, title, description = '', status = 'open', dueDate = null, startDate = null) {
+async function addTask(sectionId, title, description = '', status = 'active', dueDate = null, startDate = null) {
     try {
         if (!sectionId) {
             console.error('Section ID is required to add a task');
@@ -342,7 +370,14 @@ async function addTask(sectionId, title, description = '', status = 'open', dueD
         const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title, description, status, dueDate: dueDate ? dueDate.toISOString() : null, startDate: startDate ? startDate.toISOString() : null })
+            body: JSON.stringify({ 
+                title, 
+                description, 
+                status, 
+                dueDate: dueDate ? dueDate.toISOString() : null,
+                startDate: startDate ? startDate.toISOString() : null,
+                priority: 'medium' // Set default priority
+            })
         });
         
         if (!response.ok) {
@@ -630,41 +665,69 @@ function initEventListeners() {
         const description = elements.taskDescription.value.trim();
         const status = elements.taskStatus.value;
         
-        // Get date values
-        const dueDate = document.getElementById('taskDueDate').value.trim();
-        const startDate = document.getElementById('taskStartDate').value.trim();
+        // Get raw date values
+        const rawDueDate = elements.taskDueDate.value.trim();
+        const rawStartDate = elements.taskStartDate.value.trim();
         
-        // Parse dates using DumbDateParser
+        // Log values for debugging
+        console.log('Raw due date value:', rawDueDate);
+        console.log('Raw start date value:', rawStartDate);
+        
+        // Only parse dates if they were entered
         let parsedDueDate = null;
         let parsedStartDate = null;
         
-        if (dueDate) {
-            parsedDueDate = DumbDateParser.parseDate(dueDate);
+        if (rawDueDate) {
+            try {
+                parsedDueDate = DumbDateParser.parseDate(rawDueDate);
+                console.log('Parsed due date:', parsedDueDate);
+                if (!parsedDueDate) {
+                    console.error('Failed to parse due date:', rawDueDate);
+                }
+            } catch (err) {
+                console.error('Error parsing due date:', err);
+            }
         }
-        if (startDate) {
-            parsedStartDate = DumbDateParser.parseDate(startDate);
+        
+        if (rawStartDate) {
+            try {
+                parsedStartDate = DumbDateParser.parseDate(rawStartDate);
+                console.log('Parsed start date:', parsedStartDate);
+                if (!parsedStartDate) {
+                    console.error('Failed to parse start date:', rawStartDate);
+                }
+            } catch (err) {
+                console.error('Error parsing start date:', err);
+            }
         }
 
         if (!title) return;
 
+        // Prepare the task data
+        const taskData = {
+            title,
+            description,
+            status,
+            dueDate: parsedDueDate ? parsedDueDate.toISOString() : null,
+            startDate: parsedStartDate ? parsedStartDate.toISOString() : null
+        };
+
+        // Log the task data being sent
+        console.log('Sending task data:', taskData);
+
         try {
             if (taskId) {
                 // Update existing task
-                const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks/${taskId}`, {
+                const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks/${taskId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        title, 
-                        description, 
-                        status,
-                        dueDate: parsedDueDate ? parsedDueDate.toISOString() : null,
-                        startDate: parsedStartDate ? parsedStartDate.toISOString() : null
-                    })
+                    body: JSON.stringify(taskData)
                 });
                 
                 if (response.ok) {
                     const updatedTask = await response.json();
                     state.tasks[taskId] = updatedTask;
+                    console.log('Updated task:', updatedTask);
                 }
             } else {
                 // Create new task
