@@ -1075,7 +1075,17 @@ function makeEditable(element, onSave) {
                         const sectionId = element.closest('.column').dataset.sectionId;
                         success = await deleteSection(sectionId);
                     } else if (itemType === 'board') {
-                        const boardId = element.closest('li').dataset.boardId;
+                        let boardId;
+                        const listItem = element.closest('li');
+                        if (listItem) {
+                            boardId = listItem.dataset.boardId;
+                        } else if (element.closest('#currentBoard')) {
+                            // If deleting from the board title, use the active board ID
+                            boardId = state.activeBoard;
+                        }
+                        if (!boardId) {
+                            throw new Error('Board ID not found');
+                        }
                         success = await deleteBoard(boardId);
                     }
                     
