@@ -1365,9 +1365,9 @@ function getPrioritySymbol(priority) {
     switch (priority) {
         case 'urgent': return '!';
         case 'high': return '↑';
-        case 'medium': return '⇈';
+        case 'medium': return '-';
         case 'low': return '↓';
-        default: return '⇈';
+        default: return '-';
     }
 }
 
@@ -1811,7 +1811,7 @@ function renderTask(task) {
     
     const priorities = [
         { name: 'low', symbol: '↓' },
-        { name: 'medium', symbol: '⇈' },
+        { name: 'medium', symbol: '-' },
         { name: 'high', symbol: '↑' },
         { name: 'urgent', symbol: '!' }
     ];
