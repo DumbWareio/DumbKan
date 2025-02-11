@@ -1712,16 +1712,8 @@ function renderTask(task) {
     const taskElement = document.createElement('div');
     taskElement.className = 'task';
     taskElement.dataset.taskId = task.id;
-    taskElement.draggable = true;
-
-    // Add both drag and touch event listeners
-    taskElement.addEventListener('dragstart', handleDragStart);
-    taskElement.addEventListener('dragend', handleDragEnd);
-    
-    // Add touch event listeners
-    taskElement.addEventListener('touchstart', handleTouchStart, { passive: false });
-    taskElement.addEventListener('touchmove', handleTouchMove, { passive: false });
-    taskElement.addEventListener('touchend', handleTouchEnd, { passive: false });
+    taskElement.dataset.sectionId = task.sectionId;
+    taskElement.draggable = true;  // Add this line to make tasks draggable
 
     // Add drag handle with simpler icon
     const dragHandle = document.createElement('div');
@@ -1796,6 +1788,17 @@ function renderTask(task) {
     });
     metadataBadges.appendChild(statusBadge);
 
+    // Add info badge
+    const infoBadge = document.createElement('span');
+    infoBadge.className = 'badge info-badge';
+    infoBadge.textContent = 'i';
+    infoBadge.setAttribute('title', 'View Task Details');
+    infoBadge.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showTaskModal(task);
+    });
+    metadataBadges.appendChild(infoBadge);
+
     // Add priority badge
     const priorityBadge = document.createElement('span');
     priorityBadge.className = `badge priority-badge ${task.priority}`;
@@ -1853,7 +1856,7 @@ function renderTask(task) {
     });
     metadataBadges.appendChild(priorityBadge);
 
-    // Create calendar badge
+    // Add calendar badge
     const calendarBadge = document.createElement('div');
     calendarBadge.className = 'calendar-badge' + (task.dueDate ? ' has-due-date' : '');
     if (task.dueDate && isPastDue(task.dueDate)) {
@@ -1931,21 +1934,6 @@ function renderTask(task) {
                 calendarIcon.innerHTML = updatedTask.dueDate ? formatDueDate(updatedTask.dueDate) : '<svg viewBox="0 0 24 24" width="12" height="12"><path d="M8 2v3M16 2v3M3.5 8h17M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
                 calendarBadge.classList.toggle('has-due-date', !!updatedTask.dueDate);
                 calendarBadge.classList.toggle('past-due', updatedTask.dueDate && isPastDue(updatedTask.dueDate));
-
-                // Update task modal if it's for this task
-                const taskModal = document.getElementById('taskModal');
-                const taskForm = document.getElementById('taskForm');
-                const taskDueDate = document.getElementById('taskDueDate');
-                
-                if (taskForm && taskDueDate && taskForm.dataset.taskId === task.id) {
-                    if (updatedTask.dueDate) {
-                        taskDueDate.value = new Date(updatedTask.dueDate).toISOString().split('T')[0];
-                        taskDueDate.dataset.originalDate = updatedTask.dueDate;
-                    } else {
-                        taskDueDate.value = '';
-                        delete taskDueDate.dataset.originalDate;
-                    }
-                }
             }
         } catch (error) {
             console.error('Failed to update due date:', error);
@@ -1967,6 +1955,8 @@ function renderTask(task) {
     });
 
     metadataBadges.appendChild(calendarBadge);
+
+    // Add badges to content wrapper
     contentWrapper.appendChild(metadataBadges);
 
     // Add description or arrow hook
@@ -1977,8 +1967,8 @@ function renderTask(task) {
         makeEditable(taskDescription, async (newDescription) => {
             try {
                 const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ description: newDescription })
                 });
                 
@@ -1988,14 +1978,14 @@ function renderTask(task) {
                     if (!newDescription) {
                         renderActiveBoard();
                     }
-                return true;
-            }
-            return false;
-        } catch (error) {
+                    return true;
+                }
+                return false;
+            } catch (error) {
                 console.error('Failed to update task description:', error);
-            return false;
-        }
-    });
+                return false;
+            }
+        });
         contentWrapper.appendChild(taskDescription);
     } else {
         const descriptionHook = document.createElement('div');
@@ -2004,10 +1994,10 @@ function renderTask(task) {
             <svg viewBox="0 0 24 24" width="12" height="12">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
-    `;
+            </svg>
+        `;
         descriptionHook.addEventListener('click', (e) => {
-        e.stopPropagation();
+            e.stopPropagation();
             const taskDescription = document.createElement('div');
             taskDescription.className = 'task-description';
             const textarea = document.createElement('textarea');
@@ -2036,7 +2026,7 @@ function renderTask(task) {
             textarea.addEventListener('blur', saveDescription);
             textarea.addEventListener('keydown', (e) => {
                 if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault();
+                    e.preventDefault();
                     textarea.blur();
                 } else if (e.key === 'Escape') {
                     renderActiveBoard();
@@ -2078,10 +2068,12 @@ function renderTask(task) {
 
     taskElement.appendChild(moveRightBtn);
 
-    // Double click to edit
-    taskElement.addEventListener('dblclick', () => {
-        showTaskModal(task);
-    });
+    // Add event listeners
+    taskElement.addEventListener('dragstart', handleDragStart);
+    taskElement.addEventListener('dragend', handleDragEnd);
+    taskElement.addEventListener('touchstart', handleTouchStart, { passive: false });
+    taskElement.addEventListener('touchmove', handleTouchMove, { passive: false });
+    taskElement.addEventListener('touchend', handleTouchEnd, { passive: false });
 
     return taskElement;
 }

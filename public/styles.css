@@ -2082,3 +2082,24 @@ select#taskStatus:focus {
 .calendar-date-tray {
     display: none;
 }
+
+.info-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--text-secondary);
+    color: var(--container);
+    font-size: 12px;
+    font-weight: bold;
+    margin: 0 4px;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.info-badge:hover {
+    opacity: 0.8;
+    transform: scale(1.1);
+}
