@@ -6,6 +6,8 @@ case "$1" in
     "up")
         echo "🎯 Starting DumbKan in development mode..."
         docker compose -f docker-compose.dev.yml up -d --build
+        echo "Container logs:"
+        docker compose -f docker-compose.dev.yml logs 
         ;;
     "down")
         echo "👋 Stopping DumbKan development environment..."

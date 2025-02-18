@@ -7,28 +7,29 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const fs = require('fs').promises;
 
+// Import configuration
+const config = require('./config');
+
 const app = express();
-const PORT = process.env.PORT || 3000;
-const DEBUG = process.env.DUMBKAN_DEBUG === 'true' || process.env.DEBUG === 'TRUE';
 
 // Get site title from environment variable or use default
-const siteTitle = process.env.SITE_TITLE || 'DumbKan';
+const siteTitle = config.SITE_TITLE || 'DumbKan';
 
 function debugLog(...args) {
-    if (DEBUG) {
+    if (config.DEBUG) {
         console.log('[DEBUG]', ...args);
     }
 }
 
 // Base URL configuration
 const BASE_PATH = (() => {
-    if (!process.env.BASE_URL) {
+    if (!config.BASE_URL) {
         debugLog('No BASE_URL set, using empty base path');
         return '';
     }
 
     // Clean and normalize the path
-    let path = process.env.BASE_URL;
+    let path = config.BASE_URL;
 
     // If it's a full URL, extract just the path portion
     try {
@@ -48,7 +49,7 @@ const BASE_PATH = (() => {
     path = path.replace(/\/$/, '');
 
     debugLog('Base URL Configuration:', {
-        originalUrl: process.env.BASE_URL,
+        originalUrl: config.BASE_URL,
         normalizedPath: path
     });
 
@@ -56,8 +57,8 @@ const BASE_PATH = (() => {
 })();
 
 // Get the project name from package.json to use for the PIN environment variable
-const projectName = require('./package.json').name.toUpperCase().replace(/-/g, '_');
-const PIN = process.env[`${projectName}_PIN`];
+const projectName = config.projectName;
+const PIN = config.PIN;
 
 // Log whether PIN protection is enabled
 if (!PIN || PIN.trim() === '') {
@@ -177,7 +178,7 @@ app.get(BASE_PATH + '/config.js', (req, res) => {
     res.type('application/javascript').send(`
         window.appConfig = {
             basePath: '${BASE_PATH}',
-            debug: ${DEBUG},
+            debug: ${config.DEBUG},
             siteTitle: '${siteTitle}',
             version: '1.0.0'
         };
@@ -193,18 +194,18 @@ app.get(BASE_PATH + '/config.js', (req, res) => {
 });
 
 // Serve static files for public assets
-app.use(BASE_PATH + '/styles.css', express.static('public/styles.css'));
-app.use(BASE_PATH + '/script.js', express.static('public/script.js'));
-app.use(BASE_PATH + '/manifest.json', express.static('public/manifest.json'));
-app.use(BASE_PATH + '/sw.js', express.static('public/sw.js'));
-app.use(BASE_PATH + '/icons', express.static('public/icons'));
-app.use(BASE_PATH + '/logo.png', express.static('public/logo.png'));
-app.use(BASE_PATH + '/favicon.svg', express.static('public/favicon.svg'));
-app.use(BASE_PATH + '/marked.min.js', express.static('public/marked.min.js'));
-app.use(BASE_PATH + '/dumbdateparser.js', express.static('node_modules/dumbdateparser/src/browser.js'));
+app.use(BASE_PATH + '/styles.css', express.static(path.join(config.PUBLIC_DIR, 'styles.css')));
+app.use(BASE_PATH + '/script.js', express.static(path.join(config.PUBLIC_DIR, 'script.js')));
+app.use(BASE_PATH + '/manifest.json', express.static(path.join(config.PUBLIC_DIR, 'manifest.json')));
+app.use(BASE_PATH + '/sw.js', express.static(path.join(config.PUBLIC_DIR, 'sw.js')));
+app.use(BASE_PATH + '/icons', express.static(path.join(config.PUBLIC_DIR, 'icons')));
+app.use(BASE_PATH + '/logo.png', express.static(path.join(config.PUBLIC_DIR, 'logo.png')));
+app.use(BASE_PATH + '/favicon.svg', express.static(path.join(config.PUBLIC_DIR, 'favicon.svg')));
+app.use(BASE_PATH + '/marked.min.js', express.static(path.join(config.PUBLIC_DIR, 'marked.min.js')));
+app.use(BASE_PATH + '/dumbdateparser.js', express.static(path.join(__dirname, '../node_modules/dumbdateparser/src/browser.js')));
 
 // Add this near the top with other middleware
-app.use(express.static('public', {
+app.use(express.static(config.PUBLIC_DIR, {
     setHeaders: (res, path) => {
         if (path.endsWith('.js')) {
             res.setHeader('Content-Type', 'application/javascript');
@@ -328,12 +329,9 @@ setInterval(() => {
     }
 }, 60000); // Clean up every minute
 
-// Data file path
-const DATA_FILE = path.join(__dirname, 'dumbdata', 'tasks.json');
-
 // Helper function to ensure data directory exists
 async function ensureDataDirectory() {
-    const dir = path.dirname(DATA_FILE);
+    const dir = path.dirname(config.DATA_FILE);
     try {
         await fs.mkdir(dir, { recursive: true });
     } catch (error) {
@@ -347,7 +345,7 @@ async function ensureDataDirectory() {
 async function readData() {
     await ensureDataDirectory();
     try {
-        const data = await fs.readFile(DATA_FILE, 'utf8');
+        const data = await fs.readFile(config.DATA_FILE, 'utf8');
         return JSON.parse(data);
     } catch (error) {
         if (error.code === 'ENOENT') {
@@ -400,7 +398,7 @@ async function readData() {
 // Helper function to write data
 async function writeData(data) {
     await ensureDataDirectory();
-    await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
+    await fs.writeFile(config.DATA_FILE, JSON.stringify(data, null, 2));
 }
 
 // Simple ID generator
@@ -844,14 +842,5 @@ app.delete(BASE_PATH + '/api/boards/:boardId', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
-    debugLog('Server Configuration:', {
-        port: PORT,
-        basePath: BASE_PATH,
-        pinProtection: !!PIN,
-        nodeEnv: process.env.NODE_ENV || 'development',
-        debug: DEBUG
-    });
-    console.log(`Server running on port ${PORT}`);
-    console.log(`Site title set to: ${siteTitle}`);
-}); 
+// Export the app instead of starting it here
+module.exports = app; 
