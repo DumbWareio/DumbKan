@@ -8,9 +8,20 @@
     <script src="config.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            document.title = window.appConfig.title;
-            document.querySelector('h1').textContent = window.appConfig.title;
+            document.title = window.appConfig.siteTitle;
+            document.querySelector('h1').textContent = window.appConfig.siteTitle;
         });
+
+        // Debug logging for URL and protocol
+        console.log('Current URL:', window.location.href);
+        console.log('Current Protocol:', window.location.protocol);
+        console.log('App Config:', window.appConfig);
+
+        // Override default behavior to force HTTP
+        if (window.location.protocol === 'https:') {
+            console.warn('HTTPS detected, attempting to redirect to HTTP');
+            window.location.href = window.location.href.replace('https:', 'http:');
+        }
     </script>
     <link rel="stylesheet" href="styles.css">
 </head>

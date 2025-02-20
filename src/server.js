@@ -7,8 +7,10 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const fs = require('fs').promises;
 
-// Import configuration
+// Import configuration and middleware
 const config = require('./config');
+const auth = require('./middleware/auth');
+const authRoutes = require('./routes/auth');
 
 const app = express();
 
@@ -20,6 +22,14 @@ function debugLog(...args) {
         console.log('[DEBUG]', ...args);
     }
 }
+
+// Add at the start of the file after imports:
+debugLog('Starting server with config:', {
+    PIN: config.PIN ? 'SET' : 'NOT SET',
+    BASE_PATH: config.BASE_PATH,
+    NODE_ENV: config.NODE_ENV,
+    DEBUG: config.DEBUG
+});
 
 // Base URL configuration
 const BASE_PATH = (() => {
@@ -67,51 +77,23 @@ if (!PIN || PIN.trim() === '') {
     debugLog('PIN protection is enabled, PIN length:', PIN.length);
 }
 
-// Brute force protection
-const loginAttempts = new Map();
-const MAX_ATTEMPTS = 5;
-const LOCKOUT_TIME = 15 * 60 * 1000; // 15 minutes in milliseconds
-
-function resetAttempts(ip) {
-    debugLog('Resetting login attempts for IP:', ip);
-    loginAttempts.delete(ip);
-}
-
-function isLockedOut(ip) {
-    const attempts = loginAttempts.get(ip);
-    if (!attempts) return false;
-    
-    if (attempts.count >= MAX_ATTEMPTS) {
-        const timeElapsed = Date.now() - attempts.lastAttempt;
-        if (timeElapsed < LOCKOUT_TIME) {
-            debugLog('IP is locked out:', ip, 'Time remaining:', Math.ceil((LOCKOUT_TIME - timeElapsed) / 1000 / 60), 'minutes');
-            return true;
-        }
-        resetAttempts(ip);
-    }
-    return false;
-}
-
-function recordAttempt(ip) {
-    const attempts = loginAttempts.get(ip) || { count: 0, lastAttempt: 0 };
-    attempts.count += 1;
-    attempts.lastAttempt = Date.now();
-    loginAttempts.set(ip, attempts);
-    debugLog('Login attempt recorded for IP:', ip, 'Count:', attempts.count);
-}
-
 // Security middleware
+debugLog('Configuring Helmet middleware');
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
             styleSrc: ["'self'", "'unsafe-inline'"],
             imgSrc: ["'self'"],
             workerSrc: ["'self'"],
             manifestSrc: ["'self'"]
         },
     },
+    // Disable HSTS in development
+    hsts: false,
+    // Explicitly allow same-origin for all resources
+    crossOriginResourcePolicy: { policy: 'same-origin' }
 }));
 
 app.use(express.json());
@@ -119,69 +101,154 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Session configuration with secure settings
-app.use(session({
+const sessionConfig = {
     secret: crypto.randomBytes(32).toString('hex'),
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: process.env.NODE_ENV === 'production',
+        secure: config.NODE_ENV === 'production',
         httpOnly: true,
         sameSite: 'strict',
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
-}));
+};
 
-// Constant-time PIN comparison to prevent timing attacks
-function verifyPin(storedPin, providedPin) {
-    if (!storedPin || !providedPin) return false;
-    if (providedPin.length !== storedPin.length) {
-        // Perform a dummy comparison to simulate constant-time delay
-        try {
-            crypto.timingSafeEqual(Buffer.from(storedPin), Buffer.from(storedPin));
-        } catch (error) {
-            // noop
+debugLog('Configuring session middleware:', {
+    nodeEnv: config.NODE_ENV,
+    secureCookie: sessionConfig.cookie.secure,
+    sameSite: sessionConfig.cookie.sameSite
+});
+
+app.use(session(sessionConfig));
+
+// Add request logging first
+app.use((req, res, next) => {
+    debugLog('Request received:', {
+        url: req.url,
+        path: req.path,
+        originalUrl: req.originalUrl,
+        baseUrl: req.baseUrl,
+        method: req.method,
+        headers: {
+            accept: req.headers.accept,
+            'content-type': req.headers['content-type']
         }
-        return false;
-    }
-    try {
-        return crypto.timingSafeEqual(
-            Buffer.from(storedPin),
-            Buffer.from(providedPin)
-        );
-    } catch {
-        return false;
-    }
-}
+    });
+    next();
+});
 
-// Authentication middleware
-const authMiddleware = (req, res, next) => {
-    debugLog('Auth check for path:', req.path, 'Method:', req.method);
+// Serve dumbdateparser.js from node_modules BEFORE auth middleware
+app.get(BASE_PATH + '/dumbdateparser.js', (req, res) => {
+    const filePath = path.join(__dirname, '../node_modules/dumbdateparser/src/browser.js');
+    debugLog('Attempting to serve dumbdateparser.js');
+    debugLog('File path:', filePath);
     
-    // If no PIN is set, bypass authentication
-    if (!PIN || PIN.trim() === '') {
-        debugLog('Auth bypassed - No PIN configured');
+    // Check if file exists
+    fs.access(filePath)
+        .then(() => {
+            debugLog('dumbdateparser.js found, serving file');
+            res.type('application/javascript').sendFile(filePath, (err) => {
+                if (err) {
+                    debugLog('Error serving dumbdateparser.js:', err);
+                    res.status(500).send('Error serving file');
+                }
+            });
+        })
+        .catch(err => {
+            debugLog('dumbdateparser.js not found:', err);
+            res.status(404).send('File not found');
+        });
+});
+
+// Add auth middleware BEFORE static files and other routes
+app.use(BASE_PATH, (req, res, next) => {
+    const publicPaths = [
+        '/login',
+        '/login.html',
+        '/pin-length',
+        '/verify-pin',
+        '/styles.css',
+        '/config.js',
+        '/script.js',
+        '/dumbdateparser.js',
+        '/manifest.json',
+        '/favicon.svg',
+        '/logo.png',
+        '/marked.min.js'
+    ];
+
+    // Check if the path matches any public path exactly
+    const isPublicPath = publicPaths.some(path => 
+        req.path === path || 
+        req.path === BASE_PATH + path
+    );
+    
+    // If it's a public path or an API endpoint, continue
+    if (isPublicPath || req.path.startsWith(BASE_PATH + '/api/')) {
         return next();
     }
 
-    // Check if user is authenticated via session
+    // For all other paths, check authentication
     if (!req.session.authenticated) {
-        debugLog('Auth failed - No valid session, redirecting to login');
-        return res.redirect(BASE_PATH + '/login');
+        debugLog('Unauthenticated access attempt:', req.path);
+        return res.redirect(BASE_PATH + '/login.html');
     }
-    debugLog('Auth successful - Valid session found');
-    next();
-};
 
-// Serve config.js for frontend
+    next();
+});
+
+// Serve static files AFTER auth middleware
+debugLog('Mounting static file middleware');
+app.use(BASE_PATH, express.static(config.PUBLIC_DIR, {
+    setHeaders: (res, filePath) => {
+        debugLog('Static file request:', {
+            filePath,
+            resolvedPath: path.resolve(filePath),
+            requestedFile: path.basename(filePath),
+            contentType: path.extname(filePath)
+        });
+        
+        // Set appropriate content types without nosniff
+        if (filePath.endsWith('.js')) {
+            res.setHeader('Content-Type', 'application/javascript');
+        } else if (filePath.endsWith('.css')) {
+            res.setHeader('Content-Type', 'text/css');
+        } else if (filePath.endsWith('.html')) {
+            res.setHeader('Content-Type', 'text/html');
+            // Explicitly remove nosniff for HTML
+            res.removeHeader('X-Content-Type-Options');
+        }
+    }
+}));
+
+// Mount auth routes AFTER static files
+debugLog('Mounting auth routes');
+app.use(BASE_PATH, authRoutes);
+
+// Serve config.js for frontend - this needs to be accessible without auth
 app.get(BASE_PATH + '/config.js', (req, res) => {
-    debugLog('Serving config.js with basePath:', BASE_PATH);
+    debugLog('Serving config.js:', {
+        basePath: BASE_PATH,
+        protocol: req.protocol,
+        hostname: req.hostname
+    });
+    
+    const fullUrl = `${req.protocol}://${req.headers.host}${BASE_PATH}`;
+    debugLog('Constructed full URL:', fullUrl);
+
     res.type('application/javascript').send(`
         window.appConfig = {
             basePath: '${BASE_PATH}',
             debug: ${config.DEBUG},
             siteTitle: '${siteTitle}',
-            version: '1.0.0'
+            version: '1.0.0',
+            apiUrl: '${req.protocol}://${req.headers.host}${BASE_PATH}'
         };
+
+        // Log configuration to help debug
+        if (${config.DEBUG}) {
+            console.log('App config loaded:', window.appConfig);
+        }
 
         // Set the site title
         document.title = window.appConfig.siteTitle;
@@ -193,30 +260,10 @@ app.get(BASE_PATH + '/config.js', (req, res) => {
     `);
 });
 
-// Serve static files for public assets
-app.use(BASE_PATH + '/styles.css', express.static(path.join(config.PUBLIC_DIR, 'styles.css')));
-app.use(BASE_PATH + '/script.js', express.static(path.join(config.PUBLIC_DIR, 'script.js')));
-app.use(BASE_PATH + '/manifest.json', express.static(path.join(config.PUBLIC_DIR, 'manifest.json')));
-app.use(BASE_PATH + '/sw.js', express.static(path.join(config.PUBLIC_DIR, 'sw.js')));
-app.use(BASE_PATH + '/icons', express.static(path.join(config.PUBLIC_DIR, 'icons')));
-app.use(BASE_PATH + '/logo.png', express.static(path.join(config.PUBLIC_DIR, 'logo.png')));
-app.use(BASE_PATH + '/favicon.svg', express.static(path.join(config.PUBLIC_DIR, 'favicon.svg')));
-app.use(BASE_PATH + '/marked.min.js', express.static(path.join(config.PUBLIC_DIR, 'marked.min.js')));
-app.use(BASE_PATH + '/dumbdateparser.js', express.static(path.join(__dirname, '../node_modules/dumbdateparser/src/browser.js')));
-
-// Add this near the top with other middleware
-app.use(express.static(config.PUBLIC_DIR, {
-    setHeaders: (res, path) => {
-        if (path.endsWith('.js')) {
-            res.setHeader('Content-Type', 'application/javascript');
-        }
-    }
-}));
-
 // Routes
-app.get(BASE_PATH + '/', authMiddleware, async (req, res, next) => {
+app.get(BASE_PATH + '/', auth.authMiddleware, async (req, res, next) => {
     try {
-        let html = await fs.readFile(path.join(__dirname, 'public', 'index.html'), 'utf8');
+        let html = await fs.readFile(path.join(config.PUBLIC_DIR, 'index.html'), 'utf8');
         html = html.replace(/{{SITE_TITLE}}/g, siteTitle);
         res.send(html);
     } catch (error) {
@@ -224,9 +271,9 @@ app.get(BASE_PATH + '/', authMiddleware, async (req, res, next) => {
     }
 });
 
-app.get(BASE_PATH + '/index.html', authMiddleware, async (req, res, next) => {
+app.get(BASE_PATH + '/index.html', auth.authMiddleware, async (req, res, next) => {
     try {
-        let html = await fs.readFile(path.join(__dirname, 'public', 'index.html'), 'utf8');
+        let html = await fs.readFile(path.join(config.PUBLIC_DIR, 'index.html'), 'utf8');
         html = html.replace(/{{SITE_TITLE}}/g, siteTitle);
         res.send(html);
     } catch (error) {
@@ -235,18 +282,60 @@ app.get(BASE_PATH + '/index.html', authMiddleware, async (req, res, next) => {
 });
 
 app.get(BASE_PATH + '/login', (req, res) => {
+    debugLog('Login route handler:', {
+        requestPath: req.path,
+        resolvedFile: path.resolve(path.join(config.PUBLIC_DIR, 'login.html')),
+        acceptHeader: req.headers.accept
+    });
+
     // If no PIN is set, redirect to index
     if (!PIN || PIN.trim() === '') {
+        debugLog('No PIN set, redirecting to:', BASE_PATH + '/');
         return res.redirect(BASE_PATH + '/');
     }
 
     if (req.session.authenticated) {
+        debugLog('Already authenticated, redirecting to:', BASE_PATH + '/');
         return res.redirect(BASE_PATH + '/');
     }
-    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+
+    // Redirect /login to /login.html to ensure consistent handling
+    if (!req.path.endsWith('.html')) {
+        debugLog('Redirecting to /login.html for consistent handling');
+        return res.redirect(BASE_PATH + '/login.html');
+    }
+
+    debugLog('Serving login.html from:', path.join(config.PUBLIC_DIR, 'login.html'));
+    res.type('text/html');
+    res.sendFile(path.join(config.PUBLIC_DIR, 'login.html'), (err) => {
+        if (err) {
+            debugLog('Error serving login.html:', err);
+            res.status(500).send('Error loading login page');
+        }
+    });
 });
 
 app.get(BASE_PATH + '/pin-length', (req, res) => {
+    const ip = auth.getClientIP(req);
+    
+    // Check for lockout first
+    if (auth.isLockedOut(ip)) {
+        const remainingTime = auth.getRemainingLockoutTime(ip);
+        const minutes = Math.ceil(remainingTime / 1000 / 60);
+        
+        debugLog('Lockout active during pin-length check:', {
+            ip,
+            remainingTime,
+            minutes
+        });
+        
+        return res.status(429).json({
+            error: `Too many attempts. Please try again in ${minutes} minutes.`,
+            remainingTime,
+            lockoutEnds: new Date(Date.now() + remainingTime).toISOString()
+        });
+    }
+
     // If no PIN is set, return 0 length
     if (!PIN || PIN.trim() === '') {
         return res.json({ length: 0 });
@@ -254,26 +343,20 @@ app.get(BASE_PATH + '/pin-length', (req, res) => {
     res.json({ length: PIN.length });
 });
 
-app.post(BASE_PATH + '/verify-pin', (req, res) => {
-    debugLog('PIN verification attempt from IP:', req.ip);
+// Modify the verify-pin endpoint
+app.post(BASE_PATH + '/verify-pin', auth.lockoutMiddleware, (req, res) => {
+    const ip = auth.getClientIP(req);
+    debugLog('PIN verification attempt:', {
+        ip,
+        headers: req.headers,
+        session: req.session
+    });
     
     // If no PIN is set, authentication is successful
     if (!PIN || PIN.trim() === '') {
         debugLog('PIN verification bypassed - No PIN configured');
         req.session.authenticated = true;
         return res.status(200).json({ success: true });
-    }
-
-    const ip = req.ip;
-    
-    // Check if IP is locked out
-    if (isLockedOut(ip)) {
-        const attempts = loginAttempts.get(ip);
-        const timeLeft = Math.ceil((LOCKOUT_TIME - (Date.now() - attempts.lastAttempt)) / 1000 / 60);
-        debugLog('PIN verification blocked - IP is locked out:', ip);
-        return res.status(429).json({ 
-            error: `Too many attempts. Please try again in ${timeLeft} minutes.`
-        });
     }
 
     const { pin } = req.body;
@@ -286,48 +369,47 @@ app.post(BASE_PATH + '/verify-pin', (req, res) => {
     // Add artificial delay to further prevent timing attacks
     const delay = crypto.randomInt(50, 150);
     setTimeout(() => {
-        if (verifyPin(PIN, pin)) {
-            debugLog('PIN verification successful');
-            // Reset attempts on successful login
-            resetAttempts(ip);
-            
-            // Set authentication in session
-            req.session.authenticated = true;
-            
-            // Set secure cookie
-            res.cookie(`${projectName}_PIN`, pin, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'strict',
-                maxAge: 24 * 60 * 60 * 1000 // 24 hours
-            });
-            
-            res.status(200).json({ success: true });
-        } else {
-            debugLog('PIN verification failed - Invalid PIN');
-            // Record failed attempt
-            recordAttempt(ip);
-            
-            const attempts = loginAttempts.get(ip);
-            const attemptsLeft = MAX_ATTEMPTS - attempts.count;
-            
-            res.status(401).json({ 
-                error: 'Invalid PIN',
-                attemptsLeft: Math.max(0, attemptsLeft)
+        try {
+            if (auth.verifyPin(PIN, pin)) {
+                debugLog('PIN verification successful');
+                // Reset attempts on successful login
+                auth.resetAttempts(ip);
+                
+                // Set authentication in session
+                req.session.authenticated = true;
+                
+                // Set secure cookie
+                res.cookie(`${projectName}_PIN`, pin, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'production',
+                    sameSite: 'strict',
+                    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+                });
+                
+                res.status(200).json({ success: true });
+            } else {
+                debugLog('PIN verification failed - Invalid PIN');
+                // Record failed attempt
+                auth.recordAttempt(ip);
+                
+                const attemptsLeft = auth.MAX_ATTEMPTS - auth.getAttemptCount(ip);
+                
+                res.status(401).json({ 
+                    error: 'Invalid PIN',
+                    attemptsLeft: Math.max(0, attemptsLeft)
+                });
+            }
+        } catch (error) {
+            debugLog('PIN verification error:', error);
+            // Ensure we still record the attempt even if there's an error
+            auth.recordAttempt(ip);
+            res.status(500).json({ 
+                error: 'An error occurred while verifying PIN',
+                attemptsLeft: Math.max(0, auth.MAX_ATTEMPTS - auth.getAttemptCount(ip))
             });
         }
     }, delay);
 });
-
-// Cleanup old lockouts periodically
-setInterval(() => {
-    const now = Date.now();
-    for (const [ip, attempts] of loginAttempts.entries()) {
-        if (now - attempts.lastAttempt >= LOCKOUT_TIME) {
-            loginAttempts.delete(ip);
-        }
-    }
-}, 60000); // Clean up every minute
 
 // Helper function to ensure data directory exists
 async function ensureDataDirectory() {

@@ -62,6 +62,16 @@ const DATA_FILE = '/app/dumbdata/tasks.json';
 // Public directory path
 const PUBLIC_DIR = path.join(__dirname, '../../public');
 
+console.log('Loading environment configuration:', {
+    PORT,
+    DEBUG,
+    NODE_ENV,
+    PIN_ENV_VAR: `${projectName}_PIN`,
+    PIN_SET: !!process.env[`${projectName}_PIN`],
+    PIN_VALUE: process.env[`${projectName}_PIN`] ? 'SET' : 'NOT SET',
+    SITE_TITLE
+});
+
 module.exports = {
     PORT,
     DEBUG,
