@@ -26,105 +26,72 @@ router.get('/login', (req, res) => {
 
 // PIN length endpoint
 router.get('/pin-length', (req, res) => {
-    const ip = auth.getClientIP(req);
-    
     // If no PIN is set, return 0 length
     if (!config.PIN || config.PIN.trim() === '') {
         return res.json({ length: 0 });
     }
-
-    // If IP is locked out, include lockout info
-    if (auth.isLockedOut(ip)) {
-        const remainingTime = auth.getRemainingLockoutTime(ip);
-        const minutes = Math.ceil(remainingTime / 1000 / 60);
-        return res.json({ 
-            length: config.PIN.length,
-            locked: true,
-            error: `Too many attempts. Please try again in ${minutes} minutes.`,
-            remainingTime,
-            lockoutEnds: new Date(Date.now() + remainingTime).toISOString(),
-            attemptsCount: auth.getAttemptCount(ip),
-            maxAttempts: auth.MAX_ATTEMPTS
-        });
-    }
-
-    // Return PIN length with attempt info
-    res.json({ 
-        length: config.PIN.length,
-        locked: false,
-        attemptsCount: auth.getAttemptCount(ip),
-        maxAttempts: auth.MAX_ATTEMPTS
-    });
+    res.json({ length: config.PIN.length });
 });
 
 // PIN verification endpoint
-router.post('/verify-pin', auth.pinVerificationMiddleware, (req, res) => {
-    const ip = auth.getClientIP(req);
+router.post('/verify-pin', (req, res) => {
+    if (config.DEBUG) console.log('[DEBUG] PIN verification attempt from IP:', req.ip);
     
     // If no PIN is set, authentication is successful
     if (!config.PIN || config.PIN.trim() === '') {
+        if (config.DEBUG) console.log('[DEBUG] PIN verification bypassed - No PIN configured');
         req.session.authenticated = true;
         return res.status(200).json({ success: true });
+    }
+
+    const ip = req.ip;
+    
+    // Check if IP is locked out
+    if (auth.isLockedOut(ip)) {
+        const timeLeft = Math.ceil((config.LOCKOUT_TIME - (Date.now() - auth.getLastAttemptTime(ip))) / 1000 / 60);
+        if (config.DEBUG) console.log('[DEBUG] PIN verification blocked - IP is locked out:', ip);
+        return res.status(429).json({ 
+            error: `Too many attempts. Please try again in ${timeLeft} minutes.`
+        });
     }
 
     const { pin } = req.body;
     
     if (!pin || typeof pin !== 'string') {
+        if (config.DEBUG) console.log('[DEBUG] PIN verification failed - Invalid PIN format');
         return res.status(400).json({ error: 'Invalid PIN format' });
     }
 
     // Add artificial delay to further prevent timing attacks
     const delay = crypto.randomInt(50, 150);
     setTimeout(() => {
-        try {
-            if (auth.verifyPin(config.PIN, pin)) {
-                // Reset attempts on successful login
-                auth.resetAttempts(ip);
-                
-                // Set authentication in session
-                req.session.authenticated = true;
-                
-                // Set secure cookie
-                res.cookie(`${config.projectName}_PIN`, pin, {
-                    httpOnly: true,
-                    secure: config.NODE_ENV === 'production',
-                    sameSite: 'strict',
-                    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-                });
-                
-                res.status(200).json({ success: true });
-            } else {
-                // Record failed attempt
-                auth.recordAttempt(ip);
-                
-                const attemptsLeft = auth.MAX_ATTEMPTS - auth.getAttemptCount(ip);
-                
-                // Check if this attempt caused a lockout
-                if (auth.isLockedOut(ip)) {
-                    const remainingTime = auth.getRemainingLockoutTime(ip);
-                    const minutes = Math.ceil(remainingTime / 1000 / 60);
-                    return res.status(429).json({
-                        error: `Too many attempts. Please try again in ${minutes} minutes.`,
-                        remainingTime,
-                        lockoutEnds: new Date(Date.now() + remainingTime).toISOString(),
-                        attemptsCount: auth.getAttemptCount(ip),
-                        maxAttempts: auth.MAX_ATTEMPTS
-                    });
-                }
-                
-                res.status(401).json({ 
-                    error: 'Invalid PIN',
-                    attemptsLeft: Math.max(0, attemptsLeft),
-                    attemptsCount: auth.getAttemptCount(ip),
-                    maxAttempts: auth.MAX_ATTEMPTS
-                });
-            }
-        } catch (error) {
-            // Record attempt even on error
+        if (auth.verifyPin(config.PIN, pin)) {
+            if (config.DEBUG) console.log('[DEBUG] PIN verification successful');
+            // Reset attempts on successful login
+            auth.resetAttempts(ip);
+            
+            // Set authentication in session
+            req.session.authenticated = true;
+            
+            // Set secure cookie
+            res.cookie(`${config.projectName}_PIN`, pin, {
+                httpOnly: true,
+                secure: config.NODE_ENV === 'production',
+                sameSite: 'strict',
+                maxAge: 24 * 60 * 60 * 1000 // 24 hours
+            });
+            
+            res.status(200).json({ success: true });
+        } else {
+            if (config.DEBUG) console.log('[DEBUG] PIN verification failed - Invalid PIN');
+            // Record failed attempt
             auth.recordAttempt(ip);
-            res.status(500).json({ 
-                error: 'An error occurred while verifying PIN',
-                attemptsLeft: Math.max(0, auth.MAX_ATTEMPTS - auth.getAttemptCount(ip))
+            
+            const attemptsLeft = config.MAX_ATTEMPTS - auth.getAttemptCount(ip);
+            
+            res.status(401).json({ 
+                error: 'Invalid PIN',
+                attemptsLeft: Math.max(0, attemptsLeft)
             });
         }
     }, delay);

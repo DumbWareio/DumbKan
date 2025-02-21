@@ -139,65 +139,11 @@ app.use((req, res, next) => {
 
 // Serve dumbdateparser.js from node_modules BEFORE auth middleware
 app.get(BASE_PATH + '/dumbdateparser.js', (req, res) => {
-    const filePath = path.join(__dirname, '../node_modules/dumbdateparser/src/browser.js');
-    debugLog('Attempting to serve dumbdateparser.js');
-    debugLog('File path:', filePath);
-    
-    // Check if file exists
-    fs.access(filePath)
-        .then(() => {
-            debugLog('dumbdateparser.js found, serving file');
-            res.type('application/javascript').sendFile(filePath, (err) => {
-                if (err) {
-                    debugLog('Error serving dumbdateparser.js:', err);
-                    res.status(500).send('Error serving file');
-                }
-            });
-        })
-        .catch(err => {
-            debugLog('dumbdateparser.js not found:', err);
-            res.status(404).send('File not found');
-        });
+    debugLog('Serving dumbdateparser.js from node_modules');
+    res.type('application/javascript').sendFile(path.join(__dirname, '../node_modules/dumbdateparser/dist/dumbdateparser.js'));
 });
 
-// Add auth middleware BEFORE static files and other routes
-app.use(BASE_PATH, (req, res, next) => {
-    const publicPaths = [
-        '/login',
-        '/login.html',
-        '/pin-length',
-        '/verify-pin',
-        '/styles.css',
-        '/config.js',
-        '/script.js',
-        '/dumbdateparser.js',
-        '/manifest.json',
-        '/favicon.svg',
-        '/logo.png',
-        '/marked.min.js'
-    ];
-
-    // Check if the path matches any public path exactly
-    const isPublicPath = publicPaths.some(path => 
-        req.path === path || 
-        req.path === BASE_PATH + path
-    );
-    
-    // If it's a public path or an API endpoint, continue
-    if (isPublicPath || req.path.startsWith(BASE_PATH + '/api/')) {
-        return next();
-    }
-
-    // For all other paths, check authentication
-    if (!req.session.authenticated) {
-        debugLog('Unauthenticated access attempt:', req.path);
-        return res.redirect(BASE_PATH + '/login.html');
-    }
-
-    next();
-});
-
-// Serve static files AFTER auth middleware
+// Serve static files for public assets FIRST
 debugLog('Mounting static file middleware');
 app.use(BASE_PATH, express.static(config.PUBLIC_DIR, {
     setHeaders: (res, filePath) => {
@@ -224,6 +170,31 @@ app.use(BASE_PATH, express.static(config.PUBLIC_DIR, {
 // Mount auth routes AFTER static files
 debugLog('Mounting auth routes');
 app.use(BASE_PATH, authRoutes);
+
+// Add auth middleware for protected routes
+app.use(BASE_PATH, (req, res, next) => {
+    const publicPaths = [
+        '/login',
+        '/login.html',
+        '/pin-length',
+        '/verify-pin',
+        '/styles.css',
+        '/config.js',
+        '/script.js',
+        '/dumbdateparser.js',  // Add dumbdateparser.js to public paths
+        '/manifest.json',
+        '/favicon.svg',
+        '/logo.png',
+        '/marked.min.js'
+    ];
+    
+    // Check if the path is public or starts with /api/
+    if (publicPaths.some(path => req.path.endsWith(path)) || req.path.startsWith('/api/')) {
+        return next();
+    }
+    
+    auth.authMiddleware(req, res, next);
+});
 
 // Serve config.js for frontend - this needs to be accessible without auth
 app.get(BASE_PATH + '/config.js', (req, res) => {
@@ -316,26 +287,6 @@ app.get(BASE_PATH + '/login', (req, res) => {
 });
 
 app.get(BASE_PATH + '/pin-length', (req, res) => {
-    const ip = auth.getClientIP(req);
-    
-    // Check for lockout first
-    if (auth.isLockedOut(ip)) {
-        const remainingTime = auth.getRemainingLockoutTime(ip);
-        const minutes = Math.ceil(remainingTime / 1000 / 60);
-        
-        debugLog('Lockout active during pin-length check:', {
-            ip,
-            remainingTime,
-            minutes
-        });
-        
-        return res.status(429).json({
-            error: `Too many attempts. Please try again in ${minutes} minutes.`,
-            remainingTime,
-            lockoutEnds: new Date(Date.now() + remainingTime).toISOString()
-        });
-    }
-
     // If no PIN is set, return 0 length
     if (!PIN || PIN.trim() === '') {
         return res.json({ length: 0 });
@@ -343,20 +294,26 @@ app.get(BASE_PATH + '/pin-length', (req, res) => {
     res.json({ length: PIN.length });
 });
 
-// Modify the verify-pin endpoint
-app.post(BASE_PATH + '/verify-pin', auth.lockoutMiddleware, (req, res) => {
-    const ip = auth.getClientIP(req);
-    debugLog('PIN verification attempt:', {
-        ip,
-        headers: req.headers,
-        session: req.session
-    });
+app.post(BASE_PATH + '/verify-pin', (req, res) => {
+    debugLog('PIN verification attempt from IP:', req.ip);
     
     // If no PIN is set, authentication is successful
     if (!PIN || PIN.trim() === '') {
         debugLog('PIN verification bypassed - No PIN configured');
         req.session.authenticated = true;
         return res.status(200).json({ success: true });
+    }
+
+    const ip = req.ip;
+    
+    // Check if IP is locked out
+    if (isLockedOut(ip)) {
+        const attempts = loginAttempts.get(ip);
+        const timeLeft = Math.ceil((LOCKOUT_TIME - (Date.now() - attempts.lastAttempt)) / 1000 / 60);
+        debugLog('PIN verification blocked - IP is locked out:', ip);
+        return res.status(429).json({ 
+            error: `Too many attempts. Please try again in ${timeLeft} minutes.`
+        });
     }
 
     const { pin } = req.body;
@@ -369,47 +326,48 @@ app.post(BASE_PATH + '/verify-pin', auth.lockoutMiddleware, (req, res) => {
     // Add artificial delay to further prevent timing attacks
     const delay = crypto.randomInt(50, 150);
     setTimeout(() => {
-        try {
-            if (auth.verifyPin(PIN, pin)) {
-                debugLog('PIN verification successful');
-                // Reset attempts on successful login
-                auth.resetAttempts(ip);
-                
-                // Set authentication in session
-                req.session.authenticated = true;
-                
-                // Set secure cookie
-                res.cookie(`${projectName}_PIN`, pin, {
-                    httpOnly: true,
-                    secure: process.env.NODE_ENV === 'production',
-                    sameSite: 'strict',
-                    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-                });
-                
-                res.status(200).json({ success: true });
-            } else {
-                debugLog('PIN verification failed - Invalid PIN');
-                // Record failed attempt
-                auth.recordAttempt(ip);
-                
-                const attemptsLeft = auth.MAX_ATTEMPTS - auth.getAttemptCount(ip);
-                
-                res.status(401).json({ 
-                    error: 'Invalid PIN',
-                    attemptsLeft: Math.max(0, attemptsLeft)
-                });
-            }
-        } catch (error) {
-            debugLog('PIN verification error:', error);
-            // Ensure we still record the attempt even if there's an error
-            auth.recordAttempt(ip);
-            res.status(500).json({ 
-                error: 'An error occurred while verifying PIN',
-                attemptsLeft: Math.max(0, auth.MAX_ATTEMPTS - auth.getAttemptCount(ip))
+        if (verifyPin(PIN, pin)) {
+            debugLog('PIN verification successful');
+            // Reset attempts on successful login
+            resetAttempts(ip);
+            
+            // Set authentication in session
+            req.session.authenticated = true;
+            
+            // Set secure cookie
+            res.cookie(`${projectName}_PIN`, pin, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'strict',
+                maxAge: 24 * 60 * 60 * 1000 // 24 hours
+            });
+            
+            res.status(200).json({ success: true });
+        } else {
+            debugLog('PIN verification failed - Invalid PIN');
+            // Record failed attempt
+            recordAttempt(ip);
+            
+            const attempts = loginAttempts.get(ip);
+            const attemptsLeft = MAX_ATTEMPTS - attempts.count;
+            
+            res.status(401).json({ 
+                error: 'Invalid PIN',
+                attemptsLeft: Math.max(0, attemptsLeft)
             });
         }
     }, delay);
 });
+
+// Cleanup old lockouts periodically
+setInterval(() => {
+    const now = Date.now();
+    for (const [ip, attempts] of loginAttempts.entries()) {
+        if (now - attempts.lastAttempt >= LOCKOUT_TIME) {
+            loginAttempts.delete(ip);
+        }
+    }
+}, 60000); // Clean up every minute
 
 // Helper function to ensure data directory exists
 async function ensureDataDirectory() {
