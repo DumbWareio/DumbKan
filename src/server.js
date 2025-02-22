@@ -130,7 +130,24 @@ app.get(BASE_PATH + '/config.js', (req, res) => {
             version: '1.0.0',
             apiUrl: '${req.protocol}://${req.headers.host}${BASE_PATH}'
         };
-        console.log('App config loaded:', window.appConfig);
+
+        // Log configuration to help debug
+        if (${config.DEBUG}) {
+            console.log('App config loaded:', window.appConfig);
+        }
+
+        // Wait for DOM to be ready
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set the site title
+            document.title = window.appConfig.siteTitle;
+
+            // Update any elements with the site title placeholder
+            document.querySelectorAll('.app-title, h1').forEach(element => {
+                if (element.textContent.includes('{{SITE_TITLE}}')) {
+                    element.textContent = window.appConfig.siteTitle;
+                }
+            });
+        });
     `);
 });
 

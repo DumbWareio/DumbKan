@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const config = require('../config');
 const auth = require('../middleware/auth');
 const { publicPaths } = require('../middleware/auth');
+const fs = require('fs');
 
 const router = express.Router();
 
@@ -31,8 +32,17 @@ router.get('/login', (req, res) => {
         return res.redirect(config.BASE_PATH + '/');
     }
 
-    // Always serve login.html for unauthenticated users when PIN is set
-    res.sendFile(path.join(config.PUBLIC_DIR, 'login.html'));
+    // Read and process login.html template
+    fs.readFile(path.join(config.PUBLIC_DIR, 'login.html'), 'utf8', (err, html) => {
+        if (err) {
+            debugLog('Error reading login.html:', err);
+            return res.status(500).send('Error loading login page');
+        }
+        
+        // Replace title placeholder
+        html = html.replace(/{{SITE_TITLE}}/g, config.SITE_TITLE);
+        res.send(html);
+    });
 });
 
 // PIN length endpoint
