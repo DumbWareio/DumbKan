@@ -10,9 +10,8 @@ const PORT = process.env.PORT || 3000;
 const DEBUG = process.env.DUMBKAN_DEBUG === 'true' || process.env.DEBUG === 'TRUE';
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
-// Get the project name from package.json to use for the PIN environment variable
-const projectName = require(path.join(__dirname, '../../package.json')).name.toUpperCase().replace(/-/g, '_');
-const PIN = process.env[`${projectName}_PIN`];
+// Change from dynamic PIN env var to hardcoded one
+const PIN = process.env.DUMBKAN_PIN;
 
 // Get site title from environment variable or use default
 const SITE_TITLE = process.env.SITE_TITLE || 'DumbKan';
@@ -66,9 +65,9 @@ console.log('Loading environment configuration:', {
     PORT,
     DEBUG,
     NODE_ENV,
-    PIN_ENV_VAR: `${projectName}_PIN`,
-    PIN_SET: !!process.env[`${projectName}_PIN`],
-    PIN_VALUE: process.env[`${projectName}_PIN`] ? 'SET' : 'NOT SET',
+    PIN_ENV_VAR: 'DUMBKAN_PIN',
+    PIN_SET: !!process.env.DUMBKAN_PIN,
+    PIN_VALUE: process.env.DUMBKAN_PIN ? 'SET' : 'NOT SET',
     SITE_TITLE
 });
 
