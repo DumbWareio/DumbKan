@@ -477,28 +477,32 @@ function handleDragOver(e) {
     const column = e.target.closest('.column');
     if (!column) return;
     
+    // Get clientX from either touch or mouse event
+    const clientX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
+    const clientY = (e.touches && e.touches[0]) ? e.touches[0].clientY : e.clientY;
+    
     const draggingTask = document.querySelector('.task.dragging');
     if (draggingTask) {
-    column.classList.add('drag-over');
-    const tasksContainer = column.querySelector('.tasks');
+        column.classList.add('drag-over');
+        const tasksContainer = column.querySelector('.tasks');
         if (!tasksContainer) return;
     
-    const siblings = [...tasksContainer.querySelectorAll('.task:not(.dragging)')];
-    const nextSibling = siblings.find(sibling => {
-        const rect = sibling.getBoundingClientRect();
-            return e.clientY < rect.top + rect.height / 2;
-    });
+        const siblings = [...tasksContainer.querySelectorAll('.task:not(.dragging)')];
+        const nextSibling = siblings.find(sibling => {
+            const rect = sibling.getBoundingClientRect();
+            return clientY < rect.top + rect.height / 2;
+        });
     
-    if (nextSibling) {
-        tasksContainer.insertBefore(draggingTask, nextSibling);
-    } else {
-        tasksContainer.appendChild(draggingTask);
+        if (nextSibling) {
+            tasksContainer.insertBefore(draggingTask, nextSibling);
+        } else {
+            tasksContainer.appendChild(draggingTask);
         }
     } else {
         const draggingColumn = document.querySelector('.column.dragging');
         if (draggingColumn) {
             const columns = [...document.querySelectorAll('.column:not(.dragging)')];
-            const afterElement = getDragAfterElement(columns, e.clientX);
+            const afterElement = getDragAfterElement(columns, clientX);
             
             if (afterElement) {
                 column.parentNode.insertBefore(draggingColumn, afterElement);
@@ -1492,6 +1496,56 @@ function renderColumn(section) {
     const headerEl = document.createElement('div');
     headerEl.className = 'column-header';
     headerEl.draggable = true; // Only the header is draggable
+    headerEl.setAttribute('draggable', true);
+    
+    // Add touch support for mobile drag and drop
+    headerEl.addEventListener('touchstart', function(e) {
+        // Create a synthetic event with a minimal dataTransfer polyfill
+        const syntheticEvent = {
+            target: headerEl,
+            dataTransfer: {
+                setData: (type, val) => { headerEl.dataset.dragData = val; },
+                effectAllowed: 'move'
+            },
+            clientX: e.touches[0].clientX,
+            clientY: e.touches[0].clientY,
+            preventDefault: () => {}
+        };
+        // Invoke the existing drag start handler
+        handleDragStart(syntheticEvent);
+    });
+
+    // Add touchmove listener to simulate dragover
+    headerEl.addEventListener('touchmove', function(e) {
+        e.preventDefault(); // Prevent scrolling while dragging
+        const syntheticEvent = {
+            target: e.target,
+            touches: e.touches,
+            preventDefault: () => {},
+            dataTransfer: {
+                effectAllowed: 'move'
+            }
+        };
+        handleDragOver(syntheticEvent);
+    });
+
+    // Add touchend listener to simulate drop
+    headerEl.addEventListener('touchend', function(e) {
+        const touch = e.changedTouches[0];
+        const dropTarget = document.elementFromPoint(touch.clientX, touch.clientY);
+        if (dropTarget) {
+            const syntheticEvent = {
+                target: dropTarget,
+                preventDefault: () => {},
+                dataTransfer: {
+                    getData: () => headerEl.dataset.dragData
+                }
+            };
+            handleDrop(syntheticEvent);
+        }
+        // Clean up
+        headerEl.classList.remove('dragging');
+    });
     
     const columnTitle = document.createElement('h2');
     columnTitle.className = 'column-title';
