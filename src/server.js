@@ -12,6 +12,7 @@ const fsPromises = fs.promises;
 const config = require('./config');
 const auth = require('./middleware/auth');
 const authRoutes = require('./routes/auth');
+const BASE_PATH = require('./config/base-path'); // Import the BASE_PATH from its new location
 
 const app = express();
 
@@ -32,40 +33,8 @@ debugLog('Starting server with config:', {
     DEBUG: config.DEBUG
 });
 
-// Base URL configuration
-const BASE_PATH = (() => {
-    if (!config.BASE_URL) {
-        debugLog('No BASE_URL set, using empty base path');
-        return '';
-    }
-
-    // Clean and normalize the path
-    let path = config.BASE_URL;
-
-    // If it's a full URL, extract just the path portion
-    try {
-        const url = new URL(path);
-        path = url.pathname;
-    } catch {
-        // Not a full URL, treat as a path
-        // No action needed as we'll process it as a path
-    }
-
-    // Ensure path starts with / if not empty
-    if (path && !path.startsWith('/')) {
-        path = '/' + path;
-    }
-
-    // Remove trailing slash if present
-    path = path.replace(/\/$/, '');
-
-    debugLog('Base URL Configuration:', {
-        originalUrl: config.BASE_URL,
-        normalizedPath: path
-    });
-
-    return path;
-})();
+// BASE_PATH configuration has been moved to ./config/base-path.js
+// The logic for BASE_PATH initialization and normalization now lives there
 
 // Get the project name from package.json to use for the PIN environment variable
 const projectName = config.projectName;
