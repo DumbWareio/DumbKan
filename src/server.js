@@ -5,7 +5,8 @@ const helmet = require('helmet');
 const crypto = require('crypto');
 const path = require('path');
 const cookieParser = require('cookie-parser');
-const fs = require('fs').promises;
+const fs = require('fs');
+const fsPromises = fs.promises;
 
 // Import configuration and middleware
 const config = require('./config');
@@ -139,8 +140,35 @@ app.use((req, res, next) => {
 
 // Serve dumbdateparser.js from node_modules BEFORE auth middleware
 app.get(BASE_PATH + '/dumbdateparser.js', (req, res) => {
-    debugLog('Serving dumbdateparser.js from node_modules');
-    res.type('application/javascript').sendFile(path.join(__dirname, '../node_modules/dumbdateparser/dist/dumbdateparser.js'));
+    const filePath = path.join(__dirname, '../node_modules/dumbdateparser/src/browser.js');
+    console.log('[DEBUG] Serving dumbdateparser.js');
+    console.log('[DEBUG] File path:', filePath);
+    console.log('[DEBUG] Base path:', BASE_PATH);
+    console.log('[DEBUG] Full URL:', req.url);
+    
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+        console.error('[ERROR] dumbdateparser.js not found at:', filePath);
+        return res.status(404).send('File not found');
+    }
+    
+    // Set correct MIME type and cache headers
+    res.set({
+        'Content-Type': 'application/javascript',
+        'Cache-Control': 'public, max-age=86400',
+        'X-Content-Type-Options': 'nosniff'
+    });
+    
+    res.sendFile(filePath, (err) => {
+        if (err) {
+            console.error('[ERROR] Error serving dumbdateparser.js:', err);
+            if (!res.headersSent) {
+                res.status(500).send('Error serving file');
+            }
+        } else {
+            console.log('[DEBUG] Successfully served dumbdateparser.js');
+        }
+    });
 });
 
 // Serve static files for public assets FIRST
@@ -234,7 +262,7 @@ app.get(BASE_PATH + '/config.js', (req, res) => {
 // Routes
 app.get(BASE_PATH + '/', auth.authMiddleware, async (req, res, next) => {
     try {
-        let html = await fs.readFile(path.join(config.PUBLIC_DIR, 'index.html'), 'utf8');
+        let html = await fsPromises.readFile(path.join(config.PUBLIC_DIR, 'index.html'), 'utf8');
         html = html.replace(/{{SITE_TITLE}}/g, siteTitle);
         res.send(html);
     } catch (error) {
@@ -244,7 +272,7 @@ app.get(BASE_PATH + '/', auth.authMiddleware, async (req, res, next) => {
 
 app.get(BASE_PATH + '/index.html', auth.authMiddleware, async (req, res, next) => {
     try {
-        let html = await fs.readFile(path.join(config.PUBLIC_DIR, 'index.html'), 'utf8');
+        let html = await fsPromises.readFile(path.join(config.PUBLIC_DIR, 'index.html'), 'utf8');
         html = html.replace(/{{SITE_TITLE}}/g, siteTitle);
         res.send(html);
     } catch (error) {
@@ -373,7 +401,7 @@ setInterval(() => {
 async function ensureDataDirectory() {
     const dir = path.dirname(config.DATA_FILE);
     try {
-        await fs.mkdir(dir, { recursive: true });
+        await fsPromises.mkdir(dir, { recursive: true });
     } catch (error) {
         if (error.code !== 'EEXIST') {
             throw error;
@@ -385,7 +413,7 @@ async function ensureDataDirectory() {
 async function readData() {
     await ensureDataDirectory();
     try {
-        const data = await fs.readFile(config.DATA_FILE, 'utf8');
+        const data = await fsPromises.readFile(config.DATA_FILE, 'utf8');
         return JSON.parse(data);
     } catch (error) {
         if (error.code === 'ENOENT') {
@@ -438,7 +466,7 @@ async function readData() {
 // Helper function to write data
 async function writeData(data) {
     await ensureDataDirectory();
-    await fs.writeFile(config.DATA_FILE, JSON.stringify(data, null, 2));
+    await fsPromises.writeFile(config.DATA_FILE, JSON.stringify(data, null, 2));
 }
 
 // Simple ID generator
