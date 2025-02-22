@@ -97,15 +97,20 @@ debugLog('Configuring session middleware:', {
 
 app.use(session(sessionConfig));
 
-// After session middleware but BEFORE any routes or static files
+// At the top with other middleware, before routes
 app.use((req, res, next) => {
-    debugLog('🎯 Initial Request:', {
+    debugLog('🔍 Request:', {
         url: req.url,
         path: req.path,
         method: req.method,
-        stage: 'start',
-        authenticated: !!req.session?.authenticated,
-        stack: new Error().stack.split('\n').slice(1,3).join('\n') // Show call stack
+        session: {
+            exists: !!req.session,
+            authenticated: req.session?.authenticated
+        },
+        headers: {
+            'service-worker': req.headers['service-worker'],
+            'cache-control': req.headers['cache-control']
+        }
     });
     next();
 });
@@ -114,26 +119,28 @@ app.use((req, res, next) => {
 debugLog('Mounting auth routes');
 app.use(BASE_PATH, authRoutes);
 
-// Second: Protection middleware
-app.use(BASE_PATH, (req, res, next) => {
-    debugLog('🛡️ Protection Layer:', {
-        path: req.path,
-        method: req.method,
-        isPublic: auth.isPublicPath(req.path),
-        isApi: req.path.startsWith('/api/'),
-        authenticated: !!req.session?.authenticated,
-        stack: new Error().stack.split('\n').slice(1,3).join('\n')
-    });
-    auth.protectRoute(req, res, next);
+// Second: Special route handlers (before protection)
+app.get(BASE_PATH + '/config.js', (req, res) => {
+    debugLog('Serving config.js');
+    res.type('application/javascript').send(`
+        window.appConfig = {
+            basePath: '${BASE_PATH}',
+            debug: ${config.DEBUG},
+            siteTitle: '${siteTitle}',
+            version: '1.0.0',
+            apiUrl: '${req.protocol}://${req.headers.host}${BASE_PATH}'
+        };
+        console.log('App config loaded:', window.appConfig);
+    `);
 });
 
-// Third: Static files (only after protection)
+// Third: Protection middleware
+app.use(BASE_PATH, auth.protectRoute);
+
+// Fourth: Static files (after protection)
 app.use(BASE_PATH, express.static(config.PUBLIC_DIR, {
     setHeaders: (res, filePath) => {
-        debugLog('📂 Serving Static:', {
-            file: path.basename(filePath),
-            type: path.extname(filePath)
-        });
+        debugLog('📂 Static:', path.basename(filePath));
     }
 }));
 
@@ -206,41 +213,6 @@ app.get(BASE_PATH + '/', auth.authMiddleware, async (req, res, next) => {
     } catch (error) {
         next(error);
     }
-});
-
-// Serve config.js for frontend - this needs to be accessible without auth
-app.get(BASE_PATH + '/config.js', (req, res) => {
-    debugLog('Serving config.js:', {
-        basePath: BASE_PATH,
-        protocol: req.protocol,
-        hostname: req.hostname
-    });
-    
-    const fullUrl = `${req.protocol}://${req.headers.host}${BASE_PATH}`;
-    debugLog('Constructed full URL:', fullUrl);
-
-    res.type('application/javascript').send(`
-        window.appConfig = {
-            basePath: '${BASE_PATH}',
-            debug: ${config.DEBUG},
-            siteTitle: '${siteTitle}',
-            version: '1.0.0',
-            apiUrl: '${req.protocol}://${req.headers.host}${BASE_PATH}'
-        };
-
-        // Log configuration to help debug
-        if (${config.DEBUG}) {
-            console.log('App config loaded:', window.appConfig);
-        }
-
-        // Set the site title
-        document.title = window.appConfig.siteTitle;
-
-        // Also update any elements with the site title placeholder
-        document.querySelectorAll('.app-title').forEach(element => {
-            element.textContent = window.appConfig.siteTitle;
-        });
-    `);
 });
 
 // Routes

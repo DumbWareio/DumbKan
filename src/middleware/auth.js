@@ -4,6 +4,7 @@
  */
 
 const crypto = require('crypto');
+const path = require('path');
 const config = require('../config');
 
 // Brute force protection
@@ -16,7 +17,6 @@ const publicPaths = [
     '/pin-length',
     '/verify-pin',
     '/styles.css',
-    '/config.js',
     '/script.js',
     '/dumbdateparser.js',
     '/manifest.json',
@@ -151,7 +151,7 @@ function protectRoute(req, res, next) {
             exists: !!req.session,
             authenticated: req.session?.authenticated
         },
-        matchedPublicPath: isPublic ? publicPaths.find(p => req.path === p || path.endsWith(p)) : null,
+        matchedPublicPath: isPublic ? publicPaths.find(p => req.path === p || req.path.endsWith(p)) : null,
         decision: isPublic ? 'allow' : 'protect'
     });
 

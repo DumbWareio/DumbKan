@@ -5,6 +5,9 @@
 
 const path = require('path');
 
+// Project name constant
+const projectName = 'DumbKan';
+
 // Environment variables
 const PORT = process.env.PORT || 3000;
 const DEBUG = process.env.DUMBKAN_DEBUG === 'true' || process.env.DEBUG === 'TRUE';
