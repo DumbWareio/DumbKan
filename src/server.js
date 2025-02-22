@@ -33,6 +33,13 @@ debugLog('Starting server with config:', {
     DEBUG: config.DEBUG
 });
 
+// Near the start of the file, after config import
+debugLog('PIN Configuration:', {
+    PIN_SET: !!config.PIN,
+    PIN_LENGTH: config.PIN ? config.PIN.length : 0,
+    PIN_VALUE: config.PIN ? '****' : 'NOT SET'
+});
+
 // BASE_PATH configuration has been moved to ./config/base-path.js
 // The logic for BASE_PATH initialization and normalization now lives there
 
@@ -47,8 +54,7 @@ if (!PIN || PIN.trim() === '') {
     debugLog('PIN protection is enabled, PIN length:', PIN.length);
 }
 
-// Security middleware
-debugLog('Configuring Helmet middleware');
+// First, security middleware
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
@@ -91,18 +97,69 @@ debugLog('Configuring session middleware:', {
 
 app.use(session(sessionConfig));
 
-// Add request logging first
+// After session middleware but BEFORE any routes or static files
 app.use((req, res, next) => {
-    debugLog('Request received:', {
+    debugLog('🎯 Initial Request:', {
         url: req.url,
         path: req.path,
-        originalUrl: req.originalUrl,
-        baseUrl: req.baseUrl,
         method: req.method,
+        stage: 'start',
+        authenticated: !!req.session?.authenticated,
+        stack: new Error().stack.split('\n').slice(1,3).join('\n') // Show call stack
+    });
+    next();
+});
+
+// First: Mount auth routes
+debugLog('Mounting auth routes');
+app.use(BASE_PATH, authRoutes);
+
+// Second: Protection middleware
+app.use(BASE_PATH, (req, res, next) => {
+    debugLog('🛡️ Protection Layer:', {
+        path: req.path,
+        method: req.method,
+        isPublic: auth.isPublicPath(req.path),
+        isApi: req.path.startsWith('/api/'),
+        authenticated: !!req.session?.authenticated,
+        stack: new Error().stack.split('\n').slice(1,3).join('\n')
+    });
+    auth.protectRoute(req, res, next);
+});
+
+// Third: Static files (only after protection)
+app.use(BASE_PATH, express.static(config.PUBLIC_DIR, {
+    setHeaders: (res, filePath) => {
+        debugLog('📂 Serving Static:', {
+            file: path.basename(filePath),
+            type: path.extname(filePath)
+        });
+    }
+}));
+
+// Request logging
+app.use((req, res, next) => {
+    debugLog('🔍 Request Pipeline Start:', {
+        url: req.url,
+        path: req.path,
+        session: {
+            exists: !!req.session,
+            authenticated: req.session?.authenticated
+        },
         headers: {
-            accept: req.headers.accept,
-            'content-type': req.headers['content-type']
+            'service-worker': req.headers['service-worker'],
+            'cache-control': req.headers['cache-control']
         }
+    });
+    next();
+});
+
+// Add this before the auth middleware
+app.use(BASE_PATH, (req, res, next) => {
+    debugLog('Request path check:', {
+        path: req.path,
+        method: req.method,
+        authenticated: !!req.session.authenticated
     });
     next();
 });
@@ -140,57 +197,15 @@ app.get(BASE_PATH + '/dumbdateparser.js', (req, res) => {
     });
 });
 
-// Serve static files for public assets FIRST
-debugLog('Mounting static file middleware');
-app.use(BASE_PATH, express.static(config.PUBLIC_DIR, {
-    setHeaders: (res, filePath) => {
-        debugLog('Static file request:', {
-            filePath,
-            resolvedPath: path.resolve(filePath),
-            requestedFile: path.basename(filePath),
-            contentType: path.extname(filePath)
-        });
-        
-        // Set appropriate content types without nosniff
-        if (filePath.endsWith('.js')) {
-            res.setHeader('Content-Type', 'application/javascript');
-        } else if (filePath.endsWith('.css')) {
-            res.setHeader('Content-Type', 'text/css');
-        } else if (filePath.endsWith('.html')) {
-            res.setHeader('Content-Type', 'text/html');
-            // Explicitly remove nosniff for HTML
-            res.removeHeader('X-Content-Type-Options');
-        }
+// Root route can now be simpler
+app.get(BASE_PATH + '/', auth.authMiddleware, async (req, res, next) => {
+    try {
+        let html = await fsPromises.readFile(path.join(config.PUBLIC_DIR, 'index.html'), 'utf8');
+        html = html.replace(/{{SITE_TITLE}}/g, siteTitle);
+        res.send(html);
+    } catch (error) {
+        next(error);
     }
-}));
-
-// Mount auth routes AFTER static files
-debugLog('Mounting auth routes');
-app.use(BASE_PATH, authRoutes);
-
-// Add auth middleware for protected routes
-app.use(BASE_PATH, (req, res, next) => {
-    const publicPaths = [
-        '/login',
-        '/login.html',
-        '/pin-length',
-        '/verify-pin',
-        '/styles.css',
-        '/config.js',
-        '/script.js',
-        '/dumbdateparser.js',  // Add dumbdateparser.js to public paths
-        '/manifest.json',
-        '/favicon.svg',
-        '/logo.png',
-        '/marked.min.js'
-    ];
-    
-    // Check if the path is public or starts with /api/
-    if (publicPaths.some(path => req.path.endsWith(path)) || req.path.startsWith('/api/')) {
-        return next();
-    }
-    
-    auth.authMiddleware(req, res, next);
 });
 
 // Serve config.js for frontend - this needs to be accessible without auth
@@ -229,16 +244,6 @@ app.get(BASE_PATH + '/config.js', (req, res) => {
 });
 
 // Routes
-app.get(BASE_PATH + '/', auth.authMiddleware, async (req, res, next) => {
-    try {
-        let html = await fsPromises.readFile(path.join(config.PUBLIC_DIR, 'index.html'), 'utf8');
-        html = html.replace(/{{SITE_TITLE}}/g, siteTitle);
-        res.send(html);
-    } catch (error) {
-        next(error);
-    }
-});
-
 app.get(BASE_PATH + '/index.html', auth.authMiddleware, async (req, res, next) => {
     try {
         let html = await fsPromises.readFile(path.join(config.PUBLIC_DIR, 'index.html'), 'utf8');

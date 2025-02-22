@@ -9,6 +9,22 @@ const config = require('../config');
 // Brute force protection
 const loginAttempts = new Map();
 
+// At the top after imports
+const publicPaths = [
+    '/login',
+    '/login.html',
+    '/pin-length',
+    '/verify-pin',
+    '/styles.css',
+    '/config.js',
+    '/script.js',
+    '/dumbdateparser.js',
+    '/manifest.json',
+    '/favicon.svg',
+    '/logo.png',
+    '/marked.min.js'
+];
+
 function debugLog(...args) {
     if (config.DEBUG) {
         console.log('[DEBUG]', ...args);
@@ -67,7 +83,17 @@ function verifyPin(storedPin, providedPin) {
 
 // Authentication middleware
 const authMiddleware = (req, res, next) => {
-    debugLog('Auth check for path:', req.path, 'Method:', req.method);
+    debugLog('🔐 Auth Check:', {
+        path: req.path,
+        session: {
+            exists: !!req.session,
+            authenticated: req.session?.authenticated
+        },
+        pin: {
+            configured: !!config.PIN,
+            length: config.PIN?.length
+        }
+    });
     
     // If no PIN is set, bypass authentication
     if (!config.PIN || config.PIN.trim() === '') {
@@ -78,8 +104,10 @@ const authMiddleware = (req, res, next) => {
     // Check if user is authenticated via session
     if (!req.session.authenticated) {
         debugLog('Auth failed - No valid session, redirecting to login');
-        return res.redirect(config.BASE_PATH + '/login');
+        // Make sure we're using the full path with BASE_PATH
+        return res.redirect(`${config.BASE_PATH}/login.html`);
     }
+    
     debugLog('Auth successful - Valid session found');
     next();
 };
@@ -105,6 +133,39 @@ function getAttemptCount(ip) {
     return attempts ? attempts.count : 0;
 }
 
+// Add a function to check if a path is public
+function isPublicPath(path) {
+    return publicPaths.some(p => path === p || path.endsWith(p));
+}
+
+// Add a function to protect routes
+function protectRoute(req, res, next) {
+    const isApiRequest = req.path.startsWith('/api/');
+    const isPublic = isPublicPath(req.path);
+    
+    debugLog('🛡️ Protection Check:', {
+        path: req.path,
+        isPublic,
+        isApiRequest,
+        session: {
+            exists: !!req.session,
+            authenticated: req.session?.authenticated
+        },
+        matchedPublicPath: isPublic ? publicPaths.find(p => req.path === p || path.endsWith(p)) : null,
+        decision: isPublic ? 'allow' : 'protect'
+    });
+
+    // Only allow public paths through without auth
+    if (isPublic) {
+        debugLog('✅ Allowing public access:', req.path);
+        return next();
+    }
+    
+    // Both API and protected routes need authentication
+    debugLog('🔒 Enforcing auth:', req.path);
+    authMiddleware(req, res, next);
+}
+
 // Export authentication functions and middleware
 module.exports = {
     resetAttempts,
@@ -114,5 +175,8 @@ module.exports = {
     authMiddleware,
     cleanupInterval,
     getLastAttemptTime,
-    getAttemptCount
+    getAttemptCount,
+    isPublicPath,
+    protectRoute,
+    publicPaths
 }; 

@@ -8,19 +8,30 @@ const path = require('path');
 const crypto = require('crypto');
 const config = require('../config');
 const auth = require('../middleware/auth');
+const { publicPaths } = require('../middleware/auth');
 
 const router = express.Router();
 
 // Login page route
 router.get('/login', (req, res) => {
+    debugLog('Login route handler:', {
+        path: req.path,
+        authenticated: !!req.session.authenticated,
+        pin: config.PIN ? 'SET' : 'NOT SET'
+    });
+
     // If no PIN is set, redirect to index
     if (!config.PIN || config.PIN.trim() === '') {
+        debugLog('No PIN set, redirecting to index');
         return res.redirect(config.BASE_PATH + '/');
     }
 
     if (req.session.authenticated) {
+        debugLog('Already authenticated, redirecting to index');
         return res.redirect(config.BASE_PATH + '/');
     }
+
+    // Always serve login.html for unauthenticated users when PIN is set
     res.sendFile(path.join(config.PUBLIC_DIR, 'login.html'));
 });
 
