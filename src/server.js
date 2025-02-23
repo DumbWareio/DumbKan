@@ -253,35 +253,14 @@ app.get(BASE_PATH + '/index.html', auth.authMiddleware, async (req, res, next) =
 });
 
 // API Routes
-app.get(BASE_PATH + '/api/boards', async (req, res) => {
-    try {
-        const data = await readData();
-        res.json(data);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to load boards' });
-    }
-});
+// Board routes have been moved to src/routes/board-routes.js
+// app.get(BASE_PATH + '/api/boards', ...)
+// app.post(BASE_PATH + '/api/boards/active', ...)
+// app.put(BASE_PATH + '/api/boards/:boardId', ...)
+// app.delete(BASE_PATH + '/api/boards/:boardId', ...)
 
 // Mount board routes
 app.use(BASE_PATH + '/api/boards', boardRoutes);
-
-// Set active board
-app.post(BASE_PATH + '/api/boards/active', async (req, res) => {
-    try {
-        const { boardId } = req.body;
-        const data = await readData();
-        
-        if (!data.boards[boardId]) {
-            return res.status(404).json({ error: 'Board not found' });
-        }
-
-        data.activeBoard = boardId;
-        await writeData(data);
-        res.json({ activeBoard: boardId });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to set active board' });
-    }
-});
 
 // Mount section routes
 app.use(BASE_PATH + '/api/boards/:boardId/sections', sectionRoutes);
@@ -324,44 +303,8 @@ app.put(BASE_PATH + '/api/boards/:boardId', async (req, res) => {
 // app.delete(BASE_PATH + '/api/boards/:boardId/sections/:sectionId', ...)
 
 // Add delete board endpoint
-app.delete(BASE_PATH + '/api/boards/:boardId', async (req, res) => {
-    try {
-        const { boardId } = req.params;
-        const data = await readData();
-
-        if (!data.boards[boardId]) {
-            return res.status(404).json({ error: 'Board not found' });
-        }
-
-        // Delete all sections and their tasks for this board
-        Object.entries(data.sections).forEach(([sectionId, section]) => {
-            if (section.boardId === boardId) {
-                // Delete all tasks in the section
-                if (Array.isArray(section.taskIds)) {
-                    section.taskIds.forEach(taskId => {
-                        delete data.tasks[taskId];
-                    });
-                }
-                // Delete the section
-                delete data.sections[sectionId];
-            }
-        });
-
-        // Delete the board
-        delete data.boards[boardId];
-
-        // If this was the active board, switch to another board
-        if (data.activeBoard === boardId) {
-            const remainingBoards = Object.keys(data.boards);
-            data.activeBoard = remainingBoards.length > 0 ? remainingBoards[0] : null;
-        }
-
-        await writeData(data);
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to delete board' });
-    }
-});
+// Board delete route has been moved to src/routes/board-routes.js
+// app.delete(BASE_PATH + '/api/boards/:boardId', ...)
 
 // Export the app instead of starting it here
 module.exports = app; 
