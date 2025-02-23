@@ -290,35 +290,8 @@ app.use(BASE_PATH + '/api/boards/:boardId/sections', sectionRoutes);
 app.use(BASE_PATH + '/api/tasks', taskStandaloneRoutes);
 app.use(BASE_PATH + '/api/boards/:boardId/sections/:sectionId/tasks', taskRoutes);
 
-// Move section within board
-app.post(BASE_PATH + '/api/boards/:boardId/sections/:sectionId/move', async (req, res) => {
-    try {
-        const { boardId, sectionId } = req.params;
-        const { newIndex } = req.body;
-
-        const data = await readData();
-        const board = data.boards[boardId];
-        
-        if (!board) {
-            return res.status(404).json({ error: 'Board not found' });
-        }
-
-        // Remove section from current position
-        const currentIndex = board.sectionOrder.indexOf(sectionId);
-        if (currentIndex === -1) {
-            return res.status(404).json({ error: 'Section not found in board' });
-        }
-        board.sectionOrder.splice(currentIndex, 1);
-
-        // Insert section at new position
-        board.sectionOrder.splice(newIndex, 0, sectionId);
-
-        await writeData(data);
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to move section' });
-    }
-});
+// Move section within board route has been moved to src/routes/section-routes.js
+// app.post(BASE_PATH + '/api/boards/:boardId/sections/:sectionId/move', ...)
 
 // Add update board endpoint
 app.put(BASE_PATH + '/api/boards/:boardId', async (req, res) => {
@@ -344,69 +317,11 @@ app.put(BASE_PATH + '/api/boards/:boardId', async (req, res) => {
     }
 });
 
-// Add update section endpoint
-app.put(BASE_PATH + '/api/boards/:boardId/sections/:sectionId', async (req, res) => {
-    try {
-        const { boardId, sectionId } = req.params;
-        const { name } = req.body;
-        
-        if (!name) {
-            return res.status(400).json({ error: 'Section name is required' });
-        }
+// Update section route has been moved to src/routes/section-routes.js
+// app.put(BASE_PATH + '/api/boards/:boardId/sections/:sectionId', ...)
 
-        const data = await readData();
-        if (!data.sections[sectionId] || data.sections[sectionId].boardId !== boardId) {
-            return res.status(404).json({ error: 'Section not found' });
-        }
-
-        // Update section name
-        data.sections[sectionId].name = name;
-        await writeData(data);
-        res.json(data.sections[sectionId]);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to update section' });
-    }
-});
-
-// Add delete section endpoint
-app.delete(BASE_PATH + '/api/boards/:boardId/sections/:sectionId', async (req, res) => {
-    try {
-        const { boardId, sectionId } = req.params;
-        const data = await readData();
-
-        // Verify board and section exist
-        if (!data.boards[boardId]) {
-            return res.status(404).json({ error: 'Board not found' });
-        }
-
-        const section = data.sections[sectionId];
-        if (!section || section.boardId !== boardId) {
-            return res.status(404).json({ error: 'Section not found' });
-        }
-
-        // Remove section from board's sectionOrder
-        const board = data.boards[boardId];
-        const sectionIndex = board.sectionOrder.indexOf(sectionId);
-        if (sectionIndex !== -1) {
-            board.sectionOrder.splice(sectionIndex, 1);
-        }
-
-        // Delete all tasks in the section
-        if (Array.isArray(section.taskIds)) {
-            section.taskIds.forEach(taskId => {
-                delete data.tasks[taskId];
-            });
-        }
-
-        // Delete the section
-        delete data.sections[sectionId];
-
-        await writeData(data);
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to delete section' });
-    }
-});
+// Delete section route has been moved to src/routes/section-routes.js
+// app.delete(BASE_PATH + '/api/boards/:boardId/sections/:sectionId', ...)
 
 // Add delete board endpoint
 app.delete(BASE_PATH + '/api/boards/:boardId', async (req, res) => {
