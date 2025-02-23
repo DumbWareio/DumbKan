@@ -2163,11 +2163,10 @@ async function deleteTask(taskId, sectionId) {
 // Add back the handleTaskMove function
 async function handleTaskMove(taskId, fromSectionId, toSectionId, newIndex) {
     try {
-        const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/tasks/${taskId}/move`, {
+        const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${fromSectionId}/tasks/${taskId}/move`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                fromSectionId,
                 toSectionId,
                 newIndex
             })

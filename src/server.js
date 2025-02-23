@@ -33,9 +33,6 @@ const sectionRoutes = require('./routes/section-routes');
 // MOVED: Task creation route to /src/routes/task-routes.js
 const taskRoutes = require('./routes/task-routes');
 
-// MOVED: Task move route to /src/routes/task-move-routes.js
-const taskMoveRoutes = require('./routes/task-move-routes');
-
 const app = express();
 
 // Get site title from environment variable or use default
@@ -301,37 +298,8 @@ app.post(BASE_PATH + '/api/boards/active', async (req, res) => {
 // MOVED: Section creation route to /src/routes/section-routes.js
 app.use(BASE_PATH + '/api/boards/:boardId/sections', sectionRoutes);
 
-// MOVED: Task creation route to /src/routes/task-routes.js
+// MOVED: Task routes to /src/routes/task-routes.js
 app.use(BASE_PATH + '/api/boards/:boardId/sections/:sectionId/tasks', taskRoutes);
-
-// MOVED: Task move route to /src/routes/task-move-routes.js
-app.use(BASE_PATH + '/api/boards/:boardId/tasks/:taskId/move', taskMoveRoutes);
-
-// Update task
-app.put(BASE_PATH + '/api/boards/:boardId/sections/:sectionId/tasks/:taskId', async (req, res) => {
-    try {
-        const { boardId, sectionId, taskId } = req.params;
-        const updates = req.body;
-
-        const data = await readData();
-        const task = data.tasks[taskId];
-
-        if (!task || task.sectionId !== sectionId || task.boardId !== boardId) {
-            return res.status(404).json({ error: 'Task not found' });
-        }
-
-        // Update task properties
-        Object.assign(task, {
-            ...updates,
-            updatedAt: new Date().toISOString()
-        });
-
-        await writeData(data);
-        res.json(task);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to update task' });
-    }
-});
 
 // Delete task
 app.delete(BASE_PATH + '/api/boards/:boardId/sections/:sectionId/tasks/:taskId', async (req, res) => {
