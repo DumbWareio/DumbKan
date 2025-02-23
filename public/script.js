@@ -9,6 +9,27 @@ let state = {
 // DOM Elements placeholder
 let elements = {};
 
+// Task Management Helper Functions
+async function updateTask(task, updates) {
+    try {
+        const response = await loggedFetch(`${window.appConfig.basePath}/api/tasks/${task.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates)
+        });
+                    
+        if (response.ok) {
+            const updatedTask = await response.json();
+            state.tasks[task.id] = updatedTask;
+            return updatedTask;
+        }
+        return null;
+    } catch (error) {
+        console.error('Failed to update task:', error);
+        return null;
+    }
+}
+
 // API Logging wrapper
 async function loggedFetch(url, options = {}) {
     const method = options.method || 'GET';
@@ -1973,24 +1994,12 @@ function renderTask(task) {
             }
         }
 
-        try {
-            const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ dueDate: parsedDate ? parsedDate.toISOString() : null })
-            });
-            
-            if (response.ok) {
-                const updatedTask = await response.json();
-                state.tasks[task.id] = updatedTask;
-                
-                // Update calendar badge display
-                calendarIcon.innerHTML = updatedTask.dueDate ? formatDueDate(updatedTask.dueDate) : '<svg viewBox="0 0 24 24" width="12" height="12"><path d="M8 2v3M16 2v3M3.5 8h17M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-                calendarBadge.classList.toggle('has-due-date', !!updatedTask.dueDate);
-                calendarBadge.classList.toggle('past-due', updatedTask.dueDate && isPastDue(updatedTask.dueDate));
-            }
-        } catch (error) {
-            console.error('Failed to update due date:', error);
+        const updatedTask = await updateTask(task, { dueDate: parsedDate ? parsedDate.toISOString() : null });
+        if (updatedTask) {
+            // Update calendar badge display
+            calendarIcon.innerHTML = updatedTask.dueDate ? formatDueDate(updatedTask.dueDate) : '<svg viewBox="0 0 24 24" width="12" height="12"><path d="M8 2v3M16 2v3M3.5 8h17M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+            calendarBadge.classList.toggle('has-due-date', !!updatedTask.dueDate);
+            calendarBadge.classList.toggle('past-due', updatedTask.dueDate && isPastDue(updatedTask.dueDate));
         }
         dateInput.hidden = true;
     };
@@ -2135,7 +2144,7 @@ function renderTask(task) {
 // Add the deleteTask function
 async function deleteTask(taskId, sectionId) {
     try {
-        const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks/${taskId}`, {
+        const response = await loggedFetch(`${window.appConfig.basePath}/api/tasks/${taskId}`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' }
         });
@@ -2163,7 +2172,7 @@ async function deleteTask(taskId, sectionId) {
 // Add back the handleTaskMove function
 async function handleTaskMove(taskId, fromSectionId, toSectionId, newIndex) {
     try {
-        const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${fromSectionId}/tasks/${taskId}/move`, {
+        const response = await loggedFetch(`${window.appConfig.basePath}/api/tasks/${taskId}/move`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -2218,7 +2227,7 @@ async function handleTaskMove(taskId, fromSectionId, toSectionId, newIndex) {
         renderActiveBoard();
     } catch (error) {
         console.error('Failed to move task:', error);
-        throw error; // Re-throw to allow proper error handling upstream
+        throw error;
     }
 }
 
@@ -2625,3 +2634,194 @@ style.textContent = `
 }
 `;
 document.head.appendChild(style);
+
+// ... existing code ...
+async function updateTask(task, updates) {
+    try {
+        const response = await loggedFetch(`${window.appConfig.basePath}/api/tasks/${task.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates)
+        });
+                    
+        if (response.ok) {
+            const updatedTask = await response.json();
+            state.tasks[task.id] = updatedTask;
+            return updatedTask;
+        }
+        return null;
+    } catch (error) {
+        console.error('Failed to update task:', error);
+        return null;
+    }
+}
+
+// ... existing code ...
+
+// Update task title
+makeEditable(titleText, async (newTitle) => {
+    const updatedTask = await updateTask(task, { title: newTitle });
+    return !!updatedTask;
+});
+
+// ... existing code ...
+
+// Update task status
+statusBadge.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const newStatus = task.status === 'active' ? 'inactive' : 'active';
+    const updatedTask = await updateTask(task, { status: newStatus });
+    if (updatedTask) {
+        statusBadge.className = `badge status-badge ${newStatus}`;
+        statusBadge.setAttribute('title', newStatus.charAt(0).toUpperCase() + newStatus.slice(1));
+        task.status = newStatus;
+    }
+});
+
+// ... existing code ...
+
+// Update task priority
+option.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const updatedTask = await updateTask(task, { priority: priority.name });
+    if (updatedTask) {
+        renderActiveBoard();
+    }
+    priorityTray.classList.remove('active');
+});
+
+// ... existing code ...
+
+// Update task due date
+const saveDueDate = async () => {
+    const inputValue = dateInput.value.trim();
+    let parsedDate = null;
+    
+    if (inputValue) {
+        try {
+            parsedDate = DumbDateParser.parseDate(inputValue);
+            if (!parsedDate) return;
+            
+            // If no time specified, set to midnight
+            if (!inputValue.toLowerCase().includes('@') && 
+                !inputValue.toLowerCase().includes('at') && 
+                !inputValue.toLowerCase().includes('am') && 
+                !inputValue.toLowerCase().includes('pm')) {
+                parsedDate.setHours(0, 0, 0, 0);
+            }
+        } catch (err) {
+            console.error('Error parsing due date:', err);
+            return;
+        }
+    }
+
+    const updatedTask = await updateTask(task, { dueDate: parsedDate ? parsedDate.toISOString() : null });
+    if (updatedTask) {
+        // Update calendar badge display
+        calendarIcon.innerHTML = updatedTask.dueDate ? formatDueDate(updatedTask.dueDate) : '<svg viewBox="0 0 24 24" width="12" height="12"><path d="M8 2v3M16 2v3M3.5 8h17M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        calendarBadge.classList.toggle('has-due-date', !!updatedTask.dueDate);
+        calendarBadge.classList.toggle('past-due', updatedTask.dueDate && isPastDue(updatedTask.dueDate));
+    }
+    dateInput.hidden = true;
+};
+
+// ... existing code ...
+
+// Delete task
+async function deleteTask(taskId, sectionId) {
+    try {
+        const response = await loggedFetch(`${window.appConfig.basePath}/api/tasks/${taskId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (response.ok) {
+            delete state.tasks[taskId];
+            const section = state.sections[sectionId];
+            if (section) {
+                const taskIndex = section.taskIds.indexOf(taskId);
+                if (taskIndex !== -1) {
+                    section.taskIds.splice(taskIndex, 1);
+                }
+            }
+            hideTaskModal();
+            renderActiveBoard();
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.error('Error deleting task:', error);
+        return false;
+    }
+}
+
+// ... existing code ...
+
+// Move task
+async function handleTaskMove(taskId, fromSectionId, toSectionId, newIndex) {
+    try {
+        const response = await loggedFetch(`${window.appConfig.basePath}/api/tasks/${taskId}/move`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                toSectionId,
+                newIndex
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Failed to move task');
+        }
+
+        // Get the updated task data from the response
+        const updatedData = await response.json();
+        
+        // Update local state with the response data
+        if (updatedData.task) {
+            state.tasks[taskId] = updatedData.task;
+        }
+        
+        if (updatedData.sections) {
+            // Update the sections with their new task orders
+            Object.assign(state.sections, updatedData.sections);
+        } else {
+            // Fallback to manual state update if server doesn't provide section data
+            const fromSection = state.sections[fromSectionId];
+            const toSection = state.sections[toSectionId];
+
+            if (fromSection && toSection) {
+                // Remove task from source section
+                const taskIndex = fromSection.taskIds.indexOf(taskId);
+                if (taskIndex !== -1) {
+                    fromSection.taskIds.splice(taskIndex, 1);
+                }
+
+                // Add task to target section
+                if (typeof newIndex === 'number') {
+                    toSection.taskIds.splice(newIndex, 0, taskId);
+                } else {
+                    toSection.taskIds.push(taskId);
+                }
+
+                // Update task's section reference
+                if (state.tasks[taskId]) {
+                    state.tasks[taskId].sectionId = toSectionId;
+                }
+            }
+        }
+        
+        // Only re-render if we successfully updated the state
+        renderActiveBoard();
+    } catch (error) {
+        console.error('Failed to move task:', error);
+        throw error;
+    }
+}
+// ... existing code ...
+
+// Update task description
+async function updateTaskDescription(task, description) {
+    const updatedTask = await updateTask(task, { description });
+    return !!updatedTask;
+}

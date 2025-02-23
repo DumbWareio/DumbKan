@@ -12,26 +12,16 @@ const fsPromises = fs.promises;
 const config = require('./config');
 const auth = require('./middleware/auth');
 const authRoutes = require('./routes/auth');
-const BASE_PATH = require('./config/base-path'); // Import the BASE_PATH from its new location
+const BASE_PATH = require('./config/base-path');
 
-// MOVED: readData, writeData, and ID generation functions to /src/utils/data-operations.js
-const { 
-    readData, 
-    writeData, 
-    generateTaskId, 
-    generateSectionId, 
-    generateBoardId, 
-    generateUniqueSectionId 
-} = require('./utils/data-operations');
+// Import data operations
+const { readData, writeData } = require('./utils/data-operations');
 
-// MOVED: Board creation route to /src/routes/board-routes.js
+// Import route handlers
 const boardRoutes = require('./routes/board-routes');
-
-// MOVED: Section creation route to /src/routes/section-routes.js
 const sectionRoutes = require('./routes/section-routes');
-
-// MOVED: Task creation route to /src/routes/task-routes.js
 const taskRoutes = require('./routes/task-routes');
+const taskStandaloneRoutes = require('./routes/task-standalone-routes');
 
 const app = express();
 
@@ -44,7 +34,7 @@ function debugLog(...args) {
     }
 }
 
-// Add at the start of the file after imports:
+// Log configuration
 debugLog('Starting server with config:', {
     PIN: config.PIN ? 'SET' : 'NOT SET',
     BASE_PATH: config.BASE_PATH,
@@ -263,8 +253,6 @@ app.get(BASE_PATH + '/index.html', auth.authMiddleware, async (req, res, next) =
 });
 
 // API Routes
-
-// Get all data
 app.get(BASE_PATH + '/api/boards', async (req, res) => {
     try {
         const data = await readData();
@@ -274,7 +262,7 @@ app.get(BASE_PATH + '/api/boards', async (req, res) => {
     }
 });
 
-// MOVED: Board creation route to /src/routes/board-routes.js
+// Mount board routes
 app.use(BASE_PATH + '/api/boards', boardRoutes);
 
 // Set active board
@@ -295,42 +283,12 @@ app.post(BASE_PATH + '/api/boards/active', async (req, res) => {
     }
 });
 
-// MOVED: Section creation route to /src/routes/section-routes.js
+// Mount section routes
 app.use(BASE_PATH + '/api/boards/:boardId/sections', sectionRoutes);
 
-// MOVED: Task routes to /src/routes/task-routes.js
+// Mount task routes (standalone routes first, then task creation route)
+app.use(BASE_PATH + '/api/tasks', taskStandaloneRoutes);
 app.use(BASE_PATH + '/api/boards/:boardId/sections/:sectionId/tasks', taskRoutes);
-
-// Delete task
-app.delete(BASE_PATH + '/api/boards/:boardId/sections/:sectionId/tasks/:taskId', async (req, res) => {
-    try {
-        const { boardId, sectionId, taskId } = req.params;
-
-        const data = await readData();
-        
-        // Remove task from section
-        const section = data.sections[sectionId];
-        if (!section || section.boardId !== boardId) {
-            return res.status(404).json({ error: 'Section not found' });
-        }
-
-        const taskIndex = section.taskIds.indexOf(taskId);
-        if (taskIndex === -1) {
-            return res.status(404).json({ error: 'Task not found' });
-        }
-
-        // Remove task ID from section
-        section.taskIds.splice(taskIndex, 1);
-        
-        // Delete task from tasks collection
-        delete data.tasks[taskId];
-
-        await writeData(data);
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to delete task' });
-    }
-});
 
 // Move section within board
 app.post(BASE_PATH + '/api/boards/:boardId/sections/:sectionId/move', async (req, res) => {
