@@ -30,6 +30,9 @@ const boardRoutes = require('./routes/board-routes');
 // MOVED: Section creation route to /src/routes/section-routes.js
 const sectionRoutes = require('./routes/section-routes');
 
+// MOVED: Task creation route to /src/routes/task-routes.js
+const taskRoutes = require('./routes/task-routes');
+
 const app = express();
 
 // Get site title from environment variable or use default
@@ -295,57 +298,8 @@ app.post(BASE_PATH + '/api/boards/active', async (req, res) => {
 // MOVED: Section creation route to /src/routes/section-routes.js
 app.use(BASE_PATH + '/api/boards/:boardId/sections', sectionRoutes);
 
-// Add task to section
-app.post(BASE_PATH + '/api/boards/:boardId/sections/:sectionId/tasks', async (req, res) => {
-    try {
-        const { boardId, sectionId } = req.params;
-        const { title, description, priority = 'medium', dueDate = null, startDate = null } = req.body;
-        
-        if (!title) {
-            return res.status(400).json({ error: 'Task title is required' });
-        }
-
-        // Validate priority
-        const validPriorities = ['urgent', 'high', 'medium', 'low'];
-        const taskPriority = validPriorities.includes(priority) ? priority : 'medium';
-
-        const data = await readData();
-        if (!data.sections[sectionId] || data.sections[sectionId].boardId !== boardId) {
-            return res.status(404).json({ error: 'Board or section not found' });
-        }
-
-        const taskId = generateTaskId();
-        const now = new Date().toISOString();
-
-        // Create new task with validated priority and optional dates
-        const task = {
-            id: taskId,
-            title,
-            description: description || '',
-            createdAt: now,
-            updatedAt: now,
-            sectionId,
-            boardId,
-            priority: taskPriority,
-            status: 'active',
-            tags: [],
-            assignee: null,
-            dueDate,
-            startDate
-        };
-
-        // Add task to tasks collection
-        data.tasks[taskId] = task;
-
-        // Add task ID to section
-        data.sections[sectionId].taskIds.push(taskId);
-
-        await writeData(data);
-        res.json(task);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to create task' });
-    }
-});
+// MOVED: Task creation route to /src/routes/task-routes.js
+app.use(BASE_PATH + '/api/boards/:boardId/sections/:sectionId/tasks', taskRoutes);
 
 // Move task between sections
 app.post(BASE_PATH + '/api/boards/:boardId/tasks/:taskId/move', async (req, res) => {
