@@ -33,6 +33,9 @@ const sectionRoutes = require('./routes/section-routes');
 // MOVED: Task creation route to /src/routes/task-routes.js
 const taskRoutes = require('./routes/task-routes');
 
+// MOVED: Task move route to /src/routes/task-move-routes.js
+const taskMoveRoutes = require('./routes/task-move-routes');
+
 const app = express();
 
 // Get site title from environment variable or use default
@@ -301,45 +304,8 @@ app.use(BASE_PATH + '/api/boards/:boardId/sections', sectionRoutes);
 // MOVED: Task creation route to /src/routes/task-routes.js
 app.use(BASE_PATH + '/api/boards/:boardId/sections/:sectionId/tasks', taskRoutes);
 
-// Move task between sections
-app.post(BASE_PATH + '/api/boards/:boardId/tasks/:taskId/move', async (req, res) => {
-    try {
-        const { boardId, taskId } = req.params;
-        const { fromSectionId, toSectionId, newIndex } = req.body;
-
-        const data = await readData();
-        
-        // Validate board and sections exist
-        if (!data.sections[fromSectionId] || !data.sections[toSectionId]) {
-            return res.status(404).json({ error: 'Section not found' });
-        }
-
-        // Remove task from source section
-        const fromTaskIds = data.sections[fromSectionId].taskIds;
-        const taskIndex = fromTaskIds.indexOf(taskId);
-        if (taskIndex === -1) {
-            return res.status(404).json({ error: 'Task not found' });
-        }
-        fromTaskIds.splice(taskIndex, 1);
-
-        // Add task to target section
-        const toTaskIds = data.sections[toSectionId].taskIds;
-        if (typeof newIndex === 'number') {
-            toTaskIds.splice(newIndex, 0, taskId);
-        } else {
-            toTaskIds.push(taskId);
-        }
-
-        // Update task's section reference
-        data.tasks[taskId].sectionId = toSectionId;
-        data.tasks[taskId].updatedAt = new Date().toISOString();
-
-        await writeData(data);
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to move task' });
-    }
-});
+// MOVED: Task move route to /src/routes/task-move-routes.js
+app.use(BASE_PATH + '/api/boards/:boardId/tasks/:taskId/move', taskMoveRoutes);
 
 // Update task
 app.put(BASE_PATH + '/api/boards/:boardId/sections/:sectionId/tasks/:taskId', async (req, res) => {
