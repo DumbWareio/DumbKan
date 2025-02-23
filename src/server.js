@@ -243,17 +243,8 @@ app.get(BASE_PATH + '/index.html', auth.authMiddleware, async (req, res, next) =
     }
 });
 
-// Helper function to ensure data directory exists
-async function ensureDataDirectory() {
-    const dir = path.dirname(config.DATA_FILE);
-    try {
-        await fsPromises.mkdir(dir, { recursive: true });
-    } catch (error) {
-        if (error.code !== 'EEXIST') {
-            throw error;
-        }
-    }
-}
+// MOVED: ensureDataDirectory function to /src/utils/data-directory.js
+const ensureDataDirectory = require('./utils/data-directory');
 
 // Helper function to read data
 async function readData() {
