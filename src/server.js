@@ -24,6 +24,9 @@ const {
     generateUniqueSectionId 
 } = require('./utils/data-operations');
 
+// MOVED: Board creation route to /src/routes/board-routes.js
+const boardRoutes = require('./routes/board-routes');
+
 const app = express();
 
 // Get site title from environment variable or use default
@@ -265,52 +268,8 @@ app.get(BASE_PATH + '/api/boards', async (req, res) => {
     }
 });
 
-// Create new board
-app.post(BASE_PATH + '/api/boards', async (req, res) => {
-    try {
-        const { name } = req.body;
-        if (!name) {
-            return res.status(400).json({ error: 'Board name is required' });
-        }
-
-        const data = await readData();
-        const boardId = generateBoardId();
-        
-        // Create default sections with unique IDs
-        const defaultSections = [
-            { name: 'To Do' },
-            { name: 'Doing' },
-            { name: 'Done' }
-        ];
-
-        const sectionOrder = [];
-        
-        // Create unique sections for this board
-        defaultSections.forEach(section => {
-            const sectionId = generateUniqueSectionId();
-            sectionOrder.push(sectionId);
-            
-            data.sections[sectionId] = {
-                id: sectionId,
-                name: section.name,
-                boardId: boardId,
-                taskIds: []
-            };
-        });
-
-        // Create board with the unique section order
-        data.boards[boardId] = {
-            id: boardId,
-            name,
-            sectionOrder
-        };
-
-        await writeData(data);
-        res.json({ id: boardId, ...data.boards[boardId] });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to create board' });
-    }
-});
+// MOVED: Board creation route to /src/routes/board-routes.js
+app.use(BASE_PATH + '/api/boards', boardRoutes);
 
 // Set active board
 app.post(BASE_PATH + '/api/boards/active', async (req, res) => {
