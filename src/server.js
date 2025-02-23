@@ -27,6 +27,9 @@ const {
 // MOVED: Board creation route to /src/routes/board-routes.js
 const boardRoutes = require('./routes/board-routes');
 
+// MOVED: Section creation route to /src/routes/section-routes.js
+const sectionRoutes = require('./routes/section-routes');
+
 const app = express();
 
 // Get site title from environment variable or use default
@@ -289,40 +292,8 @@ app.post(BASE_PATH + '/api/boards/active', async (req, res) => {
     }
 });
 
-// Add section to board
-app.post(BASE_PATH + '/api/boards/:boardId/sections', async (req, res) => {
-    try {
-        const { boardId } = req.params;
-        const { name } = req.body;
-        
-        if (!name) {
-            return res.status(400).json({ error: 'Section name is required' });
-        }
-
-        const data = await readData();
-        if (!data.boards[boardId]) {
-            return res.status(404).json({ error: 'Board not found' });
-        }
-
-        const sectionId = generateUniqueSectionId();
-        
-        // Create new section
-        data.sections[sectionId] = {
-            id: sectionId,
-            name,
-            boardId,
-            taskIds: []
-        };
-
-        // Add section to board's section order
-        data.boards[boardId].sectionOrder.push(sectionId);
-
-        await writeData(data);
-        res.json(data.sections[sectionId]);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to create section' });
-    }
-});
+// MOVED: Section creation route to /src/routes/section-routes.js
+app.use(BASE_PATH + '/api/boards/:boardId/sections', sectionRoutes);
 
 // Add task to section
 app.post(BASE_PATH + '/api/boards/:boardId/sections/:sectionId/tasks', async (req, res) => {
