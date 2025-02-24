@@ -81,6 +81,25 @@ app.use(helmet({
     crossOriginResourcePolicy: { policy: 'same-origin' }
 }));
 
+// Serve login.html and its required assets before auth protection
+app.use(BASE_PATH, express.static(config.PUBLIC_DIR, {
+    setHeaders: (res, filePath) => {
+        // Only log in debug mode
+        if (config.DEBUG) {
+            debugLog('📂 Serving static file:', path.basename(filePath));
+        }
+    }
+}));
+
+// Add static middleware for src directory
+app.use(BASE_PATH + '/src', express.static(path.join(config.PUBLIC_DIR, 'src'), {
+    setHeaders: (res, filePath) => {
+        if (config.DEBUG) {
+            debugLog('📂 Serving src file:', path.basename(filePath));
+        }
+    }
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -124,10 +143,13 @@ app.use((req, res, next) => {
     next();
 });
 
-// First: Mount auth routes
-debugLog('Mounting auth routes');
+// Auth routes
 app.use(BASE_PATH, authRoutes);
 
+// Protection middleware - everything after this requires authentication
+app.use(BASE_PATH, auth.protectRoute);
+
+// Protected routes and API endpoints
 // Second: Special route handlers (before protection)
 app.get(BASE_PATH + '/config.js', (req, res) => {
     debugLog('Serving config.js');
@@ -159,23 +181,6 @@ app.get(BASE_PATH + '/config.js', (req, res) => {
         });
     `);
 });
-
-// Third: Protection middleware
-app.use(BASE_PATH, auth.protectRoute);
-
-// Fourth: Static files (after protection)
-app.use(BASE_PATH, express.static(config.PUBLIC_DIR, {
-    setHeaders: (res, filePath) => {
-        debugLog('📂 Static:', path.basename(filePath));
-    }
-}));
-
-// Add static middleware for src directory
-app.use(BASE_PATH + '/src', express.static(path.join(config.PUBLIC_DIR, 'src'), {
-    setHeaders: (res, filePath) => {
-        debugLog('📂 Static (src):', path.basename(filePath));
-    }
-}));
 
 // Request logging
 app.use((req, res, next) => {
