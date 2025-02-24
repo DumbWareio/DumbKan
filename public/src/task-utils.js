@@ -1,26 +1,33 @@
 // Task Management Utility Functions
 
-async function updateTask(task, updates) {
+// Ensure loggedFetch is available globally
+if (typeof window.loggedFetch !== 'function') {
+    console.warn('loggedFetch is not defined. Make sure it is loaded before task-utils.js');
+}
+
+function updateTask(task, updates) {
     try {
-        const response = await loggedFetch(`${window.appConfig.basePath}/api/tasks/${task.id}`, {
+        return window.loggedFetch(`${window.appConfig.basePath}/api/tasks/${task.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updates)
+        }).then(response => {
+            if (response.ok) {
+                return response.json().then(updatedTask => {
+                    // Assuming 'state' is a global variable
+                    if (window.state && window.state.tasks) {
+                        window.state.tasks[task.id] = updatedTask;
+                    }
+                    return updatedTask;
+                });
+            }
+            return null;
         });
-                    
-        if (response.ok) {
-            const updatedTask = await response.json();
-            state.tasks[task.id] = updatedTask;
-            return updatedTask;
-        }
-        return null;
     } catch (error) {
         console.error('Failed to update task:', error);
-        return null;
+        return Promise.resolve(null);
     }
 }
 
-// Expose the function for use in other scripts
-window.updateTask = updateTask;
-
-export { updateTask }; 
+// Expose the function globally
+window.updateTask = updateTask; 

@@ -13,44 +13,8 @@ let elements = {};
 // Keeping this comment to track the function's new location
 
 // API Logging wrapper
-async function loggedFetch(url, options = {}) {
-    const method = options.method || 'GET';
-    const requestBody = options.body ? JSON.parse(options.body) : null;
-    
-    // Only log if debugging is enabled
-    if (window.appConfig?.debug) {
-        console.group(`🌐 API Call: ${method} ${url}`);
-        console.log('Request:', {
-            method,
-            headers: options.headers,
-            body: requestBody
-        });
-    }
-    
-    try {
-        const response = await fetch(url, options);
-        const responseData = response.ok ? await response.clone().json() : null;
-        
-        // Only log if debugging is enabled
-        if (window.appConfig?.debug) {
-            console.log('Response:', {
-                status: response.status,
-                ok: response.ok,
-                data: responseData
-            });
-            console.groupEnd();
-        }
-        
-        return response;
-    } catch (error) {
-        // Always log errors, even if debugging is disabled
-        console.error('Error:', error);
-        if (window.appConfig?.debug) {
-            console.groupEnd();
-        }
-        throw error;
-    }
-}
+// loggedFetch function has been moved to /public/src/api-utils.js
+// Keeping this comment to track the function's new location
 
 // Theme Management functions are now in module-loader.js
 // Use global functions instead of import
