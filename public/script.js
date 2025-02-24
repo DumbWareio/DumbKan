@@ -1,6 +1,7 @@
 // Import necessary functions
 import { showTaskModal, hideTaskModal, addTask } from './src/task-modal.js';
 import { formatDateHumanReadable, formatDueDate, isPastDue } from './src/date-utils.js';
+import { makeEditable } from './src/ui-utils.js';
 
 // makeEditable function has been moved to /public/src/ui-utils.js
 // Keeping this comment to track the function's new location
@@ -144,29 +145,6 @@ function renderBoards() {
         li.appendChild(textSpan);
         li.dataset.boardId = board.id;
         if (board.id === state.activeBoard) li.classList.add('active');
-        
-        makeEditable(textSpan, async (newName) => {
-            try {
-                const response = await fetch(`${window.appConfig.basePath}/api/boards/${board.id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: newName })
-                });
-                
-                if (response.ok) {
-                    const updatedBoard = await response.json();
-                    state.boards[board.id] = updatedBoard;
-                    if (board.id === state.activeBoard) {
-                        elements.currentBoard.textContent = newName;
-                    }
-                    return true;
-                }
-                return false;
-            } catch (error) {
-                console.error('Failed to update board name:', error);
-                return false;
-            }
-        });
         
         li.addEventListener('click', (e) => {
             // Only switch board if not clicking on the editable input
@@ -411,11 +389,11 @@ function renderActiveBoard() {
                 return true;
             }
             return false;
-    } catch (error) {
+        } catch (error) {
             console.error('Failed to update board name:', error);
             return false;
         }
-    });
+    }, state);
     elements.columns.innerHTML = '';
 
     // Ensure sectionOrder exists and is an array
@@ -981,197 +959,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-function makeEditable(element, onSave) {
-    // Prevent text selection on double-click
-    element.addEventListener('dblclick', (e) => {
-        e.preventDefault();
-    });
-
-    element.addEventListener('click', function(e) {
-        if (e.target.closest('.task-move')) return; // Don't trigger edit on move button click
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return; // Don't trigger if already editing
-        
-        const isDescription = this.classList.contains('task-description');
-        let text;
-        if (isDescription) {
-            // For descriptions, get the original markdown text from the task data
-            const taskId = this.closest('.task').dataset.taskId;
-            text = state.tasks[taskId]?.description || '';
-        } else {
-            // For other elements, get the text content
-            text = this.innerHTML.replace(/<br\s*\/?>/g, '\n').replace(/<[^>]*>/g, '').trim();
-        }
-        
-        const editContainer = document.createElement('div');
-        editContainer.style.position = 'relative';
-        editContainer.style.width = '100%';
-        editContainer.style.display = 'flex';
-        editContainer.style.alignItems = 'center';
-        
-        const input = document.createElement(isDescription ? 'textarea' : 'input');
-        input.value = text;
-        input.className = 'inline-edit';
-        input.style.width = '100%';
-        input.style.paddingRight = '30px';
-        input.style.margin = '0';
-        input.style.lineHeight = 'inherit';
-        
-        // Adjust height based on context
-        if (element.closest('.task-title')) {
-            input.style.height = '28px'; // Slightly taller for task titles
-            editContainer.style.minHeight = '28px';
-            input.style.padding = '4px 30px 4px 8px';
-        } else {
-            input.style.height = isDescription ? 'auto' : '24px';
-            input.style.padding = '2px 30px 2px 8px';
-        }
-        
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'inline-delete-btn';
-        deleteBtn.innerHTML = '×';
-        deleteBtn.style.position = 'absolute';
-        deleteBtn.style.right = '8px';
-        deleteBtn.style.top = '50%';
-        deleteBtn.style.transform = 'translateY(-50%)';
-        deleteBtn.style.background = 'none';
-        deleteBtn.style.border = 'none';
-        deleteBtn.style.color = '#ff4444';
-        deleteBtn.style.fontSize = '18px';
-        deleteBtn.style.cursor = 'pointer';
-        deleteBtn.style.padding = '4px';
-        deleteBtn.style.display = isDescription ? 'none' : 'block';
-        deleteBtn.style.zIndex = '2';
-        deleteBtn.style.lineHeight = '1';
-        deleteBtn.style.height = '24px';
-        
-        let isConfirming = false;
-        const itemType = element.closest('.task') ? 'task' : 
-                        element.closest('.column-title') ? 'section' :
-                        element.closest('li[data-board-id]') ? 'board' : 'board';
-        
-        deleteBtn.onclick = async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            if (!isConfirming) {
-                isConfirming = true;
-                input.value = `Delete ${itemType}`;
-                input.readOnly = true;
-                deleteBtn.innerHTML = '✓';
-                deleteBtn.style.color = '#4CAF50';
-            } else {
-                // Handle deletion based on type
-                try {
-                    let success = false;
-                    if (itemType === 'task') {
-                        const taskElement = element.closest('.task');
-                        const taskId = taskElement.dataset.taskId;
-                        const sectionId = taskElement.closest('.column').dataset.sectionId;
-                        success = await deleteTask(taskId, sectionId);
-                    } else if (itemType === 'section') {
-                        const sectionId = element.closest('.column').dataset.sectionId;
-                        success = await deleteSection(sectionId);
-                    } else if (itemType === 'board') {
-                        let boardId;
-                        const listItem = element.closest('li');
-                        if (listItem) {
-                            boardId = listItem.dataset.boardId;
-                        } else if (element.closest('#currentBoard')) {
-                            // If deleting from the board title, use the active board ID
-                            boardId = state.activeBoard;
-                        }
-                        if (!boardId) {
-                            throw new Error('Board ID not found');
-                        }
-                        success = await deleteBoard(boardId);
-                    }
-                    
-                    if (success) {
-                        renderActiveBoard();
-                        if (itemType === 'board') {
-                            renderBoards();
-                        }
-                    }
-                } catch (error) {
-                    console.error(`Failed to delete ${itemType}:`, error);
-                }
-            }
-        };
-        
-        editContainer.appendChild(input);
-        if (!isDescription) {
-            editContainer.appendChild(deleteBtn);
-        }
-        
-        // Add editing class to show background
-        element.classList.add('editing');
-        
-        const saveEdit = async () => {
-            if (isConfirming) {
-                element.innerHTML = text;
-                element.classList.remove('editing');
-                return;
-            }
-            
-            const newText = input.value.trim();
-            if (newText !== text) {
-                const success = await onSave(newText);
-                if (success) {
-                    if (isDescription && !newText) {
-                        renderActiveBoard(); // Re-render to show the arrow hook
-                    } else {
-                    element.innerHTML = isDescription ? linkify(newText) : newText;
-                    }
-                } else {
-                    element.innerHTML = isDescription ? linkify(text) : text;
-                }
-            } else {
-                element.innerHTML = isDescription ? linkify(text) : text;
-            }
-            element.classList.remove('editing');
-        };
-
-        const cancelEdit = () => {
-            element.innerHTML = isDescription ? linkify(text) : text;
-            element.classList.remove('editing');
-            input.removeEventListener('blur', saveEdit);
-        };
-
-        input.addEventListener('blur', (e) => {
-            // Don't save if clicking the delete button
-            if (e.relatedTarget !== deleteBtn) {
-                saveEdit();
-            }
-        });
-
-        // Replace the content with the input
-        element.textContent = '';
-        element.appendChild(editContainer);
-        input.focus();
-        if (!isDescription) {
-            // For title, put cursor at end instead of selecting all
-            input.setSelectionRange(input.value.length, input.value.length);
-        } else {
-            // For descriptions, put cursor at end
-            input.setSelectionRange(input.value.length, input.value.length);
-        }
-
-        input.addEventListener('keydown', (e) => {
-            if (!isDescription && e.key === 'Enter') {
-                e.preventDefault();
-                input.blur();
-            } else if (isDescription && (e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                e.preventDefault();
-                input.blur();
-            } else if (e.key === 'Escape') {
-                cancelEdit();
-            }
-        });
-    });
-}
+// Function makeEditable has been moved to /public/src/ui-utils.js
+// Remove the entire function block
 
 // Helper function to convert URLs in text to clickable links and include line breaks
-function linkify(text) {
+export function linkify(text) {
   if (!text) return '';
   // First parse markdown
   const htmlContent = marked.parse(text, { breaks: true });
@@ -1385,7 +1177,7 @@ function renderColumn(section) {
             console.error('Failed to update section name:', error);
                 return false;
             }
-        });
+        }, state);
         
     headerEl.innerHTML = `
         <div class="column-count">${taskCount}</div>
@@ -1618,7 +1410,7 @@ function renderTask(task) {
             console.error('Failed to update task title:', error);
             return false;
         }
-    });
+    }, state);
     taskTitle.appendChild(titleText);
     contentWrapper.appendChild(taskTitle);
 
@@ -1776,8 +1568,8 @@ function renderTask(task) {
         if (updatedTask) {
             // Update calendar badge display
             calendarIcon.innerHTML = updatedTask.dueDate ? formatDueDate(updatedTask.dueDate) : '<svg viewBox="0 0 24 24" width="12" height="12"><path d="M8 2v3M16 2v3M3.5 8h17M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-            calendarBadge.classList.toggle('has-due-date', !!updatedTask.dueDate);
-            calendarBadge.classList.toggle('past-due', updatedTask.dueDate && isPastDue(updatedTask.dueDate));
+            calendarBadge.classList.toggle('has-due-date', !!parsedDate);
+            calendarBadge.classList.toggle('past-due', parsedDate && isPastDue(parsedDate));
         }
         dateInput.hidden = true;
     };
@@ -1817,7 +1609,7 @@ function renderTask(task) {
                 console.error('Failed to update task description:', error);
                 return false;
             }
-        });
+        }, state);
         contentWrapper.appendChild(taskDescription);
     } else {
         const descriptionHook = document.createElement('div');

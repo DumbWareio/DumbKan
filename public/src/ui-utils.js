@@ -1,11 +1,13 @@
 // UI Utility Functions
+import { linkify } from '../script.js';
 
 /**
  * Makes an element editable with inline editing capabilities
  * @param {HTMLElement} element - The element to make editable
  * @param {Function} onSave - Callback function to handle saving changes
+ * @param {Object} appState - The application state object containing tasks
  */
-function makeEditable(element, onSave) {
+function makeEditable(element, onSave, appState) {
     // Prevent text selection on double-click
     element.addEventListener('dblclick', (e) => {
         e.preventDefault();
@@ -20,7 +22,7 @@ function makeEditable(element, onSave) {
         if (isDescription) {
             // For descriptions, get the original markdown text from the task data
             const taskId = this.closest('.task').dataset.taskId;
-            text = state.tasks[taskId]?.description || '';
+            text = appState.tasks[taskId]?.description || '';
         } else {
             // For other elements, get the text content
             text = this.innerHTML.replace(/<br\s*\/?>/g, '\n').replace(/<[^>]*>/g, '').trim();
@@ -102,7 +104,7 @@ function makeEditable(element, onSave) {
                             boardId = listItem.dataset.boardId;
                         } else if (element.closest('#currentBoard')) {
                             // If deleting from the board title, use the active board ID
-                            boardId = state.activeBoard;
+                            boardId = appState.activeBoard;
                         }
                         if (!boardId) {
                             throw new Error('Board ID not found');
@@ -242,4 +244,4 @@ document.head.appendChild(style);
 // Expose functions globally
 window.showError = showError;
 window.createErrorContainer = createErrorContainer;
-window.makeEditable = makeEditable; 
+export { makeEditable }; 
