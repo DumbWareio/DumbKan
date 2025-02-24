@@ -1,5 +1,4 @@
 // UI Utility Functions
-import { linkify } from '../script.js';
 
 /**
  * Makes an element editable with inline editing capabilities
@@ -146,19 +145,19 @@ function makeEditable(element, onSave, appState) {
                     if (isDescription && !newText) {
                         renderActiveBoard(); // Re-render to show the arrow hook
                     } else {
-                        element.innerHTML = isDescription ? linkify(newText) : newText;
+                        element.innerHTML = isDescription ? window.linkify(newText) : newText;
                     }
                 } else {
-                    element.innerHTML = isDescription ? linkify(text) : text;
+                    element.innerHTML = isDescription ? window.linkify(text) : text;
                 }
             } else {
-                element.innerHTML = isDescription ? linkify(text) : text;
+                element.innerHTML = isDescription ? window.linkify(text) : text;
             }
             element.classList.remove('editing');
         };
 
         const cancelEdit = () => {
-            element.innerHTML = isDescription ? linkify(text) : text;
+            element.innerHTML = isDescription ? window.linkify(text) : text;
             element.classList.remove('editing');
             input.removeEventListener('blur', saveEdit);
         };
@@ -242,6 +241,6 @@ style.textContent = `
 document.head.appendChild(style);
 
 // Expose functions globally
+window.makeEditable = makeEditable;
 window.showError = showError;
-window.createErrorContainer = createErrorContainer;
-export { makeEditable }; 
+window.createErrorContainer = createErrorContainer; 

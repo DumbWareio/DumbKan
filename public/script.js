@@ -1,15 +1,5 @@
-// Import necessary functions
-import { showTaskModal, hideTaskModal, addTask } from './src/task-modal.js';
-import { formatDateHumanReadable, formatDueDate, isPastDue } from './src/date-utils.js';
-import { makeEditable } from './src/ui-utils.js';
-
-// makeEditable function has been moved to /public/src/ui-utils.js
-// Keeping this comment to track the function's new location
-
-// Expose functions to global window object
-window.showTaskModal = showTaskModal;
-window.hideTaskModal = hideTaskModal;
-window.addTask = addTask;
+// All utility functions are now available on the window object
+// No need to import them since they're loaded via script tags
 
 // State Management
 let state = {
@@ -23,15 +13,13 @@ let state = {
 let elements = {};
 
 // Task Management Helper Functions
-// Keeping this comment to track the function's new location
+// All task management functions are now in task-utils.js and task-modal.js
 
 // API Logging wrapper
 // loggedFetch function has been moved to /public/src/api-utils.js
-// Keeping this comment to track the function's new location
 
-// Theme Management functions are now in module-loader.js
-// Use global functions instead of import
-// import { initTheme, toggleTheme } from './src/theme.js';
+// Theme Management functions are now in theme.js
+// Use window.initTheme and window.toggleTheme
 
 // Board Management
 async function loadBoards() {
@@ -963,16 +951,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // Remove the entire function block
 
 // Helper function to convert URLs in text to clickable links and include line breaks
-export function linkify(text) {
-  if (!text) return '';
-  // First parse markdown
-  const htmlContent = marked.parse(text, { breaks: true });
-  // Then make URLs clickable if they aren't already
-  const urlRegex = /(?<!["'])(https?:\/\/[^\s<]+)(?![^<]*>|[^<>]*<\/a>)/g;
-  return htmlContent.replace(urlRegex, function(url) {
-      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
-  });
-}
+// Function has been moved to /public/src/text-utils.js
+// Import using: import { linkify } from './src/text-utils.js'
 
 function getPrioritySymbol(priority) {
     switch (priority) {

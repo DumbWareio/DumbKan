@@ -3,14 +3,11 @@
  * Handles displaying and managing the task modal for creating and editing tasks
  */
 
-// Import necessary dependencies
-import { loggedFetch } from './api-utils.js';
-
 /**
  * Show the task modal for creating or editing a task
  * @param {Object} task - The task object to display or edit
  */
-export function showTaskModal(task) {
+function showTaskModal(task) {
     const elements = window.elements || {};
     if (!elements.taskModal) return;
     
@@ -55,7 +52,7 @@ export function showTaskModal(task) {
                 elements.taskDueDate.value = dueDate.toISOString().split('T')[0];
             } else {
                 // If has time, show full format
-                elements.taskDueDate.value = formatDateHumanReadable(currentTask.dueDate);
+                elements.taskDueDate.value = window.formatDateHumanReadable(currentTask.dueDate);
             }
             elements.taskDueDate.dataset.originalDate = currentTask.dueDate;
         } else {
@@ -72,7 +69,7 @@ export function showTaskModal(task) {
                 elements.taskStartDate.value = startDate.toISOString().split('T')[0];
             } else {
                 // If has time, show full format
-                elements.taskStartDate.value = formatDateHumanReadable(currentTask.startDate);
+                elements.taskStartDate.value = window.formatDateHumanReadable(currentTask.startDate);
             }
             elements.taskStartDate.dataset.originalDate = currentTask.startDate;
         } else {
@@ -98,7 +95,7 @@ export function showTaskModal(task) {
     elements.taskDueDate.addEventListener('blur', (e) => {
         if (!e.target.dataset.rawInput && e.target.dataset.originalDate) {
             // If no raw input but we have original date, show formatted date
-            e.target.value = formatDateHumanReadable(e.target.dataset.originalDate);
+            e.target.value = window.formatDateHumanReadable(e.target.dataset.originalDate);
         } else {
             e.target.value = e.target.dataset.rawInput || e.target.value;
         }
@@ -107,7 +104,7 @@ export function showTaskModal(task) {
     elements.taskStartDate.addEventListener('blur', (e) => {
         if (!e.target.dataset.rawInput && e.target.dataset.originalDate) {
             // If no raw input but we have original date, show formatted date
-            e.target.value = formatDateHumanReadable(e.target.dataset.originalDate);
+            e.target.value = window.formatDateHumanReadable(e.target.dataset.originalDate);
         } else {
             e.target.value = e.target.dataset.rawInput || e.target.value;
         }
@@ -125,7 +122,7 @@ export function showTaskModal(task) {
 /**
  * Hide the task modal with a closing animation
  */
-export function hideTaskModal() {
+function hideTaskModal() {
     const elements = window.elements || {};
     if (!elements.taskModal) return;
     
@@ -164,7 +161,7 @@ export function hideTaskModal() {
  * @param {Date} [startDate=null] - The start date of the task
  * @returns {Promise<void>}
  */
-export async function addTask(sectionId, title, description = '', status = 'active', dueDate = null, startDate = null) {
+async function addTask(sectionId, title, description = '', status = 'active', dueDate = null, startDate = null) {
     const state = window.state || {};
     
     try {
@@ -173,7 +170,7 @@ export async function addTask(sectionId, title, description = '', status = 'acti
             return;
         }
         
-        const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks`, {
+        const response = await window.loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
@@ -214,37 +211,7 @@ export async function addTask(sectionId, title, description = '', status = 'acti
     }
 }
 
-// Helper function for date formatting (this might need to be imported or defined)
-function formatDateHumanReadable(dateStr) {
-    if (!dateStr) return '';
-    
-    const date = new Date(dateStr);
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    // Reset time parts for today/tomorrow comparison
-    const dateNoTime = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const todayNoTime = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const tomorrowNoTime = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
-    
-    // Check if time is midnight (00:00)
-    const isMidnight = date.getHours() === 0 && date.getMinutes() === 0;
-    
-    // Only add time if it's not midnight
-    const timeStr = isMidnight ? '' : ` @ ${date.toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: false 
-    })}`;
-    
-    if (dateNoTime.getTime() === todayNoTime.getTime()) {
-        return `Today${timeStr}`;
-    } else if (dateNoTime.getTime() === tomorrowNoTime.getTime()) {
-        return `Tomorrow${timeStr}`;
-    } else {
-        // Format as YYYY-MM-DD
-        const dateStr = date.toISOString().split('T')[0];
-        return `${dateStr}${timeStr}`;
-    }
-}
+// Expose functions globally
+window.showTaskModal = showTaskModal;
+window.hideTaskModal = hideTaskModal;
+window.addTask = addTask;

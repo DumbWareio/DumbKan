@@ -7,7 +7,7 @@ console.log('[Debug] Loading api-utils.js', {
     hasApiCall: typeof window.apiCall === 'function'
 });
 
-export function loggedFetch(url, options = {}) {
+function loggedFetch(url, options = {}) {
     const method = options.method || 'GET';
     const requestBody = options.body ? JSON.parse(options.body) : null;
     
@@ -52,7 +52,7 @@ export function loggedFetch(url, options = {}) {
 }
 
 // API call wrapper with retry logic
-export function apiCall(url, options = {}) {
+function apiCall(url, options = {}) {
     const MAX_RETRIES = 3;
     const RETRY_DELAY = 1000; // 1 second
     let attempt = 0;

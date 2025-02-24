@@ -9,7 +9,7 @@
  * @param {string} dateStr - ISO date string to format
  * @returns {string} Human readable date string
  */
-export function formatDateHumanReadable(dateStr) {
+function formatDateHumanReadable(dateStr) {
     if (!dateStr) return '';
     
     const date = new Date(dateStr);
@@ -48,7 +48,7 @@ export function formatDateHumanReadable(dateStr) {
  * @param {string} dateStr - ISO date string to format
  * @returns {string} Simplified date string
  */
-export function formatDueDate(dateStr) {
+function formatDueDate(dateStr) {
     if (!dateStr) return '';
     
     const date = new Date(dateStr);
@@ -75,7 +75,7 @@ export function formatDueDate(dateStr) {
  * @param {string} dateStr - ISO date string to check
  * @returns {boolean} True if the date is in the past, false otherwise
  */
-export function isPastDue(dateStr) {
+function isPastDue(dateStr) {
     if (!dateStr) return false;
     const date = new Date(dateStr);
     const now = new Date();
@@ -85,4 +85,9 @@ export function isPastDue(dateStr) {
     const todayNoTime = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     return dateNoTime < todayNoTime;
-} 
+}
+
+// Expose functions globally
+window.formatDateHumanReadable = formatDateHumanReadable;
+window.formatDueDate = formatDueDate;
+window.isPastDue = isPastDue; 
