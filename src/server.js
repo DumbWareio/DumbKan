@@ -111,9 +111,14 @@ app.use(BASE_PATH, express.static(config.PUBLIC_DIR, {
     index: false, // Disable directory indexing
     setHeaders: (res, filePath) => {
         if (config.DEBUG) {
-            debugLog('📂 Serving static file:', {
-                file: path.basename(filePath),
-                path: filePath.replace(config.PUBLIC_DIR, '')
+            debugLog('📂 Static File Request:', {
+                originalUrl: req.originalUrl,
+                baseUrl: req.baseUrl,
+                path: req.path,
+                publicDir: config.PUBLIC_DIR,
+                resolvedPath: filePath,
+                basePath: BASE_PATH,
+                exists: fs.existsSync(filePath)
             });
         }
         // Set proper cache headers
@@ -124,6 +129,24 @@ app.use(BASE_PATH, express.static(config.PUBLIC_DIR, {
         }
     }
 }));
+
+// Add a diagnostic middleware to log all requests
+app.use((req, res, next) => {
+    debugLog('🔍 Request Diagnostic:', {
+        originalUrl: req.originalUrl,
+        baseUrl: req.baseUrl,
+        path: req.path,
+        hostname: req.hostname,
+        protocol: req.protocol,
+        headers: {
+            host: req.headers.host,
+            'x-forwarded-prefix': req.headers['x-forwarded-prefix'],
+            'x-forwarded-proto': req.headers['x-forwarded-proto'],
+            'x-forwarded-host': req.headers['x-forwarded-host']
+        }
+    });
+    next();
+});
 
 // Auth routes
 app.use(BASE_PATH, authRoutes);

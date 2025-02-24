@@ -21,6 +21,13 @@ const SITE_TITLE = process.env.SITE_TITLE || 'DumbKan';
 
 // Base URL configuration
 const BASE_PATH = (() => {
+    console.log('[DEBUG] Environment variables:', {
+        BASE_URL: process.env.BASE_URL,
+        NODE_ENV: process.env.NODE_ENV,
+        DEBUG: process.env.DEBUG,
+        raw_env: process.env
+    });
+
     if (!process.env.BASE_URL) {
         if (DEBUG) console.log('[DEBUG] No BASE_URL set, using empty base path');
         return '';
@@ -32,8 +39,21 @@ const BASE_PATH = (() => {
     try {
         const url = new URL(basePath);
         basePath = url.pathname;
-    } catch {
+        if (DEBUG) {
+            console.log('[DEBUG] Parsed BASE_URL:', {
+                original: process.env.BASE_URL,
+                parsed: url,
+                extractedPath: basePath
+            });
+        }
+    } catch (e) {
         // Not a full URL, treat as a path
+        if (DEBUG) {
+            console.log('[DEBUG] BASE_URL not a full URL:', {
+                value: basePath,
+                error: e.message
+            });
+        }
     }
 
     // Ensure path starts with / if not empty
@@ -45,9 +65,13 @@ const BASE_PATH = (() => {
     basePath = basePath.replace(/\/$/, '');
 
     if (DEBUG) {
-        console.log('[DEBUG] Base URL Configuration:', {
+        console.log('[DEBUG] Final BASE_PATH configuration:', {
             originalUrl: process.env.BASE_URL,
-            normalizedPath: basePath
+            normalizedPath: basePath,
+            envVars: {
+                NODE_ENV: process.env.NODE_ENV,
+                DEBUG: process.env.DEBUG
+            }
         });
     }
 
