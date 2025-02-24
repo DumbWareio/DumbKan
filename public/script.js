@@ -1778,7 +1778,7 @@ function renderTask(task) {
     titleText.textContent = task.title || 'Untitled Task';
     makeEditable(titleText, async (newTitle) => {
         try {
-            const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
+            const response = await loggedFetch(`${window.appConfig.basePath}/api/tasks/${task.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ title: newTitle })
@@ -1810,7 +1810,7 @@ function renderTask(task) {
         e.stopPropagation();
         const newStatus = task.status === 'active' ? 'inactive' : 'active';
         try {
-            const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
+            const response = await loggedFetch(`${window.appConfig.basePath}/api/tasks/${task.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus })
@@ -1995,7 +1995,7 @@ function renderTask(task) {
         taskDescription.innerHTML = linkify(task.description);
         makeEditable(taskDescription, async (newDescription) => {
             try {
-                const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
+                const response = await loggedFetch(`${window.appConfig.basePath}/api/tasks/${task.id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ description: newDescription })
@@ -2511,8 +2511,23 @@ function isPastDue(dateStr) {
 
 // Update task title
 makeEditable(titleText, async (newTitle) => {
-    const updatedTask = await updateTask(task, { title: newTitle });
-    return !!updatedTask;
+    try {
+        const response = await loggedFetch(`${window.appConfig.basePath}/api/tasks/${task.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: newTitle })
+        });
+                    
+        if (response.ok) {
+            const updatedTask = await response.json();
+            state.tasks[task.id] = updatedTask;
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.error('Failed to update task title:', error);
+        return false;
+    }
 });
 
 // ... existing code ...
@@ -2521,11 +2536,22 @@ makeEditable(titleText, async (newTitle) => {
 statusBadge.addEventListener('click', async (e) => {
     e.stopPropagation();
     const newStatus = task.status === 'active' ? 'inactive' : 'active';
-    const updatedTask = await updateTask(task, { status: newStatus });
-    if (updatedTask) {
-        statusBadge.className = `badge status-badge ${newStatus}`;
-        statusBadge.setAttribute('title', newStatus.charAt(0).toUpperCase() + newStatus.slice(1));
-        task.status = newStatus;
+    try {
+        const response = await loggedFetch(`${window.appConfig.basePath}/api/tasks/${task.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+        });
+
+        if (response.ok) {
+            const updatedTask = await response.json();
+            state.tasks[task.id] = updatedTask;
+            statusBadge.className = `badge status-badge ${newStatus}`;
+            statusBadge.setAttribute('title', newStatus.charAt(0).toUpperCase() + newStatus.slice(1));
+            task.status = newStatus;
+        }
+    } catch (error) {
+        console.error('Failed to update task status:', error);
     }
 });
 
