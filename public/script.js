@@ -1605,14 +1605,8 @@ function renderTask(task) {
     titleText.textContent = task.title || 'Untitled Task';
     makeEditable(titleText, async (newTitle) => {
         try {
-            const response = await loggedFetch(`${window.appConfig.basePath}/api/tasks/${task.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: newTitle })
-            });
-                    
-            if (response.ok) {
-                const updatedTask = await response.json();
+            const updatedTask = await updateTask(task, { title: newTitle });
+            if (updatedTask) {
                 state.tasks[task.id] = updatedTask;
                 return true;
             }
@@ -1637,14 +1631,8 @@ function renderTask(task) {
         e.stopPropagation();
         const newStatus = task.status === 'active' ? 'inactive' : 'active';
         try {
-            const response = await loggedFetch(`${window.appConfig.basePath}/api/tasks/${task.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: newStatus })
-            });
-
-            if (response.ok) {
-                const updatedTask = await response.json();
+            const updatedTask = await updateTask(task, { status: newStatus });
+            if (updatedTask) {
                 state.tasks[task.id] = updatedTask;
                 statusBadge.className = `badge status-badge ${newStatus}`;
                 statusBadge.setAttribute('title', newStatus.charAt(0).toUpperCase() + newStatus.slice(1));
@@ -1692,14 +1680,8 @@ function renderTask(task) {
         option.addEventListener('click', async (e) => {
             e.stopPropagation();
             try {
-                const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ priority: priority.name })
-                });
-
-                if (response.ok) {
-                    const updatedTask = await response.json();
+                const updatedTask = await updateTask(task, { priority: priority.name });
+                if (updatedTask) {
                     state.tasks[task.id] = updatedTask;
                     renderActiveBoard();
                 }
@@ -1822,18 +1804,9 @@ function renderTask(task) {
         taskDescription.innerHTML = linkify(task.description);
         makeEditable(taskDescription, async (newDescription) => {
             try {
-                const response = await loggedFetch(`${window.appConfig.basePath}/api/tasks/${task.id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ description: newDescription })
-                });
-                
-                if (response.ok) {
-                    const updatedTask = await response.json();
+                const updatedTask = await updateTask(task, { description: newDescription });
+                if (updatedTask) {
                     state.tasks[task.id] = updatedTask;
-                    if (!newDescription) {
-                        renderActiveBoard();
-                    }
                     return true;
                 }
                 return false;
@@ -1863,20 +1836,16 @@ function renderTask(task) {
             const saveDescription = async () => {
                 const newDescription = textarea.value.trim();
                 try {
-                    const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ description: newDescription })
-                    });
-                    
-                    if (response.ok) {
-                        const updatedTask = await response.json();
+                    const updatedTask = await updateTask(task, { description: newDescription });
+                    if (updatedTask) {
                         state.tasks[task.id] = updatedTask;
+                        return true;
                     }
+                    return false;
                 } catch (error) {
                     console.error('Failed to add task description:', error);
+                    return false;
                 }
-                renderActiveBoard();
             };
 
             textarea.addEventListener('blur', saveDescription);
@@ -2271,104 +2240,3 @@ function initCalendarInputSlide() {
 // Create error container if it doesn't exist
 
 // Add error message styles
-
-
-// Update task title
-makeEditable(titleText, async (newTitle) => {
-    try {
-        const response = await loggedFetch(`${window.appConfig.basePath}/api/tasks/${task.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: newTitle })
-        });
-                    
-        if (response.ok) {
-            const updatedTask = await response.json();
-            state.tasks[task.id] = updatedTask;
-            return true;
-        }
-        return false;
-    } catch (error) {
-        console.error('Failed to update task title:', error);
-        return false;
-    }
-});
-
-// ... existing code ...
-
-// Update task status
-statusBadge.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    const newStatus = task.status === 'active' ? 'inactive' : 'active';
-    try {
-        const response = await loggedFetch(`${window.appConfig.basePath}/api/tasks/${task.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: newStatus })
-        });
-
-        if (response.ok) {
-            const updatedTask = await response.json();
-            state.tasks[task.id] = updatedTask;
-            statusBadge.className = `badge status-badge ${newStatus}`;
-            statusBadge.setAttribute('title', newStatus.charAt(0).toUpperCase() + newStatus.slice(1));
-            task.status = newStatus;
-        }
-    } catch (error) {
-        console.error('Failed to update task status:', error);
-    }
-});
-
-// ... existing code ...
-
-// Update task priority
-option.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    const updatedTask = await updateTask(task, { priority: priority.name });
-    if (updatedTask) {
-        renderActiveBoard();
-    }
-    priorityTray.classList.remove('active');
-});
-
-// ... existing code ...
-
-// Update task due date
-const saveDueDate = async () => {
-    const inputValue = dateInput.value.trim();
-    let parsedDate = null;
-    
-    if (inputValue) {
-        try {
-            parsedDate = DumbDateParser.parseDate(inputValue);
-            if (!parsedDate) return;
-            
-            // If no time specified, set to midnight
-            if (!inputValue.toLowerCase().includes('@') && 
-                !inputValue.toLowerCase().includes('at') && 
-                !inputValue.toLowerCase().includes('am') && 
-                !inputValue.toLowerCase().includes('pm')) {
-                parsedDate.setHours(0, 0, 0, 0);
-            }
-        } catch (err) {
-            console.error('Error parsing due date:', err);
-            return;
-        }
-    }
-
-    const updatedTask = await updateTask(task, { dueDate: parsedDate ? parsedDate.toISOString() : null });
-    if (updatedTask) {
-        // Update calendar badge display
-        calendarIcon.innerHTML = updatedTask.dueDate ? formatDueDate(updatedTask.dueDate) : '<svg viewBox="0 0 24 24" width="12" height="12"><path d="M8 2v3M16 2v3M3.5 8h17M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-        calendarBadge.classList.toggle('has-due-date', !!updatedTask.dueDate);
-        calendarBadge.classList.toggle('past-due', updatedTask.dueDate && isPastDue(updatedTask.dueDate));
-    }
-    dateInput.hidden = true;
-};
-
-
-// Update task description
-async function updateTaskDescription(task, description) {
-    const updatedTask = await updateTask(task, { description });
-    return !!updatedTask;
-}
