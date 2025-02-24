@@ -170,6 +170,13 @@ app.use(BASE_PATH, express.static(config.PUBLIC_DIR, {
     }
 }));
 
+// Add static middleware for src directory
+app.use(BASE_PATH + '/src', express.static(path.join(config.PUBLIC_DIR, 'src'), {
+    setHeaders: (res, filePath) => {
+        debugLog('📂 Static (src):', path.basename(filePath));
+    }
+}));
+
 // Request logging
 app.use((req, res, next) => {
     debugLog('🔍 Request Pipeline Start:', {

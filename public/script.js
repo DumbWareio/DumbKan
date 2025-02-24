@@ -10,25 +10,7 @@ let state = {
 let elements = {};
 
 // Task Management Helper Functions
-async function updateTask(task, updates) {
-    try {
-        const response = await loggedFetch(`${window.appConfig.basePath}/api/tasks/${task.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updates)
-        });
-                    
-        if (response.ok) {
-            const updatedTask = await response.json();
-            state.tasks[task.id] = updatedTask;
-            return updatedTask;
-        }
-        return null;
-    } catch (error) {
-        console.error('Failed to update task:', error);
-        return null;
-    }
-}
+// Keeping this comment to track the function's new location
 
 // API Logging wrapper
 async function loggedFetch(url, options = {}) {
@@ -70,25 +52,9 @@ async function loggedFetch(url, options = {}) {
     }
 }
 
-// Theme Management
-function initTheme() {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme) {
-        document.documentElement.setAttribute('data-theme', savedTheme);
-    } else {
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const theme = prefersDark ? 'dark' : 'light';
-        document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem('theme', theme);
-    }
-}
-
-function toggleTheme() {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
-}
+// Theme Management functions are now in module-loader.js
+// Use global functions instead of import
+// import { initTheme, toggleTheme } from './src/theme.js';
 
 // Board Management
 async function loadBoards() {
@@ -1053,6 +1019,11 @@ async function getStoredAuth() {
 }
 
 function initLogin() {
+    console.log('initLogin starting...', {
+        initThemeExists: typeof window.initTheme === 'function',
+        windowKeys: Object.keys(window)
+    });
+    
     // Initialize theme on login page
     initTheme();
     const themeToggleElem = document.getElementById('themeToggle');
@@ -2635,28 +2606,6 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// ... existing code ...
-async function updateTask(task, updates) {
-    try {
-        const response = await loggedFetch(`${window.appConfig.basePath}/api/tasks/${task.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updates)
-        });
-                    
-        if (response.ok) {
-            const updatedTask = await response.json();
-            state.tasks[task.id] = updatedTask;
-            return updatedTask;
-        }
-        return null;
-    } catch (error) {
-        console.error('Failed to update task:', error);
-        return null;
-    }
-}
-
-// ... existing code ...
 
 // Update task title
 makeEditable(titleText, async (newTitle) => {
@@ -2725,100 +2674,6 @@ const saveDueDate = async () => {
     dateInput.hidden = true;
 };
 
-// ... existing code ...
-
-// Delete task
-async function deleteTask(taskId, sectionId) {
-    try {
-        const response = await loggedFetch(`${window.appConfig.basePath}/api/tasks/${taskId}`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' }
-        });
-        
-        if (response.ok) {
-            delete state.tasks[taskId];
-            const section = state.sections[sectionId];
-            if (section) {
-                const taskIndex = section.taskIds.indexOf(taskId);
-                if (taskIndex !== -1) {
-                    section.taskIds.splice(taskIndex, 1);
-                }
-            }
-            hideTaskModal();
-            renderActiveBoard();
-            return true;
-        }
-        return false;
-    } catch (error) {
-        console.error('Error deleting task:', error);
-        return false;
-    }
-}
-
-// ... existing code ...
-
-// Move task
-async function handleTaskMove(taskId, fromSectionId, toSectionId, newIndex) {
-    try {
-        const response = await loggedFetch(`${window.appConfig.basePath}/api/tasks/${taskId}/move`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                toSectionId,
-                newIndex
-            })
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || 'Failed to move task');
-        }
-
-        // Get the updated task data from the response
-        const updatedData = await response.json();
-        
-        // Update local state with the response data
-        if (updatedData.task) {
-            state.tasks[taskId] = updatedData.task;
-        }
-        
-        if (updatedData.sections) {
-            // Update the sections with their new task orders
-            Object.assign(state.sections, updatedData.sections);
-        } else {
-            // Fallback to manual state update if server doesn't provide section data
-            const fromSection = state.sections[fromSectionId];
-            const toSection = state.sections[toSectionId];
-
-            if (fromSection && toSection) {
-                // Remove task from source section
-                const taskIndex = fromSection.taskIds.indexOf(taskId);
-                if (taskIndex !== -1) {
-                    fromSection.taskIds.splice(taskIndex, 1);
-                }
-
-                // Add task to target section
-                if (typeof newIndex === 'number') {
-                    toSection.taskIds.splice(newIndex, 0, taskId);
-                } else {
-                    toSection.taskIds.push(taskId);
-                }
-
-                // Update task's section reference
-                if (state.tasks[taskId]) {
-                    state.tasks[taskId].sectionId = toSectionId;
-                }
-            }
-        }
-        
-        // Only re-render if we successfully updated the state
-        renderActiveBoard();
-    } catch (error) {
-        console.error('Failed to move task:', error);
-        throw error;
-    }
-}
-// ... existing code ...
 
 // Update task description
 async function updateTaskDescription(task, description) {

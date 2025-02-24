@@ -22,7 +22,8 @@ const publicPaths = [
     '/manifest.json',
     '/favicon.svg',
     '/logo.png',
-    '/marked.min.js'
+    '/marked.min.js',
+    '/src/'  // Allow access to src directory
 ];
 
 function debugLog(...args) {
@@ -135,6 +136,8 @@ function getAttemptCount(ip) {
 
 // Add a function to check if a path is public
 function isPublicPath(path) {
+    // Check if path starts with /src/ or matches other public paths
+    if (path.startsWith('/src/')) return true;
     return publicPaths.some(p => path === p || path.endsWith(p));
 }
 
