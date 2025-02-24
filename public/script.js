@@ -1150,6 +1150,9 @@ function renderColumn(section) {
     return columnEl;
 }
 
+// handleTaskMove function has been moved to /public/src/task-utils.js
+// Import using: import { handleTaskMove } from './src/task-utils.js';
+
 // Add this function to handle moving task to the right
 async function moveTaskRight(taskId, currentSectionId) {
     const board = state.boards[state.activeBoard];
@@ -1620,71 +1623,8 @@ function renderTask(task) {
 }
 
 // Add back the handleTaskMove function
-async function handleTaskMove(taskId, fromSectionId, toSectionId, newIndex) {
-    try {
-        const response = await loggedFetch(`${window.appConfig.basePath}/api/tasks/${taskId}/move`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                toSectionId,
-                newIndex
-            })
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || 'Failed to move task');
-        }
-
-        // Get the updated task data from the response
-        const updatedData = await response.json();
-        
-        // Update local state with the response data
-        if (updatedData.task) {
-            state.tasks[taskId] = updatedData.task;
-        }
-        
-        if (updatedData.sections) {
-            // Update the sections with their new task orders
-            Object.assign(state.sections, updatedData.sections);
-        } else {
-            // Fallback to manual state update if server doesn't provide section data
-            const fromSection = state.sections[fromSectionId];
-            const toSection = state.sections[toSectionId];
-
-            if (fromSection && toSection) {
-                // Remove task from source section
-                const taskIndex = fromSection.taskIds.indexOf(taskId);
-                if (taskIndex !== -1) {
-                    fromSection.taskIds.splice(taskIndex, 1);
-                }
-
-                // Add task to target section
-                if (typeof newIndex === 'number') {
-                    toSection.taskIds.splice(newIndex, 0, taskId);
-                } else {
-                    toSection.taskIds.push(taskId);
-                }
-
-                // Update task's section reference
-                if (state.tasks[taskId]) {
-                    state.tasks[taskId].sectionId = toSectionId;
-                }
-            }
-        }
-        
-        // Only re-render if we successfully updated the state
-        // Use the window function reference for consistency
-        if (typeof window.renderActiveBoard === 'function') {
-            window.renderActiveBoard(state, elements);
-        } else {
-            console.warn('renderActiveBoard not available');
-        }
-    } catch (error) {
-        console.error('Failed to move task:', error);
-        throw error;
-    }
-}
+// handleTaskMove function has been moved to /public/src/task-utils.js
+// Import using: import { handleTaskMove } from './src/task-utils.js';
 
 // Add the deleteSection function
 async function deleteSection(sectionId) {
@@ -1944,11 +1884,11 @@ function initCalendarInputSlide() {
 // Add error message styles
 
 // Expose necessary functions to window for other modules to use
+// Note: handleTaskMove function has been moved to task-utils.js and is exposed on the window there
 window.loadBoards = loadBoards;
 window.addColumn = addColumn;
 window.switchBoard = switchBoard;
 window.createBoard = createBoard;
-window.handleTaskMove = handleTaskMove;
 window.handleSectionMove = handleSectionMove;
 window.handleDragStart = handleDragStart;
 window.handleDragEnd = handleDragEnd;
