@@ -1,5 +1,6 @@
 // Import necessary functions
 import { showTaskModal, hideTaskModal, addTask } from './src/task-modal.js';
+import { formatDateHumanReadable, formatDueDate, isPastDue } from './src/date-utils.js';
 
 // Expose functions to global window object
 window.showTaskModal = showTaskModal;
@@ -2252,79 +2253,16 @@ function initCalendarInputSlide() {
 }
 
 // Add this helper function at the top level
-function formatDateHumanReadable(dateStr) {
-    if (!dateStr) return '';
-    
-    const date = new Date(dateStr);
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    // Reset time parts for today/tomorrow comparison
-    const dateNoTime = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const todayNoTime = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const tomorrowNoTime = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
-    
-    // Check if time is midnight (00:00)
-    const isMidnight = date.getHours() === 0 && date.getMinutes() === 0;
-    
-    // Only add time if it's not midnight
-    const timeStr = isMidnight ? '' : ` @ ${date.toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: false 
-    })}`;
-    
-    if (dateNoTime.getTime() === todayNoTime.getTime()) {
-        return `Today${timeStr}`;
-    } else if (dateNoTime.getTime() === tomorrowNoTime.getTime()) {
-        return `Tomorrow${timeStr}`;
-    } else {
-        // Format as YYYY-MM-DD
-        const dateStr = date.toISOString().split('T')[0];
-        return `${dateStr}${timeStr}`;
-    }
-}
+// formatDateHumanReadable function has been moved to /public/src/date-utils.js
+// Keeping this comment to track the function's new location
 
-// Add this helper function to format dates for display
-function formatDueDate(dateStr) {
-    if (!dateStr) return '';
-    
-    const date = new Date(dateStr);
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    // Reset time parts for comparison
-    const dateNoTime = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const todayNoTime = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const tomorrowNoTime = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
-    
-    if (dateNoTime.getTime() === todayNoTime.getTime()) {
-        return 'Today';
-    } else if (dateNoTime.getTime() === tomorrowNoTime.getTime()) {
-        return 'Tomorrow';
-    } else {
-        return date.toISOString().split('T')[0]; // YYYY-MM-DD format
-    }
-}
+// formatDueDate function has been moved to /public/src/date-utils.js
+// Keeping this comment to track the function's new location
 
-// Add this helper function to check if a date is in the past
-function isPastDue(dateStr) {
-    if (!dateStr) return false;
-    const date = new Date(dateStr);
-    const now = new Date();
-    
-    // Reset time parts for comparison
-    const dateNoTime = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const todayNoTime = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
-    return dateNoTime < todayNoTime;
-}
+// isPastDue function has been moved to /public/src/date-utils.js
+// Keeping this comment to track the function's new location
 
 // API call wrapper with retry logic
-// apiCall function has been moved to /public/src/api-utils.js
-// Keeping this comment to track the function's new location
 
 // Load boards with retry
 
