@@ -11,9 +11,13 @@ function showTaskModal(task) {
     const elements = window.elements || {};
     if (!elements.taskModal) return;
     
-    // Get the latest task data from state
-    const state = window.state || {};
-    const currentTask = state.tasks[task.id] || task;
+    // Always use the global state object directly
+    if (!window.state) {
+        console.error('window.state is not initialized - cannot show task modal');
+        return;
+    }
+    
+    const currentTask = window.state.tasks && task.id ? window.state.tasks[task.id] || task : task;
     
     const isNewTask = !currentTask.id;
     elements.taskModal.querySelector('h2').textContent = isNewTask ? 'Add Task' : 'Edit Task';
@@ -123,29 +127,28 @@ function showTaskModal(task) {
  * Hide the task modal with a closing animation
  */
 function hideTaskModal() {
-    const elements = window.elements || {};
-    if (!elements.taskModal) return;
+    if (!window.elements || !window.elements.taskModal) return;
     
     // Add closing class to trigger slide down animation
-    elements.taskModal.classList.add('closing');
+    window.elements.taskModal.classList.add('closing');
     
     // Wait for animation to complete before hiding
     setTimeout(() => {
-        elements.taskModal.classList.remove('closing');
-        elements.taskModal.hidden = true;
+        window.elements.taskModal.classList.remove('closing');
+        window.elements.taskModal.hidden = true;
         // Reset form and clear all datasets if it exists
-        if (elements.taskForm) {
-            elements.taskForm.reset();
-            elements.taskForm.dataset.taskId = '';
-            elements.taskForm.dataset.sectionId = '';
+        if (window.elements.taskForm) {
+            window.elements.taskForm.reset();
+            window.elements.taskForm.dataset.taskId = '';
+            window.elements.taskForm.dataset.sectionId = '';
             // Clear raw input datasets
-            if (elements.taskDueDate) {
-                delete elements.taskDueDate.dataset.rawInput;
-                delete elements.taskDueDate.dataset.originalDate;
+            if (window.elements.taskDueDate) {
+                delete window.elements.taskDueDate.dataset.rawInput;
+                delete window.elements.taskDueDate.dataset.originalDate;
             }
-            if (elements.taskStartDate) {
-                delete elements.taskStartDate.dataset.rawInput;
-                delete elements.taskStartDate.dataset.originalDate;
+            if (window.elements.taskStartDate) {
+                delete window.elements.taskStartDate.dataset.rawInput;
+                delete window.elements.taskStartDate.dataset.originalDate;
             }
         }
     }, 300); // Match the animation duration
@@ -159,10 +162,16 @@ function hideTaskModal() {
  * @param {string} [status='active'] - The status of the task
  * @param {Date} [dueDate=null] - The due date of the task
  * @param {Date} [startDate=null] - The start date of the task
+ * @param {string} [boardId=null] - The ID of the board the task belongs to
  * @returns {Promise<void>}
  */
-async function addTask(sectionId, title, description = '', status = 'active', dueDate = null, startDate = null) {
-    const state = window.state || {};
+async function addTask(sectionId, title, description = '', status = 'active', dueDate = null, startDate = null, boardId = null) {
+    // ALWAYS work with the global state object directly, not a local copy
+    // This ensures we're modifying the same state that's used for rendering
+    if (!window.state) {
+        console.error('window.state is not initialized - cannot add task');
+        return;
+    }
     
     try {
         if (!sectionId) {
@@ -170,7 +179,49 @@ async function addTask(sectionId, title, description = '', status = 'active', du
             return;
         }
         
-        const response = await window.loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks`, {
+        // Add debugging to check active board status
+        console.log('Add task details:', {
+            sectionId,
+            providedBoardId: boardId,
+            activeBoard: window.state.activeBoard,
+            boardsAvailable: window.state.boards ? Object.keys(window.state.boards) : 'No boards',
+            hasBoards: !!window.state.boards,
+            hasSections: !!window.state.sections
+        });
+        
+        // Use provided boardId or try to find it from state
+        let effectiveBoardId = boardId || window.state.activeBoard;
+        
+        if (!effectiveBoardId && window.state.boards && window.state.sections && window.state.sections[sectionId]) {
+            // Try to find the board containing this section
+            const section = window.state.sections[sectionId];
+            
+            // Loop through boards to find which one contains this section
+            for (const bId in window.state.boards) {
+                if (window.state.boards[bId].sections && window.state.boards[bId].sections.includes(sectionId)) {
+                    effectiveBoardId = bId;
+                    console.log(`Found board ${effectiveBoardId} for section ${sectionId}`);
+                    break;
+                }
+            }
+        }
+        
+        if (!effectiveBoardId) {
+            console.error('No board ID provided, no active board found, and could not determine board for section:', sectionId);
+            throw new Error('Cannot determine which board this task belongs to');
+        }
+        
+        // Before making the API call, ensure the board exists in the state
+        console.log('State check before API call:', {
+            boardId: effectiveBoardId,
+            boardExists: window.state.boards && window.state.boards[effectiveBoardId] ? true : false,
+            boardStructure: window.state.boards ? 
+                (window.state.boards[effectiveBoardId] ? 
+                    Object.keys(window.state.boards[effectiveBoardId]) : 'Board not found') 
+                : 'No boards object'
+        });
+        
+        const response = await window.loggedFetch(`${window.appConfig.basePath}/api/boards/${effectiveBoardId}/sections/${sectionId}/tasks`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
@@ -189,25 +240,87 @@ async function addTask(sectionId, title, description = '', status = 'active', du
         
         const data = await response.json();
         
-        // Make sure the section exists in state
-        if (!state.sections[sectionId]) {
-            console.error('Section not found in state:', sectionId);
-            return;
-        }
-        
-        state.tasks[data.id] = data;
-        state.sections[sectionId].taskIds.push(data.id);
-        
-        // Update just the tasks container instead of full re-render
-        const tasksContainer = document.querySelector(`.column[data-section-id="${sectionId}"] .tasks`);
-        if (tasksContainer) {
-            const taskEl = window.renderTask(data);
-            if (taskEl) {
-                tasksContainer.appendChild(taskEl);
+        // Handle case where section might not exist in local state yet
+        if (!window.state.sections[sectionId]) {
+            console.warn('Section not found in local state:', sectionId);
+            
+            // Initialize the section in local state if not present
+            window.state.sections[sectionId] = {
+                id: sectionId,
+                taskIds: [],
+                boardId: effectiveBoardId,
+                name: 'Section ' + sectionId.substring(0, 4) // Add a default name
+            };
+            
+            // Make sure the section is connected to the board
+            if (window.state.boards && window.state.boards[effectiveBoardId]) {
+                // Initialize sectionOrder if it doesn't exist
+                if (!Array.isArray(window.state.boards[effectiveBoardId].sectionOrder)) {
+                    window.state.boards[effectiveBoardId].sectionOrder = [];
+                }
+                
+                // Add section to board's sectionOrder if not already there
+                if (!window.state.boards[effectiveBoardId].sectionOrder.includes(sectionId)) {
+                    window.state.boards[effectiveBoardId].sectionOrder.push(sectionId);
+                }
+            } else {
+                console.warn('Board not found in state or has invalid structure:', effectiveBoardId);
+                
+                // If board.boards is empty or missing the active board, we might need to reload
+                if (!window.state.boards || Object.keys(window.state.boards).length === 0) {
+                    console.warn('Boards object is empty or missing - attempting to reload board data');
+                    // If we have a loadBoards function, call it to refresh state
+                    if (typeof window.loadBoards === 'function') {
+                        console.log('Calling loadBoards to refresh board data');
+                        await window.loadBoards();
+                        
+                        // After reloading, check again if the board exists
+                        if (window.state.boards && window.state.boards[effectiveBoardId]) {
+                            console.log('Board data reloaded successfully');
+                        } else {
+                            console.error('Board still not found after reload');
+                        }
+                    }
+                }
             }
         }
+        
+        // Add the task to state
+        window.state.tasks[data.id] = data;
+        
+        // Make sure taskIds is an array
+        if (!Array.isArray(window.state.sections[sectionId].taskIds)) {
+            window.state.sections[sectionId].taskIds = [];
+        }
+        
+        // Add task to section's task list
+        window.state.sections[sectionId].taskIds.push(data.id);
+        
+        // Final state check before refresh
+        console.log('Final state check before refresh:', {
+            boardId: effectiveBoardId,
+            boardExists: window.state.boards && window.state.boards[effectiveBoardId] ? true : false,
+            boardsKeys: window.state.boards ? Object.keys(window.state.boards) : 'No boards',
+            activeBoard: window.state.activeBoard,
+            sectionExists: !!window.state.sections[sectionId]
+        });
+        
+        // Refresh the UI to show the new task
+        if (typeof window.refreshBoard === 'function') {
+            // Ensure state has activeBoard set
+            if (!window.state.activeBoard && effectiveBoardId) {
+                window.state.activeBoard = effectiveBoardId;
+                console.log('Setting active board for refresh:', effectiveBoardId);
+            }
+            
+            // Use the global state object for refresh
+            window.refreshBoard(window.state, window.elements);
+        }
+        
+        return data;
     } catch (error) {
         console.error('Failed to add task:', error);
+        throw new Error(`Failed to add task: ${error.message}`);
     }
 }
 

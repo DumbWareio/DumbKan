@@ -1,6 +1,9 @@
 // All utility functions are now available on the window object
 // No need to import them since they're loaded via script tags
 
+// Import render initialization functions
+import { initRenderFunctions, refreshUI } from './src/render-init.js';
+
 // State Management
 let state = {
     boards: {},
@@ -26,7 +29,12 @@ async function loadBoards() {
     console.log('[Debug] loadBoards() called', {
         hasApiCall: typeof window.apiCall === 'function',
         hasAppConfig: typeof window.appConfig === 'object',
-        appConfigBasePath: window.appConfig?.basePath
+        appConfigBasePath: window.appConfig?.basePath,
+        stateType: typeof state,
+        windowStateType: typeof window.state,
+        stateId: state ? `Local state obj #${Math.random().toString(36).substr(2, 9)}` : 'undefined',
+        windowStateId: window.state ? `Global state obj #${Math.random().toString(36).substr(2, 9)}` : 'undefined',
+        sameState: window.state === state
     });
 
     try {
@@ -56,10 +64,41 @@ async function loadBoards() {
             throw new Error('Invalid boards data received');
         }
 
-        state = data;
-        console.log('[Debug] State updated with boards:', {
-            boardCount: Object.keys(state.boards || {}).length,
-            state: state
+        // Here's the problem: this overwrites the state variable entirely
+        // We should merge data into state instead of reassigning
+        console.log('[Debug] State before update:', {
+            localStateId: state ? `Local state obj #${Math.random().toString(36).substr(2, 9)}` : 'undefined',
+            windowStateId: window.state ? `Global state obj #${Math.random().toString(36).substr(2, 9)}` : 'undefined',
+            sameReference: window.state === state,
+            localBoards: state.boards ? Object.keys(state.boards).length : 0,
+            windowBoards: window.state?.boards ? Object.keys(window.state.boards).length : 0
+        });
+        
+        // Instead of replacing state, merge the data into the existing state
+        if (window.state) {
+            // Merge data into window.state instead of replacing
+            window.state.boards = data.boards || {};
+            window.state.sections = data.sections || {};
+            window.state.tasks = data.tasks || {};
+            window.state.activeBoard = data.activeBoard;
+            
+            // Also update local state reference for backward compatibility
+            state = window.state;
+            
+            console.log('[Debug] Using MERGED state update');
+        } else {
+            // Initialize window.state if it doesn't exist yet
+            state = data;
+            window.state = state;
+            console.log('[Debug] Using DIRECT state update');
+        }
+        
+        console.log('[Debug] State after update:', {
+            localStateId: state ? `Local state obj #${Math.random().toString(36).substr(2, 9)}` : 'undefined',
+            windowStateId: window.state ? `Global state obj #${Math.random().toString(36).substr(2, 9)}` : 'undefined',
+            sameReference: window.state === state,
+            localBoards: state.boards ? Object.keys(state.boards).length : 0,
+            windowBoards: window.state?.boards ? Object.keys(window.state.boards).length : 0
         });
 
         // Select active board
@@ -92,7 +131,8 @@ async function loadBoards() {
             await switchBoard(state.activeBoard);
         }
 
-        renderBoards();
+        // Use window.renderBoards instead of local renderBoards
+        window.renderBoards(state, elements);
 
     } catch (error) {
         console.error('[Debug] Error in loadBoards:', {
@@ -118,31 +158,15 @@ async function loadBoards() {
     }
 }
 
+// Comment indicating this function has been moved to render-utils.js
+// Keeping a reference that forwards to the window function
 function renderBoards() {
-    if (!elements.boardList) return;
-    
-    elements.boardList.innerHTML = '';
-    if (!state.boards) return;
-
-    Object.values(state.boards).forEach(board => {
-        if (!board) return;
-        
-        const li = document.createElement('li');
-        const textSpan = document.createElement('span');
-        textSpan.textContent = board.name || 'Unnamed Board';
-        li.appendChild(textSpan);
-        li.dataset.boardId = board.id;
-        if (board.id === state.activeBoard) li.classList.add('active');
-        
-        li.addEventListener('click', (e) => {
-            // Only switch board if not clicking on the editable input
-            if (e.target.tagName !== 'INPUT') {
-                switchBoard(board.id);
-            }
-        });
-        
-        elements.boardList.appendChild(li);
-    });
+    // Forward to the imported render function
+    if (typeof window.renderBoards === 'function') {
+        window.renderBoards(state, elements);
+    } else {
+        console.warn('renderBoards not available');
+    }
 }
 
 async function switchBoard(boardId) {
@@ -156,8 +180,9 @@ async function switchBoard(boardId) {
     url.searchParams.set('board', boardId);
     window.history.pushState({}, '', url);
     
-    renderBoards();
-    renderActiveBoard();
+    // Use window render functions
+    window.renderBoards(state, elements);
+    window.renderActiveBoard(state, elements);
     
     // Update page title
     document.title = `${state.boards[boardId].name || 'Unnamed Board'} - DumbKan`;
@@ -174,7 +199,7 @@ async function createBoard(name) {
         if (response.ok) {
             const board = await response.json();
             state.boards[board.id] = board;
-            renderBoards();
+            window.renderBoards(state, elements);
             switchBoard(board.id);
         }
     } catch (error) {
@@ -198,7 +223,7 @@ async function addColumn(boardId) {
             const section = await response.json();
             state.sections[section.id] = section;
             state.boards[boardId].sectionOrder.push(section.id);
-            renderActiveBoard();
+            window.renderActiveBoard(state, elements);
         }
     } catch (error) {
         console.error('Failed to add column:', error);
@@ -330,97 +355,14 @@ async function handleDrop(e) {
 }
 
 // Rendering
+// Comment indicating this function has been moved to render-utils.js
 function renderActiveBoard() {
-    // Early validation of board existence
-    if (!state.activeBoard || !state.boards) {
-        console.warn('No active board or boards state available');
-        if (elements.currentBoard) {
-            elements.currentBoard.textContent = 'No Board Selected';
-        }
-        if (elements.columns) {
-            elements.columns.innerHTML = '';
-        }
-            return;
-        }
-
-    const board = state.boards[state.activeBoard];
-    if (!board) {
-        console.warn('Active board not found in boards state');
-        if (elements.currentBoard) {
-            elements.currentBoard.textContent = 'Board Not Found';
-        }
-        if (elements.columns) {
-            elements.columns.innerHTML = '';
-        }
-            return;
-        }
-
-    if (!elements.currentBoard || !elements.columns) {
-        console.error('Required DOM elements not found');
-                return;
-            }
-            
-    // Update board name and make it editable
-    elements.currentBoard.textContent = board.name || 'Unnamed Board';
-    makeEditable(elements.currentBoard, async (newName) => {
-        try {
-            const response = await fetch(`${window.appConfig.basePath}/api/boards/${board.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: newName })
-            });
-            
-            if (response.ok) {
-                const updatedBoard = await response.json();
-                state.boards[board.id] = updatedBoard;
-                renderBoards(); // Update the board list to reflect the change
-                return true;
-            }
-            return false;
-        } catch (error) {
-            console.error('Failed to update board name:', error);
-            return false;
-        }
-    }, state);
-    elements.columns.innerHTML = '';
-
-    // Ensure sectionOrder exists and is an array
-    if (!board.sectionOrder || !Array.isArray(board.sectionOrder)) {
-        console.warn(`Invalid or missing sectionOrder for board: ${board.id}`);
-        board.sectionOrder = [];
+    // Forward to the imported render function
+    if (typeof window.renderActiveBoard === 'function') {
+        window.renderActiveBoard(state, elements);
+    } else {
+        console.warn('renderActiveBoard not available');
     }
-    
-    // Render sections
-    board.sectionOrder.forEach(sectionId => {
-        if (!sectionId) {
-            console.warn('Null or undefined section ID found in sectionOrder');
-            return;
-        }
-        
-        const section = state.sections?.[sectionId];
-        if (!section) {
-            console.warn(`Section ${sectionId} not found in state`);
-            return;
-        }
-
-        const columnEl = renderColumn(section);
-        if (columnEl) {
-        elements.columns.appendChild(columnEl);
-        }
-    });
-
-    // Add the "Add Column" button
-    const addColumnBtn = document.createElement('button');
-    addColumnBtn.className = 'add-column-btn';
-    addColumnBtn.setAttribute('aria-label', 'Add new column');
-    addColumnBtn.innerHTML = `
-        <svg viewBox="0 0 24 24" width="24" height="24">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
-    `;
-    addColumnBtn.addEventListener('click', () => addColumn(board.id));
-    elements.columns.appendChild(addColumnBtn);
 }
 
 // Event Listeners
@@ -462,6 +404,17 @@ function initEventListeners() {
                 hideTaskModal();
             }
         });
+    
+    // Delete task button
+    if (elements.deleteTaskBtn) {
+        elements.deleteTaskBtn.addEventListener('click', () => {
+            const taskId = elements.taskForm.dataset.taskId;
+            const sectionId = elements.taskForm.dataset.sectionId;
+            if (taskId && sectionId && window.deleteTask) {
+                window.deleteTask(taskId, sectionId);
+            }
+        });
+    }
 
     // Task form submission
     elements.taskForm.addEventListener('submit', async (e) => {
@@ -536,31 +489,17 @@ function initEventListeners() {
                     const updatedTask = await response.json();
                     state.tasks[taskId] = updatedTask;
                     
-                    // Update calendar badge in the task card
-                    const taskElement = document.querySelector(`.task[data-task-id="${taskId}"]`);
-                    if (taskElement) {
-                        const calendarBadge = taskElement.querySelector('.calendar-badge');
-                        const calendarIcon = taskElement.querySelector('.calendar-icon');
-                        if (calendarBadge && calendarIcon) {
-                            calendarIcon.innerHTML = updatedTask.dueDate ? formatDueDate(updatedTask.dueDate) : '<svg viewBox="0 0 24 24" width="12" height="12"><path d="M8 2v3M16 2v3M3.5 8h17M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-                            calendarBadge.classList.toggle('has-due-date', !!updatedTask.dueDate);
-                            calendarBadge.classList.toggle('past-due', updatedTask.dueDate && isPastDue(updatedTask.dueDate));
-                            
-                            // Update the calendar input if it exists
-                            const dateInput = calendarBadge.querySelector('.calendar-date-input');
-                            if (dateInput && updatedTask.dueDate) {
-                                dateInput.value = new Date(updatedTask.dueDate).toISOString().split('T')[0];
-                            }
-                        }
+                    // Refresh the UI with our rendering utilities
+                    if (typeof window.refreshBoard === 'function') {
+                        window.refreshBoard(state, elements);
                     }
                 }
             } else {
-                // Create new task
-                await addTask(sectionId, title, description, status, parsedDueDate, parsedStartDate);
+                // Create new task using the extracted addTask function
+                await window.addTask(sectionId, title, description, status, parsedDueDate, parsedStartDate, state.activeBoard);
             }
             
-            hideTaskModal();
-            renderActiveBoard();
+            window.hideTaskModal();
         } catch (error) {
             console.error('Failed to save task:', error);
         }
@@ -676,7 +615,7 @@ async function init() {
         taskDueDate: document.getElementById('taskDueDate'),
         taskStartDate: document.getElementById('taskStartDate'),
         boardContainer: document.querySelector('.board-container'),
-        deleteTaskBtn: document.querySelector('.btn-delete')
+        deleteTaskBtn: document.querySelector('#taskModal .btn-delete')
     };
 
     // Check required elements
@@ -693,6 +632,13 @@ async function init() {
             return;
         }
     }
+    
+    // Make state and elements globally available
+    window.state = state;
+    window.elements = elements;
+    
+    // Initialize render functions
+    initRenderFunctions();
     
     initTheme();
     initEventListeners();
@@ -975,7 +921,12 @@ async function handleSectionMove(sectionId, newIndex) {
             board.sectionOrder.splice(newIndex, 0, sectionId);
         }
 
-        renderActiveBoard();
+        // Use the window function for rendering
+        if (typeof window.renderActiveBoard === 'function') {
+            window.renderActiveBoard(state, elements);
+        } else {
+            console.warn('renderActiveBoard not available');
+        }
     } catch (error) {
         console.error('Failed to move section:', error);
         loadBoards(); // Reload the board state in case of error
@@ -1668,34 +1619,6 @@ function renderTask(task) {
     return taskElement;
 }
 
-// Add the deleteTask function
-async function deleteTask(taskId, sectionId) {
-    try {
-        const response = await loggedFetch(`${window.appConfig.basePath}/api/tasks/${taskId}`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' }
-        });
-        
-        if (response.ok) {
-            delete state.tasks[taskId];
-            const section = state.sections[sectionId];
-            if (section) {
-                const taskIndex = section.taskIds.indexOf(taskId);
-                if (taskIndex !== -1) {
-                    section.taskIds.splice(taskIndex, 1);
-                }
-            }
-            hideTaskModal();
-            renderActiveBoard();
-            return true;
-        }
-        return false;
-    } catch (error) {
-        console.error('Error deleting task:', error);
-        return false;
-    }
-}
-
 // Add back the handleTaskMove function
 async function handleTaskMove(taskId, fromSectionId, toSectionId, newIndex) {
     try {
@@ -1751,7 +1674,12 @@ async function handleTaskMove(taskId, fromSectionId, toSectionId, newIndex) {
         }
         
         // Only re-render if we successfully updated the state
-        renderActiveBoard();
+        // Use the window function reference for consistency
+        if (typeof window.renderActiveBoard === 'function') {
+            window.renderActiveBoard(state, elements);
+        } else {
+            console.warn('renderActiveBoard not available');
+        }
     } catch (error) {
         console.error('Failed to move task:', error);
         throw error;
@@ -1838,13 +1766,22 @@ function createInlineTaskEditor(sectionId, addTaskBtn) {
 
         const title = input.value.trim();
         if (title) {
-            await addTask(sectionId, title);
-            if (keepEditorOpen) {
-                input.value = '';
-                input.focus();
-        } else {
+            try {
+                // Explicitly pass board ID when calling addTask
+                const boardId = state.activeBoard;
+                await window.addTask(sectionId, title, '', 'active', null, null, boardId);
+                if (keepEditorOpen) {
+                    input.value = '';
+                    input.focus();
+                } else {
+                    closeEditor();
+                }
+            } catch (error) {
+                console.error('Error adding task:', error);
                 closeEditor();
             }
+        } else {
+            closeEditor();
         }
         isProcessing = false;
     };
@@ -2005,3 +1942,21 @@ function initCalendarInputSlide() {
 // Create error container if it doesn't exist
 
 // Add error message styles
+
+// Expose necessary functions to window for other modules to use
+window.loadBoards = loadBoards;
+window.addColumn = addColumn;
+window.switchBoard = switchBoard;
+window.createBoard = createBoard;
+window.handleTaskMove = handleTaskMove;
+window.handleSectionMove = handleSectionMove;
+window.handleDragStart = handleDragStart;
+window.handleDragEnd = handleDragEnd;
+window.handleDragOver = handleDragOver;
+window.handleDrop = handleDrop;
+window.handleSectionDragStart = handleSectionDragStart;
+window.createInlineTaskEditor = createInlineTaskEditor;
+window.moveTaskRight = moveTaskRight;
+window.handleTouchStart = handleTouchStart;
+window.handleTouchMove = handleTouchMove;
+window.handleTouchEnd = handleTouchEnd;
