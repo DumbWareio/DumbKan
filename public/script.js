@@ -22,32 +22,54 @@ let elements = {};
 
 // Board Management
 async function loadBoards() {
+    console.log('[Debug] loadBoards() called', {
+        hasApiCall: typeof window.apiCall === 'function',
+        hasAppConfig: typeof window.appConfig === 'object',
+        appConfigBasePath: window.appConfig?.basePath
+    });
+
     try {
         if (!window.appConfig) {
-            console.error('Configuration not loaded');
-            return;
+            console.error('[Debug] Configuration not loaded');
+            throw new Error('Configuration not loaded');
         }
 
-        // Add cache-busting query parameter and no-cache headers
-        const response = await loggedFetch(`${window.appConfig.basePath}/api/boards?_t=${Date.now()}`, {
+        // Add cache-busting parameter
+        const timestamp = new Date().getTime();
+        const url = `${window.appConfig.basePath}/api/boards?_=${timestamp}`;
+        
+        console.log('[Debug] Attempting to load boards from:', url);
+        
+        const data = await window.apiCall(url, {
             headers: {
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
                 'Pragma': 'no-cache',
                 'Expires': '0'
             }
         });
+        console.log('[Debug] Boards API response:', data);
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || 'Failed to load boards');
+        // Validate the response data
+        if (!data || typeof data.boards !== 'object') {
+            console.error('[Debug] Invalid boards data:', data);
+            throw new Error('Invalid boards data received');
         }
 
-        const data = await response.json();
         state = data;
+        console.log('[Debug] State updated with boards:', {
+            boardCount: Object.keys(state.boards || {}).length,
+            state: state
+        });
 
-        // Set active board from URL or localStorage
+        // Select active board
         const urlParams = new URLSearchParams(window.location.search);
         const boardId = urlParams.get('board');
+        
+        console.log('[Debug] Board selection:', {
+            urlBoardId: boardId,
+            availableBoards: Object.keys(state.boards)
+        });
+
         if (boardId && state.boards[boardId]) {
             state.activeBoard = boardId;
         } else {
@@ -58,6 +80,11 @@ async function loadBoards() {
                 state.activeBoard = Object.keys(state.boards)[0];
             }
         }
+        
+        console.log('[Debug] Final board state:', {
+            activeBoard: state.activeBoard,
+            totalBoards: Object.keys(state.boards).length
+        });
 
         // If we have an active board, load it
         if (state.activeBoard) {
@@ -65,9 +92,15 @@ async function loadBoards() {
         }
 
         renderBoards();
+
     } catch (error) {
-        console.error('Failed to load boards:', error);
-        // Initialize empty state on error
+        console.error('[Debug] Error in loadBoards:', {
+            error: error.message,
+            stack: error.stack,
+            online: navigator.onLine
+        });
+
+        // Initialize empty state if loading fails
         state = {
             boards: {},
             sections: {},
@@ -75,16 +108,11 @@ async function loadBoards() {
             activeBoard: null
         };
         
-        // Show offline message if appropriate
+        // Show appropriate error message based on connection status
         if (!navigator.onLine) {
-            console.warn('Browser is offline, using empty state');
-        }
-        
-        renderBoards();
-        
-        // Update UI to show error state
-        if (elements.currentBoard) {
-            elements.currentBoard.textContent = navigator.onLine ? 'Error Loading Boards' : 'Offline';
+            showError('You are offline. Please check your internet connection.');
+        } else {
+            showError('Failed to load boards. Please try again later.');
         }
     }
 }
@@ -879,7 +907,7 @@ async function init() {
 
     async function loadBoardsWithRetry() {
         try {
-    await loadBoards();
+            await loadBoards();
         } catch (error) {
             console.error(`Failed to load boards (attempt ${retryCount + 1}/${maxRetries}):`, error);
             if (retryCount < maxRetries) {
@@ -888,6 +916,9 @@ async function init() {
                 const delay = Math.min(1000 * Math.pow(2, retryCount), 5000);
                 await new Promise(resolve => setTimeout(resolve, delay));
                 await loadBoardsWithRetry();
+            } else {
+                // Final error handling
+                showError('Failed to load boards after multiple attempts');
             }
         }
     }
@@ -2466,109 +2497,16 @@ function isPastDue(dateStr) {
 }
 
 // API call wrapper with retry logic
-async function apiCall(url, options = {}) {
-    const MAX_RETRIES = 3;
-    const RETRY_DELAY = 1000; // 1 second
-    let attempt = 0;
-
-    while (attempt < MAX_RETRIES) {
-        try {
-            console.group('🔄 API Call:', options.method || 'GET', url);
-            console.log('Request:', { ...options, attempt });
-
-            const response = await fetch(url, {
-                ...options,
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...options.headers
-                }
-            });
-
-            const data = await response.json();
-            console.log('Response:', data);
-            console.groupEnd();
-
-            if (!response.ok) {
-                throw new Error(data.error || `HTTP error! status: ${response.status}`);
-            }
-
-            return data;
-        } catch (error) {
-            console.error(`Attempt ${attempt + 1} failed:`, error);
-            
-            if (error.offline || attempt === MAX_RETRIES - 1) {
-                console.groupEnd();
-                throw new Error('Failed to connect to server. Please check your internet connection.');
-            }
-
-            attempt++;
-            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * attempt));
-        }
-    }
-}
+// apiCall function has been moved to /public/src/api-utils.js
+// Keeping this comment to track the function's new location
 
 // Load boards with retry
-async function loadBoardsWithRetry() {
-    try {
-        const timestamp = Date.now();
-        const data = await apiCall(`${window.appConfig.basePath}/api/boards?_t=${timestamp}`);
-        
-        if (!data || !data.boards) {
-            throw new Error('Invalid response format');
-        }
-
-        return data;
-    } catch (error) {
-        console.error('Failed to load boards:', error);
-        showError('Failed to load boards. Please check your connection and try again.');
-        throw error;
-    }
-}
 
 // Show error message
-function showError(message) {
-    const errorContainer = document.getElementById('error-container') || createErrorContainer();
-    errorContainer.textContent = message;
-    errorContainer.style.display = 'block';
-    
-    // Auto-hide after 5 seconds
-    setTimeout(() => {
-        errorContainer.style.display = 'none';
-    }, 5000);
-}
 
 // Create error container if it doesn't exist
-function createErrorContainer() {
-    const container = document.createElement('div');
-    container.id = 'error-container';
-    container.className = 'error-message';
-    document.body.appendChild(container);
-    return container;
-}
 
 // Add error message styles
-const style = document.createElement('style');
-style.textContent = `
-.error-message {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background-color: #ff4444;
-    color: white;
-    padding: 15px 20px;
-    border-radius: 4px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    z-index: 1000;
-    display: none;
-    animation: slideIn 0.3s ease-out;
-}
-
-@keyframes slideIn {
-    from { transform: translateX(100%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-}
-`;
-document.head.appendChild(style);
 
 
 // Update task title

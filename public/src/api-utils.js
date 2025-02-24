@@ -1,5 +1,12 @@
 // API Utility Functions
 
+// Log initial state
+console.log('[Debug] Loading api-utils.js', {
+    windowExists: typeof window !== 'undefined',
+    hasLoggedFetch: typeof window.loggedFetch === 'function',
+    hasApiCall: typeof window.apiCall === 'function'
+});
+
 function loggedFetch(url, options = {}) {
     const method = options.method || 'GET';
     const requestBody = options.body ? JSON.parse(options.body) : null;
@@ -44,5 +51,48 @@ function loggedFetch(url, options = {}) {
     });
 }
 
-// Expose the function globally
-window.loggedFetch = loggedFetch; 
+// API call wrapper with retry logic
+function apiCall(url, options = {}) {
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 1000; // 1 second
+    let attempt = 0;
+
+    const attemptFetch = () => {
+        return loggedFetch(url, {
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        }).then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        }).catch(error => {
+            attempt++;
+            
+            if (attempt < MAX_RETRIES) {
+                console.warn(`Attempt ${attempt} failed. Retrying...`, error);
+                return new Promise(resolve => 
+                    setTimeout(() => resolve(attemptFetch()), RETRY_DELAY * attempt)
+                );
+            }
+            
+            console.error('Failed to connect to server. Please check your internet connection.');
+            throw error;
+        });
+    };
+
+    return attemptFetch();
+}
+
+// Expose the functions globally
+window.loggedFetch = loggedFetch;
+window.apiCall = apiCall;
+
+// Log final state
+console.log('[Debug] Finished loading api-utils.js', {
+    hasLoggedFetch: typeof window.loggedFetch === 'function',
+    hasApiCall: typeof window.apiCall === 'function'
+}); 
