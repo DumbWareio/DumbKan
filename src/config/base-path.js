@@ -4,10 +4,8 @@
  * Used for routing and URL construction throughout the application
  */
 
-const config = require('../config');
-
 function debugLog(...args) {
-    if (config.DEBUG) {
+    if (process.env.DEBUG === 'TRUE' || process.env.DUMBKAN_DEBUG === 'true') {
         console.log('[DEBUG]', ...args);
     }
 }
@@ -17,21 +15,32 @@ function debugLog(...args) {
  * @returns {string} The normalized base path
  */
 function initializeBasePath() {
-    if (!config.BASE_URL) {
+    debugLog('Initializing base path from environment:', {
+        BASE_URL: process.env.BASE_URL,
+        NODE_ENV: process.env.NODE_ENV
+    });
+
+    if (!process.env.BASE_URL) {
         debugLog('No BASE_URL set, using empty base path');
         return '';
     }
 
-    // Clean and normalize the path
-    let path = config.BASE_URL;
+    let path = process.env.BASE_URL;
 
     // If it's a full URL, extract just the path portion
     try {
         const url = new URL(path);
         path = url.pathname;
-    } catch {
-        // Not a full URL, treat as a path
-        // No action needed as we'll process it as a path
+        debugLog('Parsed BASE_URL:', {
+            original: process.env.BASE_URL,
+            parsed: url,
+            extractedPath: path
+        });
+    } catch (e) {
+        debugLog('BASE_URL not a full URL, treating as path:', {
+            value: path,
+            error: e.message
+        });
     }
 
     // Ensure path starts with / if not empty
@@ -42,8 +51,8 @@ function initializeBasePath() {
     // Remove trailing slash if present
     path = path.replace(/\/$/, '');
 
-    debugLog('Base URL Configuration:', {
-        originalUrl: config.BASE_URL,
+    debugLog('Final base path configuration:', {
+        originalUrl: process.env.BASE_URL,
         normalizedPath: path
     });
 
