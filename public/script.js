@@ -1158,126 +1158,8 @@ function renderColumn(section) {
 // Import using: import { moveTaskRight } from './src/task-utils.js';
 
 // Touch event handling for mobile drag and drop
-function handleTouchStart(e) {
-    const dragHandle = e.target.closest('.task-drag-handle');
-    if (!dragHandle) return;
-
-    const task = dragHandle.closest('.task');
-    if (!task) return;
-
-    e.preventDefault(); // Prevent scrolling while dragging
-
-    // Create and dispatch dragstart event
-    const dragStartEvent = new DragEvent('dragstart', {
-        bubbles: true,
-        cancelable: true,
-        dataTransfer: new DataTransfer()
-    });
-
-    // Set the data that would normally be set in dragstart
-    dragStartEvent.dataTransfer.setData('application/json', JSON.stringify({
-        taskId: task.dataset.taskId,
-        sourceSectionId: task.closest('.column').dataset.sectionId,
-        type: 'task'
-    }));
-
-    task.dispatchEvent(dragStartEvent);
-}
-
-function handleTouchMove(e) {
-    if (!document.querySelector('.task.dragging')) return;
-    
-    e.preventDefault();
-    const touch = e.touches[0];
-    
-    // Create and dispatch dragover event
-    const dragOverEvent = new DragEvent('dragover', {
-        bubbles: true,
-        cancelable: true,
-        clientX: touch.clientX,
-        clientY: touch.clientY,
-        dataTransfer: new DataTransfer()
-    });
-    
-    // Find the element under the touch point
-    const elementUnderTouch = document.elementFromPoint(touch.clientX, touch.clientY);
-    if (elementUnderTouch) {
-        elementUnderTouch.dispatchEvent(dragOverEvent);
-    }
-}
-
-function handleTouchEnd(e) {
-    const draggedTask = document.querySelector('.task.dragging');
-    if (!draggedTask) return;
-    
-    const touch = e.changedTouches[0];
-    
-    // Find the element under the touch point
-    const elementUnderTouch = document.elementFromPoint(touch.clientX, touch.clientY);
-    if (!elementUnderTouch) return;
-    
-    // Find the target column
-    const targetColumn = elementUnderTouch.closest('.column');
-    if (!targetColumn) return;
-    
-    // Get the target section ID
-    const targetSectionId = targetColumn.dataset.sectionId;
-    if (!targetSectionId) return;
-    
-    // Get the task ID and original section ID
-    const taskId = draggedTask.dataset.taskId;
-    // Get the original section ID from the task's data in the state
-    const task = state.tasks[taskId];
-    if (!task) return;
-    const sourceSectionId = task.sectionId;
-    
-    // Find the index where the task should be inserted
-    const tasksContainer = targetColumn.querySelector('.tasks');
-    if (!tasksContainer) return;
-    
-    const siblings = [...tasksContainer.querySelectorAll('.task:not(.dragging)')];
-    const nextSibling = siblings.find(sibling => {
-        const rect = sibling.getBoundingClientRect();
-        return touch.clientY < rect.top + rect.height / 2;
-    });
-    
-    const newIndex = nextSibling ? siblings.indexOf(nextSibling) : siblings.length;
-    
-    // Only proceed if we're moving to a different section or a different position in the same section
-    if (sourceSectionId === targetSectionId) {
-        const currentIndex = state.sections[sourceSectionId].taskIds.indexOf(taskId);
-        if (currentIndex === newIndex) return; // Don't proceed if position hasn't changed
-    }
-    
-    // Create DataTransfer object with all necessary data
-    const dataTransfer = new DataTransfer();
-    dataTransfer.setData('application/json', JSON.stringify({
-        taskId,
-        sourceSectionId,
-        type: 'task',
-        toSectionId: targetSectionId,
-        newIndex
-    }));
-    
-    // Create and dispatch drop event
-    const dropEvent = new DragEvent('drop', {
-        bubbles: true,
-        cancelable: true,
-        clientX: touch.clientX,
-        clientY: touch.clientY,
-        dataTransfer
-    });
-    
-    // Dispatch the event on the target column
-    targetColumn.dispatchEvent(dropEvent);
-    
-    // Create and dispatch dragend event
-    const dragEndEvent = new DragEvent('dragend', {
-        bubbles: true,
-        cancelable: true
-    });
-    draggedTask.dispatchEvent(dragEndEvent);
-}
+// handleTouchStart, handleTouchMove, and handleTouchEnd functions have been moved to /public/src/touch-drag.js
+// Import using: import { handleTouchStart, handleTouchMove, handleTouchEnd } from './src/touch-drag.js';
 
 // Update renderTask to add touch event listeners
 function renderTask(task) {
@@ -1872,6 +1754,7 @@ function initCalendarInputSlide() {
 
 // Expose necessary functions to window for other modules to use
 // Note: handleTaskMove function has been moved to task-utils.js and is exposed on the window there
+// Note: handleTouchStart, handleTouchMove, and handleTouchEnd functions have been moved to touch-drag.js and are exposed on the window there
 window.loadBoards = loadBoards;
 window.addColumn = addColumn;
 window.switchBoard = switchBoard;
@@ -1883,8 +1766,5 @@ window.handleDragOver = handleDragOver;
 window.handleDrop = handleDrop;
 window.handleSectionDragStart = handleSectionDragStart;
 window.createInlineTaskEditor = createInlineTaskEditor;
-window.handleTouchStart = handleTouchStart;
-window.handleTouchMove = handleTouchMove;
-window.handleTouchEnd = handleTouchEnd;
 window.deleteSection = deleteSection;
 window.deleteBoard = deleteBoard;
