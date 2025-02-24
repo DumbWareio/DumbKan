@@ -179,8 +179,57 @@ async function handleTaskMove(taskId, fromSectionId, toSectionId, newIndex) {
     }
 }
 
+/**
+ * Moves a task to the section immediately to the right of its current section
+ * @param {string} taskId - The ID of the task to move
+ * @param {string} currentSectionId - The ID of the section currently containing the task
+ * @returns {Promise<void>} - Promise that resolves when the task has been moved
+ */
+async function moveTaskRight(taskId, currentSectionId) {
+    try {
+        // Get the active board state
+        if (!window.state || !window.state.boards || !window.state.activeBoard) {
+            console.error('Board state not available');
+            return;
+        }
+
+        const board = window.state.boards[window.state.activeBoard];
+        if (!board || !board.sectionOrder) {
+            console.error('Invalid board structure');
+            return;
+        }
+
+        // Find the current section's index
+        const currentIndex = board.sectionOrder.indexOf(currentSectionId);
+        if (currentIndex === -1) {
+            console.error('Current section not found in board');
+            return;
+        }
+
+        // Check if this is the rightmost section
+        if (currentIndex >= board.sectionOrder.length - 1) {
+            console.log('Task is already in the rightmost section');
+            return;
+        }
+
+        // Get the next section
+        const nextSectionId = board.sectionOrder[currentIndex + 1];
+        if (!nextSectionId) {
+            console.error('Next section not found');
+            return;
+        }
+
+        // Move the task using the handleTaskMove function
+        await handleTaskMove(taskId, currentSectionId, nextSectionId, 0);
+    } catch (error) {
+        console.error('Failed to move task right:', error);
+        throw error;
+    }
+}
+
 // Expose the functions globally
 window.updateTask = updateTask;
 window.getPrioritySymbol = getPrioritySymbol;
 window.deleteTask = deleteTask;
-window.handleTaskMove = handleTaskMove; 
+window.handleTaskMove = handleTaskMove;
+window.moveTaskRight = moveTaskRight; 

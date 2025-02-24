@@ -1154,21 +1154,8 @@ function renderColumn(section) {
 // Import using: import { handleTaskMove } from './src/task-utils.js';
 
 // Add this function to handle moving task to the right
-async function moveTaskRight(taskId, currentSectionId) {
-    const board = state.boards[state.activeBoard];
-    if (!board || !board.sectionOrder) return;
-
-    // Find the current section's index
-    const currentIndex = board.sectionOrder.indexOf(currentSectionId);
-    if (currentIndex === -1 || currentIndex >= board.sectionOrder.length - 1) return;
-
-    // Get the next section
-    const nextSectionId = board.sectionOrder[currentIndex + 1];
-    if (!nextSectionId) return;
-
-    // Move the task
-    await handleTaskMove(taskId, currentSectionId, nextSectionId, 0);
-}
+// moveTaskRight function has been moved to /public/src/task-utils.js
+// Import using: import { moveTaskRight } from './src/task-utils.js';
 
 // Touch event handling for mobile drag and drop
 function handleTouchStart(e) {
@@ -1896,7 +1883,6 @@ window.handleDragOver = handleDragOver;
 window.handleDrop = handleDrop;
 window.handleSectionDragStart = handleSectionDragStart;
 window.createInlineTaskEditor = createInlineTaskEditor;
-window.moveTaskRight = moveTaskRight;
 window.handleTouchStart = handleTouchStart;
 window.handleTouchMove = handleTouchMove;
 window.handleTouchEnd = handleTouchEnd;
