@@ -2,6 +2,9 @@
 import { showTaskModal, hideTaskModal, addTask } from './src/task-modal.js';
 import { formatDateHumanReadable, formatDueDate, isPastDue } from './src/date-utils.js';
 
+// makeEditable function has been moved to /public/src/ui-utils.js
+// Keeping this comment to track the function's new location
+
 // Expose functions to global window object
 window.showTaskModal = showTaskModal;
 window.hideTaskModal = hideTaskModal;
