@@ -112,13 +112,10 @@ app.use(BASE_PATH, express.static(config.PUBLIC_DIR, {
     setHeaders: (res, filePath) => {
         if (config.DEBUG) {
             debugLog('📂 Static File Request:', {
-                originalUrl: req.originalUrl,
-                baseUrl: req.baseUrl,
-                path: req.path,
-                publicDir: config.PUBLIC_DIR,
+                file: path.basename(filePath),
                 resolvedPath: filePath,
-                basePath: BASE_PATH,
-                exists: fs.existsSync(filePath)
+                publicDir: config.PUBLIC_DIR,
+                relativePath: path.relative(config.PUBLIC_DIR, filePath)
             });
         }
         // Set proper cache headers
