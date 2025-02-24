@@ -1960,3 +1960,5 @@ window.moveTaskRight = moveTaskRight;
 window.handleTouchStart = handleTouchStart;
 window.handleTouchMove = handleTouchMove;
 window.handleTouchEnd = handleTouchEnd;
+window.deleteSection = deleteSection;
+window.deleteBoard = deleteBoard;
