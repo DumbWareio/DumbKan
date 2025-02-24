@@ -154,14 +154,24 @@ app.use(BASE_PATH, auth.protectRoute);
 // Protected routes and API endpoints
 // Second: Special route handlers (before protection)
 app.get(BASE_PATH + '/config.js', (req, res) => {
-    debugLog('Serving config.js');
+    // Determine the protocol, respecting Traefik's forwarded protocol
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
+    
+    debugLog('Serving config.js:', {
+        protocol,
+        host,
+        headers: req.headers,
+        basePath: BASE_PATH
+    });
+    
     res.type('application/javascript').send(`
         window.appConfig = {
             basePath: '${BASE_PATH}',
             debug: ${config.DEBUG},
             siteTitle: '${siteTitle}',
             version: '1.0.0',
-            apiUrl: '${req.protocol}://${req.headers.host}${BASE_PATH}'
+            apiUrl: '${protocol}://${host}${BASE_PATH}'
         };
 
         // Log configuration to help debug

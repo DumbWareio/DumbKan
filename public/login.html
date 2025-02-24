@@ -11,12 +11,7 @@
         // Debug logging for URL and protocol
         console.log('Current URL:', window.location.href);
         console.log('Current Protocol:', window.location.protocol);
-
-        // Override default behavior to force HTTP
-        if (window.location.protocol === 'https:') {
-            console.warn('HTTPS detected, attempting to redirect to HTTP');
-            window.location.href = window.location.href.replace('https:', 'http:');
-        }
+        console.log('Base Path:', window.appConfig?.basePath || 'Not set');
     </script>
 </head>
 <body>
