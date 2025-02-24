@@ -18,12 +18,15 @@ const publicPaths = [
     '/verify-pin',
     '/styles.css',
     '/script.js',
+    '/sw.js',
+    '/config.js',
     '/dumbdateparser.js',
     '/manifest.json',
     '/favicon.svg',
     '/logo.png',
     '/marked.min.js',
-    '/src/'  // Allow access to src directory
+    '/src/',  // Allow access to src directory
+    '/icons/'  // Allow access to icons directory
 ];
 
 function debugLog(...args) {

@@ -71,7 +71,7 @@ app.use(helmet({
             scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
             styleSrc: ["'self'", "'unsafe-inline'"],
             imgSrc: ["'self'"],
-            workerSrc: ["'self'"],
+            workerSrc: ["'self'", "'unsafe-eval'"],
             manifestSrc: ["'self'"]
         },
     },
@@ -79,25 +79,6 @@ app.use(helmet({
     hsts: false,
     // Explicitly allow same-origin for all resources
     crossOriginResourcePolicy: { policy: 'same-origin' }
-}));
-
-// Serve login.html and its required assets before auth protection
-app.use(BASE_PATH, express.static(config.PUBLIC_DIR, {
-    setHeaders: (res, filePath) => {
-        // Only log in debug mode
-        if (config.DEBUG) {
-            debugLog('📂 Serving static file:', path.basename(filePath));
-        }
-    }
-}));
-
-// Add static middleware for src directory
-app.use(BASE_PATH + '/src', express.static(path.join(config.PUBLIC_DIR, 'src'), {
-    setHeaders: (res, filePath) => {
-        if (config.DEBUG) {
-            debugLog('📂 Serving src file:', path.basename(filePath));
-        }
-    }
 }));
 
 app.use(express.json());
@@ -125,23 +106,24 @@ debugLog('Configuring session middleware:', {
 
 app.use(session(sessionConfig));
 
-// At the top with other middleware, before routes
-app.use((req, res, next) => {
-    debugLog('🔍 Request:', {
-        url: req.url,
-        path: req.path,
-        method: req.method,
-        session: {
-            exists: !!req.session,
-            authenticated: req.session?.authenticated
-        },
-        headers: {
-            'service-worker': req.headers['service-worker'],
-            'cache-control': req.headers['cache-control']
+// Serve static files BEFORE auth middleware
+app.use(BASE_PATH, express.static(config.PUBLIC_DIR, {
+    index: false, // Disable directory indexing
+    setHeaders: (res, filePath) => {
+        if (config.DEBUG) {
+            debugLog('📂 Serving static file:', {
+                file: path.basename(filePath),
+                path: filePath.replace(config.PUBLIC_DIR, '')
+            });
         }
-    });
-    next();
-});
+        // Set proper cache headers
+        if (filePath.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-cache');
+        } else {
+            res.setHeader('Cache-Control', 'public, max-age=31536000');
+        }
+    }
+}));
 
 // Auth routes
 app.use(BASE_PATH, authRoutes);
