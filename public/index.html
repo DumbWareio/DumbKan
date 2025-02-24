@@ -96,7 +96,6 @@
     <div class="dumbware-credit">
         A Dumbware by <a href="https://dumbware.io" target="_blank" rel="noopener noreferrer">Dumbware.io</a>
     </div>
-    <script src="src/module-loader.js"></script>
     <script src="config.js"></script>
     <script src="marked.min.js"></script>
     <script src="dumbdateparser.js"></script>
@@ -104,7 +103,7 @@
     <script src="src/theme.js"></script>
     <script src="src/ui-utils.js"></script>
     <script src="src/task-utils.js"></script>
-    <script src="script.js"></script>
+    <script type="module" src="script.js"></script>
     <script>
         // Register service worker
         if ('serviceWorker' in navigator) {
