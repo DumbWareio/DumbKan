@@ -954,16 +954,6 @@ document.addEventListener('DOMContentLoaded', () => {
 // Function has been moved to /public/src/text-utils.js
 // Import using: import { linkify } from './src/text-utils.js'
 
-function getPrioritySymbol(priority) {
-    switch (priority) {
-        case 'urgent': return '!';
-        case 'high': return '↑';
-        case 'medium': return '-';
-        case 'low': return '↓';
-        default: return '-';
-    }
-}
-
 // Section drag and drop
 async function handleSectionMove(sectionId, newIndex) {
     try {

@@ -5,6 +5,21 @@ if (typeof window.loggedFetch !== 'function') {
     console.warn('loggedFetch is not defined. Make sure it is loaded before task-utils.js');
 }
 
+/**
+ * Get the symbol representing a task's priority
+ * @param {string} priority - The priority level of the task
+ * @returns {string} A symbol representing the priority
+ */
+function getPrioritySymbol(priority) {
+    switch (priority) {
+        case 'urgent': return '!';
+        case 'high': return '↑';
+        case 'medium': return '-';
+        case 'low': return '↓';
+        default: return '-';
+    }
+}
+
 function updateTask(task, updates) {
     try {
         return window.loggedFetch(`${window.appConfig.basePath}/api/tasks/${task.id}`, {
@@ -29,5 +44,6 @@ function updateTask(task, updates) {
     }
 }
 
-// Expose the function globally
-window.updateTask = updateTask; 
+// Expose the functions globally
+window.updateTask = updateTask;
+window.getPrioritySymbol = getPrioritySymbol; 
