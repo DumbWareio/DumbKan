@@ -237,122 +237,17 @@ async function addColumn(boardId) {
 // Remove the entire function blocks for showTaskModal, hideTaskMove, and addTask
 
 // Drag and Drop
-function handleDragStart(e) {
-    const task = e.target.closest('.task');
-    const columnHeader = e.target.closest('.column-header');
-    
-    if (task && !columnHeader) {
-    task.classList.add('dragging');
-    e.dataTransfer.setData('application/json', JSON.stringify({
-        taskId: task.dataset.taskId,
-            sourceSectionId: task.closest('.column').dataset.sectionId,
-            type: 'task'
-        }));
-    } else if (columnHeader) {
-        const column = columnHeader.closest('.column');
-        if (column) {
-            column.classList.add('dragging');
-            e.dataTransfer.setData('application/json', JSON.stringify({
-                sectionId: column.dataset.sectionId,
-                type: 'section'
-            }));
-        }
-    }
-    e.dataTransfer.effectAllowed = 'move';
-}
+// handleDragStart function has been moved to /public/src/drag-drop-utils.js
+// Import using: import { handleDragStart } from './src/drag-drop-utils.js';
 
-function handleDragEnd(e) {
-    document.querySelectorAll('.task.dragging, .column.dragging').forEach(el => {
-        el.classList.remove('dragging');
-    });
-    document.querySelectorAll('.column').forEach(col => {
-        col.classList.remove('drag-over');
-    });
-}
+// handleDragEnd function has been moved to /public/src/drag-drop-utils.js
+// Import using: import { handleDragEnd } from './src/drag-drop-utils.js';
 
-function handleDragOver(e) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    
-    const column = e.target.closest('.column');
-    if (!column) return;
-    
-    // Get clientX from either touch or mouse event
-    const clientX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
-    const clientY = (e.touches && e.touches[0]) ? e.touches[0].clientY : e.clientY;
-    
-    const draggingTask = document.querySelector('.task.dragging');
-    if (draggingTask) {
-        column.classList.add('drag-over');
-        const tasksContainer = column.querySelector('.tasks');
-        if (!tasksContainer) return;
-    
-        const siblings = [...tasksContainer.querySelectorAll('.task:not(.dragging)')];
-        const nextSibling = siblings.find(sibling => {
-            const rect = sibling.getBoundingClientRect();
-            return clientY < rect.top + rect.height / 2;
-        });
-    
-        if (nextSibling) {
-            tasksContainer.insertBefore(draggingTask, nextSibling);
-        } else {
-            tasksContainer.appendChild(draggingTask);
-        }
-    } else {
-        const draggingColumn = document.querySelector('.column.dragging');
-        if (draggingColumn) {
-            const columns = [...document.querySelectorAll('.column:not(.dragging)')];
-            const afterElement = getDragAfterElement(columns, clientX);
-            
-            if (afterElement) {
-                column.parentNode.insertBefore(draggingColumn, afterElement);
-            } else {
-                column.parentNode.appendChild(draggingColumn);
-            }
-        }
-    }
-}
+// handleDragOver function has been moved to /public/src/drag-drop-utils.js
+// Import using: import { handleDragOver } from './src/drag-drop-utils.js';
 
-async function handleDrop(e) {
-    e.preventDefault();
-    const column = e.target.closest('.column');
-    if (!column) return;
-    
-    column.classList.remove('drag-over');
-    
-    try {
-        const data = JSON.parse(e.dataTransfer.getData('application/json'));
-        
-        if (data.type === 'task') {
-            const { taskId, sourceSectionId, toSectionId, newIndex: providedIndex } = data;
-            const targetSectionId = toSectionId || column.dataset.sectionId;
-            const tasksContainer = column.querySelector('.tasks');
-            if (!tasksContainer) return;
-        
-        const task = document.querySelector(`[data-task-id="${taskId}"]`);
-        if (!task) return;
-        
-            let newIndex = providedIndex;
-            if (typeof newIndex !== 'number') {
-                const siblings = [...tasksContainer.querySelectorAll('.task')];
-                newIndex = siblings.indexOf(task);
-            }
-
-            await handleTaskMove(taskId, sourceSectionId, targetSectionId, newIndex);
-        } else if (data.type === 'section') {
-            const { sectionId } = data;
-            const columns = [...document.querySelectorAll('.column')];
-            const newIndex = columns.indexOf(column);
-            
-            if (newIndex !== -1) {
-                await handleSectionMove(sectionId, newIndex);
-            }
-        }
-    } catch (error) {
-        console.error('Error handling drop:', error);
-        loadBoards();
-    }
-}
+// handleDrop function has been moved to /public/src/drag-drop-utils.js
+// Import using: import { handleDrop } from './src/drag-drop-utils.js';
 
 // Rendering
 // Comment indicating this function has been moved to render-utils.js
@@ -1211,16 +1106,13 @@ function initCalendarInputSlide() {
 
 // Expose necessary functions to window for other modules to use
 // Note: handleTaskMove function has been moved to task-utils.js and is exposed on the window there
-// Note: handleTouchStart, handleTouchMove, and handleTouchEnd functions have been moved to touch-drag.js and are exposed on the window there
+// Note: handleTouchStart, handleTouchMove, and handleTouchEnd functions have been moved to drag-drop-utils.js and are exposed on the window there
+// Note: handleDragStart, handleDragEnd, handleDragOver, handleDrop functions have been moved to drag-drop-utils.js and are exposed on the window there
+// Note: handleSectionMove, handleSectionDragStart, handleSectionDragOver, handleSectionDrop functions have been moved to drag-drop-utils.js and are exposed on the window there
 window.loadBoards = loadBoards;
 window.addColumn = addColumn;
 window.switchBoard = switchBoard;
 window.createBoard = createBoard;
-window.handleSectionMove = handleSectionMove;
-window.handleDragStart = handleDragStart;
-window.handleDragEnd = handleDragEnd;
-window.handleDragOver = handleDragOver;
-window.handleDrop = handleDrop;
 window.createInlineTaskEditor = createInlineTaskEditor;
 window.deleteSection = deleteSection;
 window.deleteBoard = deleteBoard;
