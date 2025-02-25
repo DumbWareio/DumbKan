@@ -220,12 +220,9 @@ async function addTask(sectionId, title, description = '', status = 'active', du
         });
         
         // Perform API call with appropriate board ID in path
-        const response = await fetch(`/api/boards/${effectiveBoardId}/sections/${sectionId}/tasks`, {
+        const apiEndpoint = `/api/boards/${effectiveBoardId}/sections/${sectionId}/tasks`;
+        const response = await apiCall(apiEndpoint, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            credentials: 'same-origin',
             body: JSON.stringify({
                 title, 
                 description, 
