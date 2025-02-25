@@ -4,14 +4,33 @@
  * Handles things like editable fields, error messages, and UI helpers
  */
 
-// Export utility functions
-export {
-    makeEditable,
-    initCalendarInputSlide,
-    showError,
-    createErrorContainer,
-    createInlineTaskEditor
-};
+// Export utility functions individually instead of in a single object
+// Each function will be individually exported with its declaration
+
+/**
+ * Initializes the credit visibility feature
+ * Shows the credit footer when the user scrolls to the bottom of the page
+ * Sets up event listeners for scroll and resize events
+ */
+export function initCreditVisibility() {
+    // Handler function for scroll and resize events
+    const handleCreditVisibility = () => {
+        const credit = document.querySelector('.dumbware-credit');
+        if (!credit) return;
+
+        const isAtBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 10;
+        credit.classList.toggle('visible', isAtBottom);
+    };
+
+    // Add event listeners
+    window.addEventListener('scroll', handleCreditVisibility, { passive: true });
+    window.addEventListener('resize', handleCreditVisibility, { passive: true });
+
+    // Initial check to set correct visibility state
+    handleCreditVisibility();
+
+    return handleCreditVisibility;
+}
 
 /**
  * Makes an element editable with inline editing capabilities
@@ -19,7 +38,7 @@ export {
  * @param {Function} onSave - Callback function to handle saving changes
  * @param {Object} appState - The application state object containing tasks
  */
-function makeEditable(element, onSave, appState) {
+export function makeEditable(element, onSave, appState) {
     // Prevent text selection on double-click
     element.addEventListener('dblclick', (e) => {
         e.preventDefault();
@@ -214,7 +233,7 @@ function makeEditable(element, onSave, appState) {
  * Handles date entry, validation, and API updates
  * @param {Object} appState - Application state containing task data
  */
-function initCalendarInputSlide(appState) {
+export function initCalendarInputSlide(appState) {
     const calendarBadges = document.querySelectorAll('.calendar-badge');
     
     calendarBadges.forEach(badge => {
@@ -342,7 +361,7 @@ function initCalendarInputSlide(appState) {
  * Shows an error message to the user that automatically disappears after a timeout
  * @param {string} message - The error message to display
  */
-function showError(message) {
+export function showError(message) {
     const errorContainer = document.getElementById('error-container') || createErrorContainer();
     errorContainer.textContent = message;
     errorContainer.style.display = 'block';
@@ -357,7 +376,7 @@ function showError(message) {
  * Creates an error container element if it doesn't exist
  * @returns {HTMLElement} The error container element
  */
-function createErrorContainer() {
+export function createErrorContainer() {
     const container = document.createElement('div');
     container.id = 'error-container';
     container.className = 'error-message';
@@ -397,7 +416,7 @@ document.head.appendChild(style);
  * @param {HTMLElement} addTaskBtn - The "Add Task" button element that triggered the editor
  * @returns {void}
  */
-function createInlineTaskEditor(sectionId, addTaskBtn) {
+export function createInlineTaskEditor(sectionId, addTaskBtn) {
     const editor = document.createElement('div');
     editor.className = 'task-inline-editor';
     const input = document.createElement('input');
@@ -464,7 +483,12 @@ function createInlineTaskEditor(sectionId, addTaskBtn) {
 }
 
 // Expose functions on window for backward compatibility
-window.makeEditable = makeEditable;
-window.initCalendarInputSlide = initCalendarInputSlide;
-window.showError = showError;
-window.createInlineTaskEditor = createInlineTaskEditor; 
+// These assignments ensure that legacy code can still access the functions
+if (typeof window !== 'undefined') {
+    window.makeEditable = makeEditable;
+    window.initCalendarInputSlide = initCalendarInputSlide;
+    window.showError = showError;
+    window.createErrorContainer = createErrorContainer;
+    window.createInlineTaskEditor = createInlineTaskEditor;
+    window.initCreditVisibility = initCreditVisibility;
+} 

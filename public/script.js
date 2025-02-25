@@ -7,6 +7,10 @@ import { initRenderFunctions, refreshUI } from './src/render-init.js';
 import { state, getState } from './src/state.js';
 // Import auth storage functions
 import { initDB, storeAuthData, getStoredAuth } from './src/auth-storage.js';
+// Import login functionality
+import { initLogin } from './src/login-utils.js';
+// Import UI utilities
+import { initCreditVisibility } from './src/ui-utils.js';
 // deleteSection is now available on window object, no need to import
 
 // State Management
@@ -28,6 +32,7 @@ let elements = {};
 // Board Management
 // loadBoards function has been moved to /public/src/data-loading.js
 // Import using: import { loadBoards } from './src/data-loading.js'
+import { loadBoards } from './src/data-loading.js';
 
 // renderBoards function has been moved to /public/src/render-utils.js
 // Import using: import { renderBoards } from './src/render-utils.js';
@@ -75,6 +80,20 @@ let elements = {};
 
 // Initialize the application
 async function init() {
+    console.log('Initializing application');
+    
+    // Initialize credit visibility feature
+    initCreditVisibility();
+    
+    // Skip board initialization for login page
+    if (window.location.pathname.includes('login.html')) {
+        console.log('Login page detected, skipping board initialization');
+        return;
+    }
+    
+    // Proceed with board/main application initialization
+    console.log('Setting up main application elements');
+    
     // Initialize DOM elements
     elements = {
         themeToggle: document.getElementById('themeToggle'),
@@ -123,22 +142,6 @@ async function init() {
     // Load boards with retry logic
     await window.loadBoardsWithRetry();
 
-    // Handle credit visibility on scroll
-    function handleCreditVisibility() {
-        const credit = document.querySelector('.dumbware-credit');
-        if (!credit) return;
-
-        const isAtBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 10;
-        credit.classList.toggle('visible', isAtBottom);
-    }
-
-    // Add scroll event listener
-    window.addEventListener('scroll', handleCreditVisibility, { passive: true });
-    window.addEventListener('resize', handleCreditVisibility, { passive: true });
-
-    // Initial check
-    handleCreditVisibility();
-
     // Initialize modal handlers
     window.initModalHandlers(elements);
 }
@@ -158,140 +161,24 @@ async function init() {
 // getStoredAuth function has been moved to /public/src/auth-storage.js
 // Import using: import { getStoredAuth } from './src/auth-storage.js';
 
-function initLogin() {
-    console.log('initLogin starting...', {
-        initThemeExists: typeof window.initTheme === 'function',
-        windowKeys: Object.keys(window)
-    });
-    
-    // Initialize theme on login page
-    initTheme();
-    const themeToggleElem = document.getElementById('themeToggle');
-    if (themeToggleElem) {
-        themeToggleElem.addEventListener('click', toggleTheme);
-    }
-    
-    // Check for stored PIN first
-    getStoredAuth().then(authData => {
-        if (authData && authData.pin) {
-            // Auto verify the stored PIN
-            fetch(window.appConfig.basePath + '/verify-pin', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pin: authData.pin })
-            })
-            .then(response => response.json())
-            .then(result => {
-                if (result.success) {
-                    window.location.href = window.appConfig.basePath + '/';
-                    return;
-                }
-                // If verification fails, proceed with normal login
-                initPinInputs();
-            })
-            .catch(() => initPinInputs());
-        } else {
-            initPinInputs();
-        }
-    }).catch(() => initPinInputs());
-    
-    function initPinInputs() {
-        // For the login page, fetch the PIN length and generate the input boxes
-        fetch(window.appConfig.basePath + '/pin-length')
-        .then((response) => response.json())
-        .then((data) => {
-            const pinLength = data.length;
-            const container = document.querySelector('.pin-input-container');
-            if (container && pinLength > 0) {
-                container.innerHTML = ''; // Clear any preexisting inputs
-                const inputs = [];
-                for (let i = 0; i < pinLength; i++) {
-                    const input = document.createElement('input');
-                    input.type = 'password';
-                    input.inputMode = 'numeric';
-                    input.pattern = '[0-9]*';
-                    input.classList.add('pin-input');
-                    input.maxLength = 1;
-                    input.autocomplete = 'off';
-                    container.appendChild(input);
-                    inputs.push(input);
-                }
-                
-                // Force focus and show keyboard on mobile
-                if (inputs.length > 0) {
-                    setTimeout(() => {
-                        inputs[0].focus();
-                        inputs[0].click();
-                    }, 100);
-                }
-                
-                inputs.forEach((input, index) => {
-                    input.addEventListener('input', () => {
-                        if (input.value.length === 1) {
-                            if (index < inputs.length - 1) {
-                                inputs[index + 1].focus();
-                            } else {
-                                // Last digit entered, auto submit the PIN via fetch
-                                const pin = inputs.map(inp => inp.value).join('');
-                                fetch(window.appConfig.basePath + '/verify-pin', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ pin })
-                                })
-                                .then((response) => response.json())
-                                .then((result) => {
-                                    if (result.success) {
-                                        // Store the PIN in IndexedDB
-                                        storeAuthData(pin).then(() => {
-                                            // Redirect to the index page using the base URL
-                                            window.location.href = window.appConfig.basePath + '/';
-                                        });
-                                    } else {
-                                        const errorElem = document.querySelector('.pin-error');
-                                        if (result.attemptsLeft === 0) {
-                                            if (errorElem) {
-                                                errorElem.innerHTML = "Too many invalid attempts - 15 minute lockout";
-                                                errorElem.setAttribute('aria-hidden', 'false');
-                                            }
-                                            // Disable all input fields and grey them out
-                                            inputs.forEach(inp => {
-                                                inp.value = '';
-                                                inp.disabled = true;
-                                                inp.style.backgroundColor = "#ddd";
-                                            });
-                                        } else {
-                                            const invalidAttempt = 5 - (result.attemptsLeft || 0);
-                                            if (errorElem) {
-                                                errorElem.innerHTML = `Invalid PIN entry ${invalidAttempt}/5`;
-                                                errorElem.setAttribute('aria-hidden', 'false');
-                                            }
-                                            // Clear all input fields and refocus the first one
-                                            inputs.forEach(inp => inp.value = '');
-                                            inputs[0].focus();
-                                        }
-                                    }
-                                })
-                                .catch((err) => console.error('Error verifying PIN:', err));
-                            }
-                        }
-                    });
-                    
-                    input.addEventListener('keydown', (e) => {
-                        if (e.key === 'Backspace' && input.value === '' && index > 0) {
-                            inputs[index - 1].focus();
-                        }
-                    });
-                });
-            }
-        })
-        .catch((err) => console.error('Error fetching PIN length:', err));
-    }
-}
+// initLogin function has been moved to /public/src/login-utils.js
+// Import using: import { initLogin } from './src/login-utils.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('pinForm')) {
+        // We're on the login page
+        console.log('Login page detected');
+        // Initialize just login-specific functionality, not the full app
+        if (typeof window.initTheme === 'function') {
+            window.initTheme();
+        }
+        // Initialize credit visibility
+        initCreditVisibility();
+        // Initialize login functionality
         initLogin();
     } else {
+        // We're on the main application page
+        console.log('Main app page detected');
         init();
     }
 });
@@ -380,4 +267,4 @@ document.addEventListener('DOMContentLoaded', () => {
 // Note: handleSectionMove, handleSectionDragStart, handleSectionDragOver, handleSectionDrop functions have been moved to drag-drop-utils.js and are exposed on the window there
 // Note: deleteSection, deleteBoard, createBoard, switchBoard, and addColumn functions have been moved to board-utils.js and are exposed on the window there
 // Note: createInlineTaskEditor function has been moved to ui-utils.js and is exposed on the window there
-window.loadBoards = loadBoards;
+// Note: loadBoards is now imported from data-loading.js and is already exposed on the window there
