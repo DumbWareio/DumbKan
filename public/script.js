@@ -3,15 +3,15 @@
 
 // Import render initialization functions
 import { initRenderFunctions, refreshUI } from './src/render-init.js';
+// Import application state from the state module
+import { state, getState } from './src/state.js';
+// Import auth storage functions
+import { initDB, storeAuthData, getStoredAuth } from './src/auth-storage.js';
 // deleteSection is now available on window object, no need to import
 
 // State Management
-let state = {
-    boards: {},
-    sections: {},
-    tasks: {},
-    activeBoard: null
-};
+// state object has been moved to /public/src/state.js
+// Import using: import { state, getState } from './src/state.js';
 
 // DOM Elements placeholder
 let elements = {};
@@ -111,7 +111,7 @@ async function init() {
     }
     
     // Make state and elements globally available
-    window.state = state;
+    window.state = state; // Maintain backward compatibility with imported state
     window.elements = elements;
     
     // Initialize render functions
@@ -144,72 +144,19 @@ async function init() {
 }
 
 // Add this before initLogin function
-const DB_NAME = 'dumbkan-auth';
-const DB_VERSION = 1;
-const STORE_NAME = 'auth';
+// Constants have been moved to /public/src/auth-storage.js
+// const DB_NAME = 'dumbkan-auth';
+// const DB_VERSION = 1;
+// const STORE_NAME = 'auth';
 
-async function initDB() {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
-        
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve(request.result);
-        
-        request.onupgradeneeded = (event) => {
-            const db = event.target.result;
-            if (!db.objectStoreNames.contains(STORE_NAME)) {
-                db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-            }
-        };
-    });
-}
+// initDB function has been moved to /public/src/auth-storage.js
+// Import using: import { initDB } from './src/auth-storage.js';
 
-async function storeAuthData(pin) {
-    try {
-        const db = await initDB();
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        
-        // Store PIN with expiration (24 hours)
-        await store.put({
-            id: 'auth',
-            pin,
-            expires: Date.now() + (24 * 60 * 60 * 1000)
-        });
-    } catch (error) {
-        console.error('Failed to store auth data:', error);
-    }
-}
+// storeAuthData function has been moved to /public/src/auth-storage.js
+// Import using: import { storeAuthData } from './src/auth-storage.js';
 
-async function getStoredAuth() {
-    try {
-        const db = await initDB();
-        const tx = db.transaction(STORE_NAME, 'readonly');
-        const store = tx.objectStore(STORE_NAME);
-        
-        return new Promise((resolve, reject) => {
-            const request = store.get('auth');
-            
-            request.onsuccess = () => {
-                const data = request.result;
-                if (data && data.expires > Date.now()) {
-                    resolve(data);
-                } else {
-                    // Clear expired data
-                    const deleteTx = db.transaction(STORE_NAME, 'readwrite');
-                    const deleteStore = deleteTx.objectStore(STORE_NAME);
-                    deleteStore.delete('auth');
-                    resolve(null);
-                }
-            };
-            
-            request.onerror = () => reject(request.error);
-        });
-    } catch (error) {
-        console.error('Failed to get stored auth:', error);
-        return null;
-    }
-}
+// getStoredAuth function has been moved to /public/src/auth-storage.js
+// Import using: import { getStoredAuth } from './src/auth-storage.js';
 
 function initLogin() {
     console.log('initLogin starting...', {
