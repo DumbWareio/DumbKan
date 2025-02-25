@@ -201,6 +201,136 @@ function makeEditable(element, onSave, appState) {
     });
 }
 
+/**
+ * Initializes calendar input slide functionality for date entry
+ * Creates expandable date input trays for calendar badges
+ * Handles date entry, validation, and API updates
+ * @param {Object} appState - Application state containing task data
+ */
+function initCalendarInputSlide(appState) {
+    const calendarBadges = document.querySelectorAll('.calendar-badge');
+    
+    calendarBadges.forEach(badge => {
+        const badgeSvg = badge.querySelector('svg');
+        
+        // Create date tray
+        const dateTray = document.createElement('div');
+        dateTray.className = 'calendar-date-tray';
+        
+        // Create input
+        const dateInput = document.createElement('input');
+        dateInput.type = 'text';
+        dateInput.placeholder = 'Enter due date';
+        
+        // Add focus handler to select all text
+        dateInput.addEventListener('focus', (e) => {
+            e.target.select(); // Select all text when focused
+        });
+        
+        // Append input to tray
+        dateTray.appendChild(dateInput);
+        
+        // Position the tray relative to the badge
+        badge.style.position = 'relative';
+        badge.appendChild(dateTray);
+        
+        // Toggle tray
+        badge.addEventListener('click', (e) => {
+            e.stopPropagation();
+            
+            // Close any other open date trays
+            const allDateTrays = document.querySelectorAll('.calendar-date-tray.open');
+            allDateTrays.forEach(tray => {
+                if (tray !== dateTray) {
+                    tray.classList.remove('open');
+                }
+            });
+            
+            // Toggle this tray
+            dateTray.classList.toggle('open');
+            
+            // Focus the input when opening
+            if (dateTray.classList.contains('open')) {
+                dateInput.focus();
+                
+                // Set the current task's due date if it exists
+                const taskElement = badge.closest('.task');
+                const taskId = taskElement.dataset.taskId;
+                const task = appState.tasks[taskId];
+                
+                if (task && task.dueDate) {
+                    dateInput.value = new Date(task.dueDate).toLocaleDateString();
+                }
+            }
+        });
+        
+        // Handle input interactions
+        dateInput.addEventListener('blur', async () => {
+            const inputValue = dateInput.value.trim();
+            
+            try {
+                // Find task data from DOM
+                const taskElement = badge.closest('.task');
+                if (!taskElement) return;
+                
+                const taskId = taskElement.dataset.taskId;
+                const task = appState.tasks[taskId];
+                if (!task) return;
+                
+                // Dumb date parsing - if it works, it works!
+                let parsedDate = null;
+                if (inputValue) {
+                    parsedDate = window.DumbDateParser.parseDate(inputValue);
+                }
+                
+                // If we got a date, use it. If not, no date!
+                const response = await window.loggedFetch(`${window.appConfig.basePath}/api/boards/${appState.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ dueDate: parsedDate ? parsedDate.toISOString() : null })
+                });
+                
+                if (response.ok) {
+                    const updatedTask = await response.json();
+                    appState.tasks[task.id] = updatedTask;
+                    
+                    // Show it worked
+                    badge.classList.toggle('has-due-date', !!parsedDate);
+                    badge.setAttribute('title', parsedDate ? `Due: ${parsedDate.toLocaleDateString()}` : 'No due date');
+                    
+                    // Close it
+                    dateTray.classList.remove('open');
+                }
+            } catch (error) {
+                console.error('Error updating task date:', error);
+                dateTray.classList.remove('open');
+            }
+        });
+        
+        // Handle Enter and Escape keys
+        dateInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                dateInput.blur(); // This will trigger the save logic
+            } else if (e.key === 'Escape') {
+                dateTray.classList.remove('open');
+            }
+        });
+    });
+    
+    // Close tray when clicking outside
+    document.addEventListener('click', (event) => {
+        const openDateTrays = document.querySelectorAll('.calendar-date-tray.open');
+        openDateTrays.forEach(tray => {
+            const isClickInsideTray = tray.contains(event.target);
+            const isClickOnCalendarBadge = Array.from(document.querySelectorAll('.calendar-badge')).some(badge => badge.contains(event.target));
+            
+            if (!isClickInsideTray && !isClickOnCalendarBadge) {
+                tray.classList.remove('open');
+            }
+        });
+    });
+}
+
 // Show error message
 function showError(message) {
     const errorContainer = document.getElementById('error-container') || createErrorContainer();
@@ -249,4 +379,8 @@ document.head.appendChild(style);
 // Expose functions globally
 window.makeEditable = makeEditable;
 window.showError = showError;
-window.createErrorContainer = createErrorContainer; 
+window.createErrorContainer = createErrorContainer;
+window.initCalendarInputSlide = initCalendarInputSlide;
+
+// Export functions as named exports
+export { makeEditable, showError, createErrorContainer, initCalendarInputSlide }; 

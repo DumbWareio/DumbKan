@@ -351,7 +351,7 @@ function initEventListeners() {
     });
 
     // Add calendar input slide functionality
-    initCalendarInputSlide();
+    window.initCalendarInputSlide(state);
 
     // Add date input handlers
     const handleDateInput = (input) => {
@@ -872,118 +872,9 @@ function createInlineTaskEditor(sectionId, addTaskBtn) {
 }
 
 // Add this function to handle calendar input slide functionality
-function initCalendarInputSlide() {
-    const calendarBadges = document.querySelectorAll('.calendar-badge');
-    
-    calendarBadges.forEach(badge => {
-        const badgeSvg = badge.querySelector('svg');
-        
-        // Create date tray
-        const dateTray = document.createElement('div');
-        dateTray.className = 'calendar-date-tray';
-        
-        // Create input
-        const dateInput = document.createElement('input');
-        dateInput.type = 'text';
-        dateInput.placeholder = 'Enter due date';
-        
-        // Add focus handler to select all text
-        dateInput.addEventListener('focus', (e) => {
-            e.target.select(); // Select all text when focused
-        });
-        
-        // Append input to tray
-        dateTray.appendChild(dateInput);
-        
-        // Position the tray relative to the badge
-        badge.style.position = 'relative';
-        badge.appendChild(dateTray);
-        
-        // Toggle tray
-        badge.addEventListener('click', (e) => {
-            e.stopPropagation();
-            
-            // Close any other open date trays
-            const allDateTrays = document.querySelectorAll('.calendar-date-tray.open');
-            allDateTrays.forEach(tray => {
-                if (tray !== dateTray) {
-                    tray.classList.remove('open');
-                }
-            });
-            
-            // Toggle this tray
-            dateTray.classList.toggle('open');
-            
-            // Focus the input when opening
-            if (dateTray.classList.contains('open')) {
-                dateInput.focus();
-                
-                // Set the current task's due date if it exists
-                const taskElement = badge.closest('.task');
-                const taskId = taskElement.dataset.taskId;
-                const task = state.tasks[taskId];
-                
-                if (task && task.dueDate) {
-                    dateInput.value = new Date(task.dueDate).toLocaleDateString();
-                }
-            }
-        });
-        
-        // Handle input interactions
-        dateInput.addEventListener('blur', async () => {
-            const inputValue = dateInput.value.trim();
-            
-            // Dumb date parsing - if it works, it works!
-            let parsedDate = null;
-            if (inputValue) {
-                parsedDate = DumbDateParser.parseDate(inputValue);
-            }
-            
-            // If we got a date, use it. If not, no date!
-            const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ dueDate: parsedDate ? parsedDate.toISOString() : null })
-            });
-            
-            if (response.ok) {
-                const updatedTask = await response.json();
-                state.tasks[task.id] = updatedTask;
-                
-                // Show it worked
-                badge.classList.toggle('has-due-date', !!parsedDate);
-                badge.setAttribute('title', parsedDate ? `Due: ${parsedDate.toLocaleDateString()}` : 'No due date');
-                
-                // Close it
-                dateTray.classList.remove('open');
-            }
-        });
-        
-        // Handle Enter and Escape keys
-        dateInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                dateInput.blur(); // This will trigger the save logic
-            } else if (e.key === 'Escape') {
-                dateTray.classList.remove('open');
-            }
-        });
-    });
-    
-    // Close tray when clicking outside
-    document.addEventListener('click', (event) => {
-        const openDateTrays = document.querySelectorAll('.calendar-date-tray.open');
-        openDateTrays.forEach(tray => {
-            const isClickInsideTray = tray.contains(event.target);
-            const isClickOnCalendarBadge = Array.from(document.querySelectorAll('.calendar-badge')).some(badge => badge.contains(event.target));
-            
-            if (!isClickInsideTray && !isClickOnCalendarBadge) {
-                tray.classList.remove('open');
-            }
-        });
-    });
-}
+// initCalendarInputSlide function has been moved to /public/src/ui-utils.js
+// Import using: import { initCalendarInputSlide } from './src/ui-utils.js'
 
-// Add this helper function at the top level
 // formatDateHumanReadable function has been moved to /public/src/date-utils.js
 // Keeping this comment to track the function's new location
 
