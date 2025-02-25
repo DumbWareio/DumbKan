@@ -4,7 +4,14 @@
  * Handles things like editable fields, error messages, and UI helpers
  */
 
-// UI Utility Functions
+// Export utility functions
+export {
+    makeEditable,
+    initCalendarInputSlide,
+    showError,
+    createErrorContainer,
+    createInlineTaskEditor
+};
 
 /**
  * Makes an element editable with inline editing capabilities
@@ -331,7 +338,10 @@ function initCalendarInputSlide(appState) {
     });
 }
 
-// Show error message
+/**
+ * Shows an error message to the user that automatically disappears after a timeout
+ * @param {string} message - The error message to display
+ */
 function showError(message) {
     const errorContainer = document.getElementById('error-container') || createErrorContainer();
     errorContainer.textContent = message;
@@ -343,7 +353,10 @@ function showError(message) {
     }, 5000);
 }
 
-// Create error container if it doesn't exist
+/**
+ * Creates an error container element if it doesn't exist
+ * @returns {HTMLElement} The error container element
+ */
 function createErrorContainer() {
     const container = document.createElement('div');
     container.id = 'error-container';
@@ -376,11 +389,82 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// Expose functions globally
-window.makeEditable = makeEditable;
-window.showError = showError;
-window.createErrorContainer = createErrorContainer;
-window.initCalendarInputSlide = initCalendarInputSlide;
+/**
+ * Creates an inline editor for adding new tasks within a section
+ * Provides a text input field with save/cancel functionality
+ * 
+ * @param {string} sectionId - ID of the section to add the task to
+ * @param {HTMLElement} addTaskBtn - The "Add Task" button element that triggered the editor
+ * @returns {void}
+ */
+function createInlineTaskEditor(sectionId, addTaskBtn) {
+    const editor = document.createElement('div');
+    editor.className = 'task-inline-editor';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Enter task name...';
+    input.className = 'task-inline-input';
+    editor.appendChild(input);
 
-// Export functions as named exports
-export { makeEditable, showError, createErrorContainer, initCalendarInputSlide }; 
+    // Hide the add task button and insert editor in its place
+    addTaskBtn.style.display = 'none';
+    addTaskBtn.parentNode.insertBefore(editor, addTaskBtn);
+
+    let isProcessing = false;
+
+    const saveTask = async (keepEditorOpen = false) => {
+        if (isProcessing) return;
+        isProcessing = true;
+
+        const title = input.value.trim();
+        if (title) {
+            try {
+                // Explicitly pass board ID when calling addTask
+                const boardId = window.state.activeBoard;
+                await window.addTask(sectionId, title, '', 'active', null, null, boardId);
+                if (keepEditorOpen) {
+                    input.value = '';
+                    input.focus();
+                } else {
+                    closeEditor();
+                }
+            } catch (error) {
+                console.error('Error adding task:', error);
+                closeEditor();
+            }
+        } else {
+            closeEditor();
+        }
+        isProcessing = false;
+    };
+
+    const closeEditor = () => {
+        editor.remove();
+        addTaskBtn.style.display = '';
+    };
+
+    let blurTimeout;
+    input.addEventListener('blur', () => {
+        // Delay the blur handling to allow the Enter keydown to prevent it
+        blurTimeout = setTimeout(() => saveTask(false), 100);
+    });
+
+    input.addEventListener('keydown', async (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            clearTimeout(blurTimeout); // Prevent blur from triggering
+            await saveTask(true);
+        } else if (e.key === 'Escape') {
+            clearTimeout(blurTimeout); // Prevent blur from triggering
+            closeEditor();
+        }
+    });
+
+    input.focus();
+}
+
+// Expose functions on window for backward compatibility
+window.makeEditable = makeEditable;
+window.initCalendarInputSlide = initCalendarInputSlide;
+window.showError = showError;
+window.createInlineTaskEditor = createInlineTaskEditor; 

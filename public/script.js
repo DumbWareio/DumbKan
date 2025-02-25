@@ -29,16 +29,8 @@ let elements = {};
 // loadBoards function has been moved to /public/src/data-loading.js
 // Import using: import { loadBoards } from './src/data-loading.js'
 
-// Comment indicating this function has been moved to render-utils.js
-// Keeping a reference that forwards to the window function
-function renderBoards() {
-    // Forward to the imported render function
-    if (typeof window.renderBoards === 'function') {
-        window.renderBoards(state, elements);
-    } else {
-        console.warn('renderBoards not available');
-    }
-}
+// renderBoards function has been moved to /public/src/render-utils.js
+// Import using: import { renderBoards } from './src/render-utils.js';
 
 // switchBoard function has been moved to /public/src/board-utils.js
 // Import using: import { switchBoard } from './src/board-utils.js';
@@ -70,15 +62,8 @@ function renderBoards() {
 // Import using: import { handleDrop } from './src/drag-drop-utils.js';
 
 // Rendering
-// Comment indicating this function has been moved to render-utils.js
-function renderActiveBoard() {
-    // Forward to the imported render function
-    if (typeof window.renderActiveBoard === 'function') {
-        window.renderActiveBoard(state, elements);
-    } else {
-        console.warn('renderActiveBoard not available');
-    }
-}
+// renderActiveBoard function has been moved to /public/src/render-utils.js
+// Import using: import { renderActiveBoard } from './src/render-utils.js';
 
 // Event Listeners
 // initEventListeners function has been moved to /public/src/event-listeners.js
@@ -385,16 +370,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // Import using: import { handleSectionDrop } from './src/drag-drop-utils.js';
 
 // Update renderColumn function to only make the header draggable
-// Comment indicating this function has been moved to render-utils.js
-function renderColumn(section) {
-    // Forward to the imported render function
-    if (typeof window.renderColumn === 'function') {
-        return window.renderColumn(section, state, elements);
-    } else {
-        console.warn('renderColumn not available');
-        return null;
-    }
-}
+// renderColumn function has been moved to /public/src/render-utils.js
+// Import using: import { renderColumn } from './src/render-utils.js';
 
 // handleTaskMove function has been moved to /public/src/task-utils.js
 // Import using: import { handleTaskMove } from './src/task-utils.js';
@@ -408,16 +385,8 @@ function renderColumn(section) {
 // Import using: import { handleTouchStart, handleTouchMove, handleTouchEnd } from './src/touch-drag.js';
 
 // Update renderTask to add touch event listeners
-// Comment indicating this function has been moved to render-utils.js
-function renderTask(task) {
-    // Forward to the imported render function
-    if (typeof window.renderTask === 'function') {
-        return window.renderTask(task, state);
-    } else {
-        console.warn('renderTask not available');
-        return null;
-    }
-}
+// renderTask function has been moved to /public/src/render-utils.js
+// Import using: import { renderTask } from './src/render-utils.js';
 
 // Add back the handleTaskMove function
 // handleTaskMove function has been moved to /public/src/task-utils.js
@@ -431,71 +400,8 @@ function renderTask(task) {
 // deleteBoard function has been moved to /public/src/board-utils.js
 // Import using: import { deleteBoard } from './src/board-utils.js';
 
-function createInlineTaskEditor(sectionId, addTaskBtn) {
-    const editor = document.createElement('div');
-    editor.className = 'task-inline-editor';
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.placeholder = 'Enter task name...';
-    input.className = 'task-inline-input';
-    editor.appendChild(input);
-
-    // Hide the add task button and insert editor in its place
-    addTaskBtn.style.display = 'none';
-    addTaskBtn.parentNode.insertBefore(editor, addTaskBtn);
-
-    let isProcessing = false;
-
-    const saveTask = async (keepEditorOpen = false) => {
-        if (isProcessing) return;
-        isProcessing = true;
-
-        const title = input.value.trim();
-        if (title) {
-            try {
-                // Explicitly pass board ID when calling addTask
-                const boardId = state.activeBoard;
-                await window.addTask(sectionId, title, '', 'active', null, null, boardId);
-                if (keepEditorOpen) {
-                    input.value = '';
-                    input.focus();
-                } else {
-                    closeEditor();
-                }
-            } catch (error) {
-                console.error('Error adding task:', error);
-                closeEditor();
-            }
-        } else {
-            closeEditor();
-        }
-        isProcessing = false;
-    };
-
-    const closeEditor = () => {
-        editor.remove();
-        addTaskBtn.style.display = '';
-    };
-
-    let blurTimeout;
-    input.addEventListener('blur', () => {
-        // Delay the blur handling to allow the Enter keydown to prevent it
-        blurTimeout = setTimeout(() => saveTask(false), 100);
-    });
-
-    input.addEventListener('keydown', async (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            clearTimeout(blurTimeout); // Prevent blur from triggering
-            await saveTask(true);
-        } else if (e.key === 'Escape') {
-            clearTimeout(blurTimeout); // Prevent blur from triggering
-            closeEditor();
-        }
-    });
-
-    input.focus();
-}
+// createInlineTaskEditor function has been moved to /public/src/ui-utils.js
+// Import using: import { createInlineTaskEditor } from './src/ui-utils.js';
 
 // Add this function to handle calendar input slide functionality
 // initCalendarInputSlide function has been moved to /public/src/ui-utils.js
@@ -526,7 +432,5 @@ function createInlineTaskEditor(sectionId, addTaskBtn) {
 // Note: handleDragStart, handleDragEnd, handleDragOver, handleDrop functions have been moved to drag-drop-utils.js and are exposed on the window there
 // Note: handleSectionMove, handleSectionDragStart, handleSectionDragOver, handleSectionDrop functions have been moved to drag-drop-utils.js and are exposed on the window there
 // Note: deleteSection, deleteBoard, createBoard, switchBoard, and addColumn functions have been moved to board-utils.js and are exposed on the window there
+// Note: createInlineTaskEditor function has been moved to ui-utils.js and is exposed on the window there
 window.loadBoards = loadBoards;
-window.createInlineTaskEditor = createInlineTaskEditor;
-window.renderColumn = renderColumn;
-window.renderTask = renderTask;
