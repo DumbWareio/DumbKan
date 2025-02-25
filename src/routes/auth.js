@@ -13,6 +13,13 @@ const fs = require('fs');
 
 const router = express.Router();
 
+// Debug logging helper function
+function debugLog(...args) {
+    if (config.DEBUG) {
+        console.log('[DEBUG]', ...args);
+    }
+}
+
 // Login page route
 router.get('/login', (req, res) => {
     debugLog('Login route handler:', {
@@ -41,6 +48,8 @@ router.get('/login', (req, res) => {
         
         // Replace title placeholder
         html = html.replace(/{{SITE_TITLE}}/g, config.SITE_TITLE);
+        
+        // Send HTML with all placeholders replaced
         res.send(html);
     });
 });

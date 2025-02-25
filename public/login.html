@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Load config.js first to prevent theme flash -->
+    <script src="config.js"></script>
     <title>{{SITE_TITLE}}</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="styles.css">
-    <script src="config.js"></script>
     <script>
         // Debug logging for URL and protocol
         console.log('Current URL:', window.location.href);
@@ -43,7 +44,6 @@
         A Dumbware by <a href="https://dumbware.io" target="_blank" rel="noopener noreferrer">Dumbware.io</a>
     </div>
     <!-- IMPORTANT: Do not modify this script type unless the entire file is fully structured as an ES module. -->
-    <script src="config.js"></script>
     <script src="src/api-utils.js"></script>
     <script src="src/theme.js"></script>
     <script src="src/date-utils.js"></script>

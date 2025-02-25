@@ -106,6 +106,74 @@ debugLog('Configuring session middleware:', {
 
 app.use(session(sessionConfig));
 
+// Middleware to replace placeholders in HTML responses
+app.use(BASE_PATH, (req, res, next) => {
+    // Store the original send method
+    const originalSend = res.send;
+    
+    // Override the send method
+    res.send = function(body) {
+        // Only process HTML responses that contain the placeholder
+        if (typeof body === 'string' && 
+            (res.get('Content-Type')?.includes('text/html') || req.path.endsWith('.html')) && 
+            body.includes('{{SITE_TITLE}}')) {
+            
+            debugLog('Replacing {{SITE_TITLE}} placeholders in HTML response');
+            body = body.replace(/{{SITE_TITLE}}/g, siteTitle);
+        }
+        
+        // Call the original send method with the processed body
+        return originalSend.call(this, body);
+    };
+    
+    next();
+});
+
+// Serve static files BEFORE auth middleware, but AFTER our placeholder replacement middleware
+// Modify the static file serving to handle HTML files specially
+app.use(BASE_PATH, (req, res, next) => {
+    // Only intercept HTML file requests
+    if (req.path.endsWith('.html') || req.path === '/') {
+        const filePath = path.join(config.PUBLIC_DIR, req.path === '/' ? 'index.html' : req.path);
+        
+        // Check if file exists
+        if (fs.existsSync(filePath)) {
+            debugLog('Intercepting HTML file request:', {
+                path: req.path,
+                filePath
+            });
+            
+            // Read file manually
+            fs.readFile(filePath, 'utf8', (err, content) => {
+                if (err) {
+                    debugLog('Error reading HTML file:', {
+                        path: req.path,
+                        error: err.message
+                    });
+                    return next();
+                }
+                
+                // Replace placeholders
+                if (content.includes('{{SITE_TITLE}}')) {
+                    content = content.replace(/{{SITE_TITLE}}/g, siteTitle);
+                    debugLog('Replaced {{SITE_TITLE}} in static HTML file');
+                }
+                
+                // Set proper headers
+                res.setHeader('Content-Type', 'text/html');
+                res.setHeader('Cache-Control', 'no-cache');
+                
+                // Send modified content
+                res.send(content);
+            });
+        } else {
+            next();
+        }
+    } else {
+        next();
+    }
+});
+
 // Serve static files BEFORE auth middleware
 app.use(BASE_PATH, express.static(config.PUBLIC_DIR, {
     index: false, // Disable directory indexing
@@ -166,6 +234,22 @@ app.get(BASE_PATH + '/config.js', (req, res) => {
     });
     
     res.type('application/javascript').send(`
+        // Set document title immediately to prevent flash
+        document.title = '${siteTitle}';
+        
+        // Apply theme immediately to prevent flash
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            } else {
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                const theme = prefersDark ? 'dark' : 'light';
+                document.documentElement.setAttribute('data-theme', theme);
+                localStorage.setItem('theme', theme);
+            }
+        })();
+
         window.appConfig = {
             basePath: '${BASE_PATH}',
             debug: ${config.DEBUG},
@@ -179,15 +263,12 @@ app.get(BASE_PATH + '/config.js', (req, res) => {
             console.log('App config loaded:', window.appConfig);
         }
 
-        // Wait for DOM to be ready
+        // Wait for DOM to be ready to replace content
         document.addEventListener('DOMContentLoaded', () => {
-            // Set the site title
-            document.title = window.appConfig.siteTitle;
-
-            // Update any elements with the site title placeholder
-            document.querySelectorAll('.app-title, h1').forEach(element => {
-                if (element.textContent.includes('{{SITE_TITLE}}')) {
-                    element.textContent = window.appConfig.siteTitle;
+            // Replace the SITE_TITLE in specific common elements
+            document.querySelectorAll('.app-title, h1, h2, title').forEach(element => {
+                if (element.textContent && element.textContent.includes('{{SITE_TITLE}}')) {
+                    element.textContent = element.textContent.replace(/{{SITE_TITLE}}/g, window.appConfig.siteTitle);
                 }
             });
         });
@@ -258,7 +339,11 @@ app.get(BASE_PATH + '/dumbdateparser.js', (req, res) => {
 app.get(BASE_PATH + '/', auth.authMiddleware, async (req, res, next) => {
     try {
         let html = await fsPromises.readFile(path.join(config.PUBLIC_DIR, 'index.html'), 'utf8');
+        
+        // Replace the site title placeholders
         html = html.replace(/{{SITE_TITLE}}/g, siteTitle);
+        
+        // Send the modified HTML
         res.send(html);
     } catch (error) {
         next(error);
@@ -269,7 +354,11 @@ app.get(BASE_PATH + '/', auth.authMiddleware, async (req, res, next) => {
 app.get(BASE_PATH + '/index.html', auth.authMiddleware, async (req, res, next) => {
     try {
         let html = await fsPromises.readFile(path.join(config.PUBLIC_DIR, 'index.html'), 'utf8');
+        
+        // Replace the site title placeholders
         html = html.replace(/{{SITE_TITLE}}/g, siteTitle);
+        
+        // Send the modified HTML
         res.send(html);
     } catch (error) {
         next(error);
