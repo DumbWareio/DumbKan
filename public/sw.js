@@ -5,7 +5,6 @@ const ASSETS_TO_CACHE = [
     BASE_PATH + 'index.html',
     BASE_PATH + 'login.html',
     BASE_PATH + 'styles.css',
-    BASE_PATH + 'script.js',
     BASE_PATH + 'manifest.json',
     BASE_PATH + 'favicon.svg',
     BASE_PATH + 'logo.png',

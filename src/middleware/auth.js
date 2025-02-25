@@ -17,7 +17,6 @@ const publicPaths = [
     '/pin-length',
     '/verify-pin',
     '/styles.css',
-    '/script.js',
     '/sw.js',
     '/config.js',
     '/dumbdateparser.js',
