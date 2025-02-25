@@ -1,4 +1,15 @@
 const CACHE_NAME = 'dumbkan-v1';
+// Allow for dynamic protocol setting based on configuration
+self.PREFERRED_PROTOCOL = null; // Will be set via messages from main thread
+
+// Listen for messages from main thread to set protocol preference
+self.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'SET_PROTOCOL') {
+        self.PREFERRED_PROTOCOL = event.data.protocol;
+        console.log(`[SW] Protocol preference set to: ${self.PREFERRED_PROTOCOL}`);
+    }
+});
+
 const BASE_PATH = self.location.pathname.replace('sw.js', '');
 const ASSETS_TO_CACHE = [
     BASE_PATH,
@@ -38,139 +49,105 @@ self.addEventListener('install', (event) => {
                                     console.warn(`[SW] Failed to fetch ${url}: ${response.status}`);
                                     throw new Error(`Failed to fetch ${url}`);
                                 }
-                                console.log(`[SW] Successfully cached ${url}`);
-                                return cache.put(url, response);
+                                cache.put(url, response.clone())
+                                    .then(() => console.log(`[SW] Successfully cached ${url}`))
+                                    .catch(err => console.error(`[SW] Error caching ${url}:`, err));
+                                return response;
                             })
                             .catch(err => {
-                                console.warn(`[SW] Failed to cache ${url}:`, err);
-                                return null;
+                                console.error(`[SW] Failed to fetch ${url}:`, err);
+                                return Promise.reject(err);
                             })
                     )
                 );
             })
     );
-    // Activate immediately
-    self.skipWaiting();
 });
 
-// Activate event - clean up old caches and take control
+// Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
     console.log('[SW] Activate event');
     event.waitUntil(
-        Promise.all([
-            // Clean up old caches
-            caches.keys().then((cacheNames) => {
-                return Promise.all(
-                    cacheNames.map((cacheName) => {
-                        if (cacheName !== CACHE_NAME) {
-                            console.log('[SW] Deleting old cache:', cacheName);
-                            return caches.delete(cacheName);
-                        }
-                    })
-                );
-            }),
-            // Take control of all clients
-            clients.claim()
-        ])
+        caches.keys().then((keyList) => {
+            return Promise.all(keyList.map((key) => {
+                if (key !== CACHE_NAME) {
+                    console.log('[SW] Removing old cache:', key);
+                    return caches.delete(key);
+                }
+            }));
+        })
     );
+    return self.clients.claim();
 });
 
-// Fetch event - serve from cache, fallback to network
-self.addEventListener('fetch', (event) => {
+// Fetch event - respond with cache then network
+self.addEventListener('fetch', function(event) {
+    // Parse the URL to determine how to handle the request
     const url = new URL(event.request.url);
+    const requestInfo = {
+        url: url.toString(),
+        protocol: url.protocol,
+        hostname: url.hostname,
+        pathname: url.pathname,
+        isApi: url.pathname.startsWith('/api/')
+    };
+    
     console.log('[SW] Fetch event for:', url.pathname);
-
-    // Skip non-GET requests
-    if (event.request.method !== 'GET') {
-        console.log('[SW] Non-GET request, passing through:', event.request.method);
-        event.respondWith(fetch(event.request));
-        return;
+    console.log('[SW] Request info:', requestInfo);
+    
+    // For API requests or authentication endpoints, bypass cache completely
+    // Let these go directly to network to handle authentication properly
+    if (requestInfo.isApi || url.pathname === '/verify-pin') {
+        console.log('[SW] API or auth request - passing through to network:', url.pathname);
+        return; // Let the browser handle this request normally
     }
-
-    // Skip chrome-extension and other non-http(s) requests
-    if (!['http:', 'https:'].includes(url.protocol)) {
-        console.log('[SW] Non-HTTP request, ignoring');
-        return;
-    }
-
-    // For API requests and dumbdateparser.js, try network first, then cache
-    if (url.pathname.includes('/api/') || url.pathname.endsWith('/dumbdateparser.js')) {
-        console.log('[SW] Network-first request:', url.pathname);
-        event.respondWith(
-            fetch(event.request)
-                .then(response => {
-                    console.log('[SW] Network response:', response.status);
-                    if (!response.ok) {
-                        throw new Error(`Network error: ${response.status}`);
-                    }
-                    // Clone the response before caching
-                    const responseToCache = response.clone();
-                    caches.open(CACHE_NAME)
-                        .then((cache) => {
-                            console.log('[SW] Caching successful response:', url.pathname);
-                            cache.put(event.request, responseToCache);
-                        });
-                    return response;
-                })
-                .catch(error => {
-                    console.error('[SW] Network error:', error);
-                    return caches.match(event.request)
-                        .then(cachedResponse => {
-                            if (cachedResponse) {
-                                console.log('[SW] Serving from cache:', url.pathname);
-                                return cachedResponse;
-                            }
-                            // Return offline response
-                            return new Response(
-                                JSON.stringify({ 
-                                    error: 'Network error occurred',
-                                    offline: true
-                                }), 
-                                {
-                                    headers: { 'Content-Type': 'application/json' },
-                                    status: 503
-                                }
-                            );
-                        });
-                })
-        );
-        return;
-    }
-
-    // For all other requests, try cache first, then network
+    
+    // For all other requests, use cache-first strategy
     event.respondWith(
-        caches.match(event.request)
-            .then((cachedResponse) => {
-                if (cachedResponse) {
-                    console.log('[SW] Serving from cache:', url.pathname);
-                    return cachedResponse;
-                }
-
-                console.log('[SW] Cache miss, fetching:', url.pathname);
-                return fetch(event.request)
-                    .then((networkResponse) => {
-                        if (!networkResponse.ok) {
-                            console.warn('[SW] Network error:', networkResponse.status);
-                            throw new Error(`Network error: ${networkResponse.status}`);
+        caches.open(CACHE_NAME)
+            .then(cache => {
+                return cache.match(event.request)
+                    .then(cachedResponse => {
+                        if (cachedResponse) {
+                            console.log('[SW] Serving from cache:', url.pathname);
+                            return cachedResponse;
                         }
-
-                        // Clone the response before caching
-                        const responseToCache = networkResponse.clone();
-                        caches.open(CACHE_NAME)
-                            .then((cache) => {
-                                console.log('[SW] Caching new resource:', url.pathname);
-                                cache.put(event.request, responseToCache);
+                        
+                        console.log('[SW] Not in cache, fetching from network:', url.pathname);
+                        return fetch(event.request)
+                            .then(networkResponse => {
+                                // Clone the response so we can return one and cache the other
+                                const clonedResponse = networkResponse.clone();
+                                
+                                // Only cache successful responses
+                                if (networkResponse.status === 200) {
+                                    // Cache the fetched resource
+                                    cache.put(event.request, clonedResponse)
+                                        .then(() => {
+                                            console.log('[SW] Added to cache:', url.pathname);
+                                        })
+                                        .catch(error => {
+                                            console.error('[SW] Cache add error:', error);
+                                        });
+                                }
+                                
+                                return networkResponse;
+                            })
+                            .catch(error => {
+                                console.error('[SW] Network fetch error:', error);
+                                // Fall back to a generic offline page if available
+                                return caches.match('/offline.html')
+                                    .then(offlineResponse => {
+                                        return offlineResponse || new Response(
+                                            'You are offline and the requested resource is not cached.',
+                                            {
+                                                status: 503,
+                                                headers: {'Content-Type': 'text/plain'}
+                                            }
+                                        );
+                                    });
                             });
-
-                        return networkResponse;
                     });
-            })
-            .catch(error => {
-                console.error('[SW] Fetch handler error:', error);
-                return new Response(
-                    'Network error occurred', 
-                    { status: 503, statusText: 'Service Unavailable' }
-                );
             })
     );
 }); 

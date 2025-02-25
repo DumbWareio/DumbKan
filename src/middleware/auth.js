@@ -90,8 +90,17 @@ const authMiddleware = (req, res, next) => {
         path: req.path,
         session: {
             exists: !!req.session,
-            authenticated: req.session?.authenticated
+            authenticated: req.session?.authenticated,
+            id: req.session?.id
         },
+        headers: {
+            host: req.headers.host,
+            forwarded: req.headers['x-forwarded-host'],
+            cookie: !!req.headers.cookie,
+            origin: req.headers.origin,
+            referer: req.headers.referer
+        },
+        cookies: Object.keys(req.cookies || {}),
         pin: {
             configured: !!config.PIN,
             length: config.PIN?.length
@@ -107,8 +116,40 @@ const authMiddleware = (req, res, next) => {
     // Check if user is authenticated via session
     if (!req.session.authenticated) {
         debugLog('Auth failed - No valid session, redirecting to login');
-        // Make sure we're using the full path with BASE_PATH
-        return res.redirect(`${config.BASE_PATH}/login.html`);
+        
+        // Get protocol from request or BASE_URL
+        let protocol = 'http';
+        
+        // Use BASE_URL protocol if set
+        if (process.env.BASE_URL && process.env.BASE_URL.includes('://')) {
+            try {
+                const baseUrlObj = new URL(process.env.BASE_URL);
+                protocol = baseUrlObj.protocol.replace(':', '');
+                debugLog('Using protocol from BASE_URL:', protocol);
+            } catch (e) {
+                debugLog('Failed to parse protocol from BASE_URL:', e.message);
+            }
+        } else {
+            // Use the request protocol as a fallback
+            protocol = req.secure ? 'https' : 'http';
+            debugLog('Using protocol from request:', protocol);
+        }
+        
+        const host = req.headers['x-forwarded-host'] || req.headers.host;
+        const loginUrl = `${protocol}://${host}${config.BASE_PATH}/login.html`;
+        debugLog('Redirecting to:', loginUrl);
+        
+        // For API requests, return a 401 response with the login URL
+        if (req.path.startsWith('/api/')) {
+            debugLog('API request auth failure, returning 401 with login URL');
+            return res.status(401).json({
+                error: 'Authentication required',
+                loginUrl: loginUrl
+            });
+        }
+        
+        // For regular requests, redirect to login
+        return res.redirect(loginUrl);
     }
     
     debugLog('Auth successful - Valid session found');

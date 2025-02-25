@@ -30,7 +30,11 @@ export function initLogin() {
     getStoredAuth().then(authData => {
         if (authData && authData.pin) {
             // Auto verify the stored PIN
-            fetch(window.appConfig.basePath + '/verify-pin', {
+            // Use the API URL from config with its original protocol
+            const apiUrl = new URL(window.appConfig.basePath + '/verify-pin', window.appConfig.apiUrl);
+            console.log('[Login] Auto-verifying PIN with URL:', apiUrl.toString());
+            
+            fetch(apiUrl.toString(), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ pin: authData.pin })
@@ -119,13 +123,28 @@ export function initLogin() {
                             } else {
                                 // Last digit entered, auto submit the PIN via fetch
                                 const pin = inputs.map(inp => inp.value).join('');
-                                fetch(window.appConfig.basePath + '/verify-pin', {
+                                // Use the API URL from config with its original protocol
+                                const verifyUrl = new URL(window.appConfig.basePath + '/verify-pin', window.appConfig.apiUrl);
+                                
+                                console.log('[Login] Verifying PIN with URL:', verifyUrl.toString());
+                                
+                                fetch(verifyUrl.toString(), {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ pin })
+                                    body: JSON.stringify({ pin }),
+                                    credentials: 'same-origin' // Include cookies in the request
                                 })
-                                .then((response) => response.json())
+                                .then((response) => {
+                                    console.log('[Login] PIN verification response:', {
+                                        status: response.status,
+                                        ok: response.ok,
+                                        redirected: response.redirected,
+                                        url: response.url
+                                    });
+                                    return response.json();
+                                })
                                 .then((result) => {
+                                    console.log('[Login] PIN verification result:', result);
                                     if (result.success) {
                                         // Store the PIN in IndexedDB
                                         storeAuthData(pin).then(() => {

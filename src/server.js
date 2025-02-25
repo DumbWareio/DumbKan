@@ -222,13 +222,28 @@ app.use(BASE_PATH, auth.protectRoute);
 // Protected routes and API endpoints
 // Second: Special route handlers (before protection)
 app.get(BASE_PATH + '/config.js', (req, res) => {
-    // Determine the protocol, respecting Traefik's forwarded protocol
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    // Determine protocol based on BASE_URL environment variable
+    let protocol = 'http';
+    
+    // Extract protocol from BASE_URL if it exists and is a full URL
+    if (process.env.BASE_URL && process.env.BASE_URL.includes('://')) {
+        try {
+            const url = new URL(process.env.BASE_URL);
+            protocol = url.protocol.replace(':', '');
+        } catch (e) {
+            debugLog('Failed to parse protocol from BASE_URL:', e.message);
+        }
+    } else {
+        // Use the request protocol as a fallback
+        protocol = req.secure ? 'https' : 'http';
+    }
+    
     const host = req.headers['x-forwarded-host'] || req.headers.host;
     
     debugLog('Serving config.js:', {
         protocol,
         host,
+        baseUrl: process.env.BASE_URL,
         headers: req.headers,
         basePath: BASE_PATH
     });

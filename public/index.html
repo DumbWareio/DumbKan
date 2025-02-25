@@ -128,12 +128,53 @@
     <script type="module" src="src/app-bootstrap.js"></script>
     <!-- Service Worker Registration -->
     <script>
+        // First unregister any existing service workers
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for(let registration of registrations) {
+                    console.log('Unregistering old service worker');
+                    registration.unregister();
+                }
+            }).catch(function(err) {
+                console.log('Service Worker unregistration failed: ', err);
+            });
+        }
+
         // Register service worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
                     .then(registration => {
                         console.log('ServiceWorker registration successful');
+                        
+                        // Wait for appConfig to be loaded before setting protocol
+                        function setServiceWorkerProtocol() {
+                            if (window.appConfig) {
+                                // Extract protocol from apiUrl
+                                const apiUrl = window.appConfig.apiUrl;
+                                const protocol = apiUrl.startsWith('https://') ? 'https' : 'http';
+                                
+                                // Send protocol preference to service worker
+                                if (navigator.serviceWorker.controller) {
+                                    navigator.serviceWorker.controller.postMessage({
+                                        type: 'SET_PROTOCOL',
+                                        protocol: protocol
+                                    });
+                                    console.log(`Set service worker protocol preference to: ${protocol}`);
+                                } else {
+                                    console.log('Service worker not yet controlling the page');
+                                    // Try again in a second if not ready
+                                    setTimeout(setServiceWorkerProtocol, 1000);
+                                }
+                            } else {
+                                console.log('appConfig not yet loaded, waiting...');
+                                // Try again in a second
+                                setTimeout(setServiceWorkerProtocol, 1000);
+                            }
+                        }
+                        
+                        // Start the process
+                        setServiceWorkerProtocol();
                     })
                     .catch(err => {
                         console.log('ServiceWorker registration failed: ', err);
