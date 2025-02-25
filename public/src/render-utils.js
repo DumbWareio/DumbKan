@@ -665,6 +665,44 @@ function renderTask(task, state) {
  * @param {Object} elements - DOM elements
  */
 function refreshBoard(state, elements) {
-    renderBoards(state, elements);
-    renderActiveBoard(state, elements);
+    try {
+        console.log('refreshBoard called with state:', {
+            hasActiveBoard: !!state.activeBoard,
+            activeBoardId: state.activeBoard,
+            totalBoards: state.boards ? Object.keys(state.boards).length : 0,
+            totalTasks: state.tasks ? Object.keys(state.tasks).length : 0
+        });
+        
+        // Ensure state is properly defined
+        if (!state) {
+            console.error('Cannot refresh board: state is undefined');
+            return;
+        }
+        
+        // Ensure required properties exist
+        if (!state.boards) {
+            console.error('Cannot refresh board: state.boards is undefined');
+            return;
+        }
+        
+        // Make sure we have an activeBoard
+        if (!state.activeBoard) {
+            // Try to set an active board if possible
+            const boardIds = Object.keys(state.boards);
+            if (boardIds.length > 0) {
+                state.activeBoard = boardIds[0];
+                console.log('No active board set, defaulting to:', state.activeBoard);
+            } else {
+                console.error('Cannot refresh board: no boards available');
+                return;
+            }
+        }
+        
+        renderBoards(state, elements);
+        renderActiveBoard(state, elements);
+        
+        console.log('Board refresh completed successfully');
+    } catch (error) {
+        console.error('Error in refreshBoard:', error);
+    }
 } 

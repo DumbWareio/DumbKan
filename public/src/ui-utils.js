@@ -440,16 +440,45 @@ export function createInlineTaskEditor(sectionId, addTaskBtn) {
             try {
                 // Explicitly pass board ID when calling addTask
                 const boardId = window.state.activeBoard;
-                await window.addTask(sectionId, title, '', 'active', null, null, boardId);
+                
+                console.log('Saving task in section:', sectionId, 'with board ID:', boardId);
+                
+                // Add a loading state to indicate task is being created
+                input.disabled = true;
+                input.classList.add('saving');
+                
+                const task = await window.addTask(sectionId, title, '', 'active', null, null, boardId);
+                
+                console.log('Task created successfully:', task);
+                
                 if (keepEditorOpen) {
                     input.value = '';
+                    input.disabled = false;
+                    input.classList.remove('saving');
                     input.focus();
                 } else {
                     closeEditor();
                 }
+                
+                // Force a board refresh just in case
+                if (typeof window.refreshBoard === 'function') {
+                    console.log('Explicitly refreshing board after task creation');
+                    window.refreshBoard(window.state, window.elements);
+                }
             } catch (error) {
                 console.error('Error adding task:', error);
-                closeEditor();
+                
+                // Show error to user
+                if (typeof window.showError === 'function') {
+                    window.showError('Failed to add task. Please try again.');
+                }
+                
+                input.disabled = false;
+                input.classList.remove('saving');
+                
+                if (!keepEditorOpen) {
+                    closeEditor();
+                }
             }
         } else {
             closeEditor();

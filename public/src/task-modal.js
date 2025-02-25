@@ -238,7 +238,17 @@ async function addTask(sectionId, title, description = '', status = 'active', du
             throw new Error(`Failed to add task: ${response.status}`);
         }
         
-        const data = await response.json();
+        let data;
+        try {
+            data = await response.json();
+            
+            if (!data || !data.id) {
+                throw new Error('Invalid task data received from server');
+            }
+        } catch (parseError) {
+            console.error('Failed to parse task data:', parseError);
+            throw new Error(`Failed to parse task response: ${parseError.message}`);
+        }
         
         // Handle case where section might not exist in local state yet
         if (!window.state.sections[sectionId]) {
@@ -313,8 +323,16 @@ async function addTask(sectionId, title, description = '', status = 'active', du
                 console.log('Setting active board for refresh:', effectiveBoardId);
             }
             
-            // Use the global state object for refresh
-            window.refreshBoard(window.state, window.elements);
+            try {
+                // Use the global state object for refresh
+                window.refreshBoard(window.state, window.elements);
+                console.log('Board refreshed successfully after adding task:', data.id);
+            } catch (refreshError) {
+                console.error('Error refreshing board after adding task:', refreshError);
+                // Even if refresh fails, we'll return the data
+            }
+        } else {
+            console.warn('refreshBoard function not available - UI may not update immediately');
         }
         
         return data;
