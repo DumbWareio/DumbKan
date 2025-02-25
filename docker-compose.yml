@@ -1,10 +1,15 @@
 services:
   dumbkan:
-    image: dumbwareio/dumbkan:latest
+    # image: dumbwareio/dumbkan:latest
+    build: .
     ports:
       - "3000:3000"
     volumes:
       - ./dumbdata:/app/dumbdata
     environment:
-      DUMBKAN_PIN: 123456
+      # This should match: ${PROJECT_NAME}_PIN
+      # where PROJECT_NAME is from package.json, uppercase with hyphens replaced by underscores
+      DUMBKAN_PIN: "123456"
+      # Add debug to see what's happening
+      DUMBKAN_DEBUG: "true"
     restart: unless-stopped
