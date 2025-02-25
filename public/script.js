@@ -901,92 +901,17 @@ document.addEventListener('DOMContentLoaded', () => {
 // Import using: import { linkify } from './src/text-utils.js'
 
 // Section drag and drop
-async function handleSectionMove(sectionId, newIndex) {
-    try {
-        const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/move`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ newIndex })
-        });
+// handleSectionMove function has been moved to /public/src/drag-drop-utils.js
+// Import using: import { handleSectionMove } from './src/drag-drop-utils.js';
 
-        if (!response.ok) {
-            throw new Error('Failed to move section');
-        }
+// handleSectionDragStart function has been moved to /public/src/drag-drop-utils.js
+// Import using: import { handleSectionDragStart } from './src/drag-drop-utils.js';
 
-        // Update local state
-        const board = state.boards[state.activeBoard];
-        const currentIndex = board.sectionOrder.indexOf(sectionId);
-        if (currentIndex !== -1) {
-            board.sectionOrder.splice(currentIndex, 1);
-            board.sectionOrder.splice(newIndex, 0, sectionId);
-        }
+// handleSectionDragOver function has been moved to /public/src/drag-drop-utils.js
+// Import using: import { handleSectionDragOver } from './src/drag-drop-utils.js';
 
-        // Use the window function for rendering
-        if (typeof window.renderActiveBoard === 'function') {
-            window.renderActiveBoard(state, elements);
-        } else {
-            console.warn('renderActiveBoard not available');
-        }
-    } catch (error) {
-        console.error('Failed to move section:', error);
-        loadBoards(); // Reload the board state in case of error
-    }
-}
-
-function handleSectionDragStart(e) {
-    const column = e.target.closest('.column');
-    if (!column) return;
-    
-    column.classList.add('dragging');
-        e.dataTransfer.setData('application/json', JSON.stringify({
-        sectionId: column.dataset.sectionId,
-        type: 'section'
-        }));
-        e.dataTransfer.effectAllowed = 'move';
-}
-
-function handleSectionDragOver(e) {
-    e.preventDefault();
-    const column = e.target.closest('.column');
-    if (!column) return;
-
-    const draggingElement = document.querySelector('.column.dragging');
-    if (!draggingElement) return;
-
-    const columns = [...document.querySelectorAll('.column:not(.dragging)')];
-    const afterElement = getDragAfterElement(columns, e.clientX);
-    
-    if (afterElement) {
-        column.parentNode.insertBefore(draggingElement, afterElement);
-    } else {
-        column.parentNode.appendChild(draggingElement);
-    }
-}
-
-// getDragAfterElement function has been moved to /public/src/drag-drop-utils.js
-// Import using: import { getDragAfterElement } from './src/drag-drop-utils.js';
-
-async function handleSectionDrop(e) {
-                e.preventDefault();
-    const column = e.target.closest('.column');
-    if (!column) return;
-
-    try {
-        const data = JSON.parse(e.dataTransfer.getData('application/json'));
-        if (data.type !== 'section') return;
-
-        const { sectionId } = data;
-        const columns = [...document.querySelectorAll('.column')];
-        const newIndex = columns.indexOf(column);
-        
-        if (newIndex !== -1) {
-            await handleSectionMove(sectionId, newIndex);
-                    }
-        } catch (error) {
-        console.error('Error handling section drop:', error);
-        loadBoards();
-    }
-}
+// handleSectionDrop function has been moved to /public/src/drag-drop-utils.js
+// Import using: import { handleSectionDrop } from './src/drag-drop-utils.js';
 
 // Update renderColumn function to only make the header draggable
 // Comment indicating this function has been moved to render-utils.js
@@ -1296,7 +1221,6 @@ window.handleDragStart = handleDragStart;
 window.handleDragEnd = handleDragEnd;
 window.handleDragOver = handleDragOver;
 window.handleDrop = handleDrop;
-window.handleSectionDragStart = handleSectionDragStart;
 window.createInlineTaskEditor = createInlineTaskEditor;
 window.deleteSection = deleteSection;
 window.deleteBoard = deleteBoard;

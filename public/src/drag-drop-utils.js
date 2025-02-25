@@ -4,6 +4,7 @@
  * - Touch event handling for mobile drag-and-drop functionality
  * - Position calculation utilities for placing dragged elements
  * - Simulated drag-and-drop events on touch devices
+ * - Section (column) drag-and-drop functionality
  */
 
 /**
@@ -20,6 +21,112 @@ function getDragAfterElement(elements, x) {
     });
     
     return draggableElements[0];
+}
+
+/**
+ * Moves a section (column) to a new position in the board
+ * Handles both API request and local state update
+ * @param {string} sectionId - The ID of the section to move
+ * @param {number} newIndex - The new position index for the section
+ */
+async function handleSectionMove(sectionId, newIndex) {
+    try {
+        const boardId = window.state.activeBoard;
+        const response = await fetch(`${window.appConfig.basePath}/api/boards/${boardId}/sections/${sectionId}/move`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ newIndex })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to move section');
+        }
+
+        // Update local state
+        const board = window.state.boards[boardId];
+        const currentIndex = board.sectionOrder.indexOf(sectionId);
+        if (currentIndex !== -1) {
+            board.sectionOrder.splice(currentIndex, 1);
+            board.sectionOrder.splice(newIndex, 0, sectionId);
+        }
+
+        // Use the window function for rendering
+        if (typeof window.renderActiveBoard === 'function') {
+            window.renderActiveBoard(window.state, window.elements);
+        } else {
+            console.warn('renderActiveBoard not available');
+        }
+    } catch (error) {
+        console.error('Failed to move section:', error);
+        window.loadBoards(); // Reload the board state in case of error
+    }
+}
+
+/**
+ * Handles the drag start event for a section (column)
+ * Sets up the necessary data for drag and drop operation
+ * @param {DragEvent} e - The drag start event
+ */
+function handleSectionDragStart(e) {
+    const column = e.target.closest('.column');
+    if (!column) return;
+    
+    column.classList.add('dragging');
+    e.dataTransfer.setData('application/json', JSON.stringify({
+        sectionId: column.dataset.sectionId,
+        type: 'section'
+    }));
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+/**
+ * Handles the drag over event for a section (column)
+ * Updates the visual position of the dragged section
+ * @param {DragEvent} e - The drag over event
+ */
+function handleSectionDragOver(e) {
+    e.preventDefault();
+    const column = e.target.closest('.column');
+    if (!column) return;
+
+    const draggingElement = document.querySelector('.column.dragging');
+    if (!draggingElement) return;
+
+    const columns = [...document.querySelectorAll('.column:not(.dragging)')];
+    const afterElement = getDragAfterElement(columns, e.clientX);
+    
+    if (afterElement) {
+        column.parentNode.insertBefore(draggingElement, afterElement);
+    } else {
+        column.parentNode.appendChild(draggingElement);
+    }
+}
+
+/**
+ * Handles the drop event for a section (column)
+ * Finalizes the section move operation
+ * @param {DragEvent} e - The drop event
+ */
+async function handleSectionDrop(e) {
+    e.preventDefault();
+    const column = e.target.closest('.column');
+    if (!column) return;
+
+    try {
+        const data = JSON.parse(e.dataTransfer.getData('application/json'));
+        if (data.type !== 'section') return;
+
+        const { sectionId } = data;
+        const columns = [...document.querySelectorAll('.column')];
+        const newIndex = columns.indexOf(column);
+        
+        if (newIndex !== -1) {
+            await handleSectionMove(sectionId, newIndex);
+        }
+    } catch (error) {
+        console.error('Error handling section drop:', error);
+        window.loadBoards();
+    }
 }
 
 /**
@@ -161,6 +268,10 @@ function handleTouchEnd(e) {
 // Export all functions
 export {
     getDragAfterElement,
+    handleSectionMove,
+    handleSectionDragStart,
+    handleSectionDragOver,
+    handleSectionDrop,
     handleTouchStart,
     handleTouchMove,
     handleTouchEnd
@@ -170,4 +281,8 @@ export {
 window.handleTouchStart = handleTouchStart;
 window.handleTouchMove = handleTouchMove;
 window.handleTouchEnd = handleTouchEnd;
-window.getDragAfterElement = getDragAfterElement; 
+window.getDragAfterElement = getDragAfterElement;
+window.handleSectionMove = handleSectionMove;
+window.handleSectionDragStart = handleSectionDragStart;
+window.handleSectionDragOver = handleSectionDragOver;
+window.handleSectionDrop = handleSectionDrop; 
