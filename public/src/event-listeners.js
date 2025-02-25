@@ -192,9 +192,70 @@ function initDateInputHandlers(elements) {
     handleDateInput(elements.taskStartDate);
 }
 
-// Expose the function globally for backward compatibility
+/**
+ * Initializes modal handlers for task and confirmation modals
+ * Sets up event listeners for closing, backdrop clicks, and action buttons
+ * @param {Object} elements - DOM elements object containing modal references
+ */
+function initModalHandlers(elements) {
+    // Handle task modal
+    if (elements.taskModal) {
+        const closeBtn = elements.taskModal.querySelector('.modal-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => window.hideTaskModal());
+        }
+        
+        // Close on backdrop click
+        elements.taskModal.addEventListener('click', (e) => {
+            if (e.target === elements.taskModal) {
+                window.hideTaskModal();
+            }
+        });
+    }
+    
+    // Handle confirm modal
+    const confirmModal = document.getElementById('confirmModal');
+    if (confirmModal) {
+        const closeBtn = confirmModal.querySelector('.modal-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                confirmModal.classList.add('closing');
+                setTimeout(() => {
+                    confirmModal.classList.remove('closing');
+                    confirmModal.hidden = true;
+                }, 300);
+            });
+        }
+        
+        // Close on backdrop click
+        confirmModal.addEventListener('click', (e) => {
+            if (e.target === confirmModal) {
+                confirmModal.classList.add('closing');
+                setTimeout(() => {
+                    confirmModal.classList.remove('closing');
+                    confirmModal.hidden = true;
+                }, 300);
+            }
+        });
+        
+        // Handle confirm/cancel actions
+        const actions = confirmModal.querySelectorAll('[data-action]');
+        actions.forEach(button => {
+            button.addEventListener('click', () => {
+                confirmModal.classList.add('closing');
+                setTimeout(() => {
+                    confirmModal.classList.remove('closing');
+                    confirmModal.hidden = true;
+                }, 300);
+            });
+        });
+    }
+}
+
+// Expose the functions globally for backward compatibility
 window.initEventListeners = initEventListeners;
 window.initDateInputHandlers = initDateInputHandlers;
+window.initModalHandlers = initModalHandlers;
 
 // Export as ES module
-export { initEventListeners, initDateInputHandlers }; 
+export { initEventListeners, initDateInputHandlers, initModalHandlers }; 

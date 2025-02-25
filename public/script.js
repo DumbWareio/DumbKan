@@ -26,138 +26,8 @@ let elements = {};
 // Use window.initTheme and window.toggleTheme
 
 // Board Management
-async function loadBoards() {
-    console.log('[Debug] loadBoards() called', {
-        hasApiCall: typeof window.apiCall === 'function',
-        hasAppConfig: typeof window.appConfig === 'object',
-        appConfigBasePath: window.appConfig?.basePath,
-        stateType: typeof state,
-        windowStateType: typeof window.state,
-        stateId: state ? `Local state obj #${Math.random().toString(36).substr(2, 9)}` : 'undefined',
-        windowStateId: window.state ? `Global state obj #${Math.random().toString(36).substr(2, 9)}` : 'undefined',
-        sameState: window.state === state
-    });
-
-    try {
-        if (!window.appConfig) {
-            console.error('[Debug] Configuration not loaded');
-            throw new Error('Configuration not loaded');
-        }
-
-        // Add cache-busting parameter
-        const timestamp = new Date().getTime();
-        const url = `${window.appConfig.basePath}/api/boards?_=${timestamp}`;
-        
-        console.log('[Debug] Attempting to load boards from:', url);
-        
-        const data = await window.apiCall(url, {
-            headers: {
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache',
-                'Expires': '0'
-            }
-        });
-        console.log('[Debug] Boards API response:', data);
-
-        // Validate the response data
-        if (!data || typeof data.boards !== 'object') {
-            console.error('[Debug] Invalid boards data:', data);
-            throw new Error('Invalid boards data received');
-        }
-
-        // Here's the problem: this overwrites the state variable entirely
-        // We should merge data into state instead of reassigning
-        console.log('[Debug] State before update:', {
-            localStateId: state ? `Local state obj #${Math.random().toString(36).substr(2, 9)}` : 'undefined',
-            windowStateId: window.state ? `Global state obj #${Math.random().toString(36).substr(2, 9)}` : 'undefined',
-            sameReference: window.state === state,
-            localBoards: state.boards ? Object.keys(state.boards).length : 0,
-            windowBoards: window.state?.boards ? Object.keys(window.state.boards).length : 0
-        });
-        
-        // Instead of replacing state, merge the data into the existing state
-        if (window.state) {
-            // Merge data into window.state instead of replacing
-            window.state.boards = data.boards || {};
-            window.state.sections = data.sections || {};
-            window.state.tasks = data.tasks || {};
-            window.state.activeBoard = data.activeBoard;
-            
-            // Also update local state reference for backward compatibility
-            state = window.state;
-            
-            console.log('[Debug] Using MERGED state update');
-        } else {
-            // Initialize window.state if it doesn't exist yet
-            state = data;
-            window.state = state;
-            console.log('[Debug] Using DIRECT state update');
-        }
-        
-        console.log('[Debug] State after update:', {
-            localStateId: state ? `Local state obj #${Math.random().toString(36).substr(2, 9)}` : 'undefined',
-            windowStateId: window.state ? `Global state obj #${Math.random().toString(36).substr(2, 9)}` : 'undefined',
-            sameReference: window.state === state,
-            localBoards: state.boards ? Object.keys(state.boards).length : 0,
-            windowBoards: window.state?.boards ? Object.keys(window.state.boards).length : 0
-        });
-
-        // Select active board
-        const urlParams = new URLSearchParams(window.location.search);
-        const boardId = urlParams.get('board');
-        
-        console.log('[Debug] Board selection:', {
-            urlBoardId: boardId,
-            availableBoards: Object.keys(state.boards)
-        });
-
-        if (boardId && state.boards[boardId]) {
-            state.activeBoard = boardId;
-        } else {
-            const lastActiveBoard = localStorage.getItem('lastActiveBoard');
-            if (lastActiveBoard && state.boards[lastActiveBoard]) {
-                state.activeBoard = lastActiveBoard;
-            } else if (Object.keys(state.boards).length > 0) {
-                state.activeBoard = Object.keys(state.boards)[0];
-            }
-        }
-        
-        console.log('[Debug] Final board state:', {
-            activeBoard: state.activeBoard,
-            totalBoards: Object.keys(state.boards).length
-        });
-
-        // If we have an active board, load it
-        if (state.activeBoard) {
-            await window.switchBoard(state.activeBoard);
-        }
-
-        // Use window.renderBoards instead of local renderBoards
-        window.renderBoards(state, elements);
-
-    } catch (error) {
-        console.error('[Debug] Error in loadBoards:', {
-            error: error.message,
-            stack: error.stack,
-            online: navigator.onLine
-        });
-
-        // Initialize empty state if loading fails
-        state = {
-            boards: {},
-            sections: {},
-            tasks: {},
-            activeBoard: null
-        };
-        
-        // Show appropriate error message based on connection status
-        if (!navigator.onLine) {
-            showError('You are offline. Please check your internet connection.');
-        } else {
-            showError('Failed to load boards. Please try again later.');
-        }
-    }
-}
+// loadBoards function has been moved to /public/src/data-loading.js
+// Import using: import { loadBoards } from './src/data-loading.js'
 
 // Comment indicating this function has been moved to render-utils.js
 // Keeping a reference that forwards to the window function
@@ -215,60 +85,8 @@ function renderActiveBoard() {
 // Import using: import { initEventListeners } from './src/event-listeners.js'
 
 // Add function to handle modal closing
-function initModalHandlers() {
-    // Handle task modal
-    if (elements.taskModal) {
-        const closeBtn = elements.taskModal.querySelector('.modal-close');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => hideTaskModal());
-        }
-        
-        // Close on backdrop click
-        elements.taskModal.addEventListener('click', (e) => {
-            if (e.target === elements.taskModal) {
-                hideTaskModal();
-            }
-        });
-    }
-    
-    // Handle confirm modal
-    const confirmModal = document.getElementById('confirmModal');
-    if (confirmModal) {
-        const closeBtn = confirmModal.querySelector('.modal-close');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => {
-                confirmModal.classList.add('closing');
-                setTimeout(() => {
-                    confirmModal.classList.remove('closing');
-                    confirmModal.hidden = true;
-                }, 300);
-            });
-        }
-        
-        // Close on backdrop click
-        confirmModal.addEventListener('click', (e) => {
-            if (e.target === confirmModal) {
-                confirmModal.classList.add('closing');
-                setTimeout(() => {
-                    confirmModal.classList.remove('closing');
-                    confirmModal.hidden = true;
-                }, 300);
-            }
-        });
-        
-        // Handle confirm/cancel actions
-        const actions = confirmModal.querySelectorAll('[data-action]');
-        actions.forEach(button => {
-            button.addEventListener('click', () => {
-                confirmModal.classList.add('closing');
-                setTimeout(() => {
-                    confirmModal.classList.remove('closing');
-                    confirmModal.hidden = true;
-                }, 300);
-            });
-        });
-    }
-}
+// initModalHandlers function has been moved to /public/src/event-listeners.js
+// Import using: import { initModalHandlers } from './src/event-listeners.js'
 
 // Initialize the application
 async function init() {
@@ -317,29 +135,8 @@ async function init() {
     initTheme();
     window.initEventListeners(state, elements);
 
-    // Add retry logic for loading boards
-    let retryCount = 0;
-    const maxRetries = 3;
-
-    async function loadBoardsWithRetry() {
-        try {
-            await loadBoards();
-        } catch (error) {
-            console.error(`Failed to load boards (attempt ${retryCount + 1}/${maxRetries}):`, error);
-            if (retryCount < maxRetries) {
-                retryCount++;
-                // Exponential backoff
-                const delay = Math.min(1000 * Math.pow(2, retryCount), 5000);
-                await new Promise(resolve => setTimeout(resolve, delay));
-                await loadBoardsWithRetry();
-            } else {
-                // Final error handling
-                showError('Failed to load boards after multiple attempts');
-            }
-        }
-    }
-
-    await loadBoardsWithRetry();
+    // Load boards with retry logic
+    await window.loadBoardsWithRetry();
 
     // Handle credit visibility on scroll
     function handleCreditVisibility() {
@@ -358,7 +155,7 @@ async function init() {
     handleCreditVisibility();
 
     // Initialize modal handlers
-    initModalHandlers();
+    window.initModalHandlers(elements);
 }
 
 // Add this before initLogin function
