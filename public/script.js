@@ -177,27 +177,8 @@ function renderBoards() {
 // Import using: import { createBoard } from './src/board-utils.js';
 
 // Column Management (UI terminology)
-async function addColumn(boardId) {
-    const name = prompt('Enter column name:');
-    if (!name) return;
-
-    try {
-        const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${boardId}/sections`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name })
-        });
-
-        if (response.ok) {
-            const section = await response.json();
-            state.sections[section.id] = section;
-            state.boards[boardId].sectionOrder.push(section.id);
-            window.renderActiveBoard(state, elements);
-        }
-    } catch (error) {
-        console.error('Failed to add column:', error);
-    }
-}
+// addColumn function has been moved to /public/src/board-utils.js
+// Import using: import { addColumn } from './src/board-utils.js';
 
 // Task Management
 // showTaskModal, hideTaskModal, and addTask functions have been moved to /public/src/task-modal.js
@@ -1027,9 +1008,8 @@ function initCalendarInputSlide() {
 // Note: handleTouchStart, handleTouchMove, and handleTouchEnd functions have been moved to drag-drop-utils.js and are exposed on the window there
 // Note: handleDragStart, handleDragEnd, handleDragOver, handleDrop functions have been moved to drag-drop-utils.js and are exposed on the window there
 // Note: handleSectionMove, handleSectionDragStart, handleSectionDragOver, handleSectionDrop functions have been moved to drag-drop-utils.js and are exposed on the window there
-// Note: deleteSection, deleteBoard, createBoard, and switchBoard functions have been moved to board-utils.js and are exposed on the window there
+// Note: deleteSection, deleteBoard, createBoard, switchBoard, and addColumn functions have been moved to board-utils.js and are exposed on the window there
 window.loadBoards = loadBoards;
-window.addColumn = addColumn;
 window.createInlineTaskEditor = createInlineTaskEditor;
 window.renderColumn = renderColumn;
 window.renderTask = renderTask;
