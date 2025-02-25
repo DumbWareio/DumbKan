@@ -35,9 +35,12 @@ function updateTask(task, updates) {
         }).then(response => {
             if (response.ok) {
                 return response.json().then(updatedTask => {
+                    // Handle the case where the response might have data nested inside a 'data' property
+                    const taskData = updatedTask.data || updatedTask;
+                    
                     // Update the task in state
                     if (window.state && window.state.tasks) {
-                        window.state.tasks[task.id] = updatedTask;
+                        window.state.tasks[task.id] = taskData;
                     }
                     
                     // Refresh the UI to show the updated task
@@ -49,7 +52,7 @@ function updateTask(task, updates) {
                         window.refreshBoard(window.state, window.elements);
                     }
                     
-                    return updatedTask;
+                    return taskData;
                 });
             }
             return null;
@@ -149,7 +152,11 @@ window.handleTaskMove = async function(taskId, fromSectionId, toSectionId, newPo
         
         // Check if response contains data directly (loggedFetch might parse it)
         let data;
-        if (response.task) {
+        if (response.data) {
+            // Response contains data in the data property
+            data = response.data;
+            console.log('Task move response contained data in data property:', data);
+        } else if (response.task) {
             // Response already contains parsed data with task property
             data = response;
             console.log('Task move response contained direct task data:', data);

@@ -77,14 +77,17 @@ async function loadBoards() {
         });
         console.log('[Debug] Boards API response:', data);
 
+        // Check if the response data is nested inside a 'data' property (from our loggedFetch modification)
+        const responseData = data.data || data;
+
         // Validate the response data
-        if (!data || typeof data.boards !== 'object') {
+        if (!responseData || typeof responseData.boards !== 'object') {
             console.error('[Debug] Invalid boards data:', data);
             throw new Error('Invalid boards data received');
         }
 
         // Update the global state
-        window.state.boards = data.boards;
+        window.state.boards = responseData.boards;
         window.state.lastUpdated = new Date();
 
         // Here's the problem: this overwrites the state variable entirely
@@ -97,15 +100,15 @@ async function loadBoards() {
         // Instead of replacing state, merge the data into the existing state
         if (window.state) {
             // Merge data into window.state instead of replacing
-            window.state.boards = data.boards || {};
-            window.state.sections = data.sections || {};
-            window.state.tasks = data.tasks || {};
-            window.state.activeBoard = data.activeBoard;
+            window.state.boards = responseData.boards || {};
+            window.state.sections = responseData.sections || {};
+            window.state.tasks = responseData.tasks || {};
+            window.state.activeBoard = responseData.activeBoard;
             
             console.log('[Debug] Using MERGED state update');
         } else {
             // Initialize window.state if it doesn't exist yet
-            window.state = data;
+            window.state = responseData;
             console.log('[Debug] Using DIRECT state update');
         }
         
