@@ -11,14 +11,15 @@ import { initDB, storeAuthData, getStoredAuth } from './src/auth-storage.js';
 import { initLogin } from './src/login-utils.js';
 // Import UI utilities
 import { initCreditVisibility } from './src/ui-utils.js';
+// Import DOM element initialization
+import { initElements } from './src/element-init.js';
+// Import application initialization function
+import { init } from './src/app-init.js';
 // deleteSection is now available on window object, no need to import
 
 // State Management
 // state object has been moved to /public/src/state.js
 // Import using: import { state, getState } from './src/state.js';
-
-// DOM Elements placeholder
-let elements = {};
 
 // Task Management Helper Functions
 // All task management functions are now in task-utils.js and task-modal.js
@@ -79,109 +80,13 @@ import { loadBoards } from './src/data-loading.js';
 // Import using: import { initModalHandlers } from './src/event-listeners.js'
 
 // Initialize the application
-async function init() {
-    console.log('Initializing application');
-    
-    // Initialize credit visibility feature
-    initCreditVisibility();
-    
-    // Skip board initialization for login page
-    if (window.location.pathname.includes('login.html')) {
-        console.log('Login page detected, skipping board initialization');
-        return;
-    }
-    
-    // Proceed with board/main application initialization
-    console.log('Setting up main application elements');
-    
-    // Initialize DOM elements
-    elements = {
-        themeToggle: document.getElementById('themeToggle'),
-        boardMenu: document.getElementById('boardMenu'),
-        boardMenuBtn: document.getElementById('boardMenuBtn'),
-        boardList: document.getElementById('boardList'),
-        addBoardBtn: document.getElementById('addBoardBtn'),
-        currentBoard: document.getElementById('currentBoard'),
-        columns: document.getElementById('columns'),
-        taskModal: document.getElementById('taskModal'),
-        taskForm: document.getElementById('taskForm'),
-        taskTitle: document.getElementById('taskTitle'),
-        taskDescription: document.getElementById('taskDescription'),
-        taskStatus: document.getElementById('taskStatus'),
-        taskDueDate: document.getElementById('taskDueDate'),
-        taskStartDate: document.getElementById('taskStartDate'),
-        boardContainer: document.querySelector('.board-container'),
-        deleteTaskBtn: document.querySelector('#taskModal .btn-delete')
-    };
+// init function has been moved to /public/src/app-init.js
+// Import using: import { init } from './src/app-init.js';
 
-    // Check required elements
-    const requiredElements = [
-        'themeToggle', 'boardMenu', 'boardMenuBtn', 'boardList', 
-        'addBoardBtn', 'currentBoard', 'columns', 'boardContainer',
-        'taskModal', 'taskForm', 'taskTitle', 'taskDescription', 'taskStatus',
-        'taskDueDate', 'taskStartDate'
-    ];
-
-    for (const key of requiredElements) {
-        if (!elements[key]) {
-            console.error(`Required element "${key}" not found`);
-            return;
-        }
-    }
-    
-    // Make state and elements globally available
-    window.state = state; // Maintain backward compatibility with imported state
-    window.elements = elements;
-    
-    // Initialize render functions
-    initRenderFunctions();
-    
-    initTheme();
-    window.initEventListeners(state, elements);
-
-    // Load boards with retry logic
-    await window.loadBoardsWithRetry();
-
-    // Initialize modal handlers
-    window.initModalHandlers(elements);
-}
-
-// Add this before initLogin function
-// Constants have been moved to /public/src/auth-storage.js
-// const DB_NAME = 'dumbkan-auth';
-// const DB_VERSION = 1;
-// const STORE_NAME = 'auth';
-
-// initDB function has been moved to /public/src/auth-storage.js
-// Import using: import { initDB } from './src/auth-storage.js';
-
-// storeAuthData function has been moved to /public/src/auth-storage.js
-// Import using: import { storeAuthData } from './src/auth-storage.js';
-
-// getStoredAuth function has been moved to /public/src/auth-storage.js
-// Import using: import { getStoredAuth } from './src/auth-storage.js';
-
-// initLogin function has been moved to /public/src/login-utils.js
-// Import using: import { initLogin } from './src/login-utils.js';
-
-document.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('pinForm')) {
-        // We're on the login page
-        console.log('Login page detected');
-        // Initialize just login-specific functionality, not the full app
-        if (typeof window.initTheme === 'function') {
-            window.initTheme();
-        }
-        // Initialize credit visibility
-        initCreditVisibility();
-        // Initialize login functionality
-        initLogin();
-    } else {
-        // We're on the main application page
-        console.log('Main app page detected');
-        init();
-    }
-});
+// Application bootstrap (DOMContentLoaded event handler)
+// Has been moved to /public/src/app-bootstrap.js
+// Import using: import { bootstrapApplication } from './src/app-bootstrap.js';
+// The event listener is now attached in app-bootstrap.js
 
 // Function makeEditable has been moved to /public/src/ui-utils.js
 // Remove the entire function block
