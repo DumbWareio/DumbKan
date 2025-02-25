@@ -3,6 +3,7 @@
 
 // Import render initialization functions
 import { initRenderFunctions, refreshUI } from './src/render-init.js';
+// deleteSection is now available on window object, no need to import
 
 // State Management
 let state = {
@@ -128,7 +129,7 @@ async function loadBoards() {
 
         // If we have an active board, load it
         if (state.activeBoard) {
-            await switchBoard(state.activeBoard);
+            await window.switchBoard(state.activeBoard);
         }
 
         // Use window.renderBoards instead of local renderBoards
@@ -169,43 +170,11 @@ function renderBoards() {
     }
 }
 
-async function switchBoard(boardId) {
-    if (!state.boards[boardId]) return;
-    
-    state.activeBoard = boardId;
-    localStorage.setItem('lastActiveBoard', boardId);
-    
-    // Update URL without reloading the page
-    const url = new URL(window.location);
-    url.searchParams.set('board', boardId);
-    window.history.pushState({}, '', url);
-    
-    // Use window render functions
-    window.renderBoards(state, elements);
-    window.renderActiveBoard(state, elements);
-    
-    // Update page title
-    document.title = `${state.boards[boardId].name || 'Unnamed Board'} - DumbKan`;
-}
+// switchBoard function has been moved to /public/src/board-utils.js
+// Import using: import { switchBoard } from './src/board-utils.js';
 
-async function createBoard(name) {
-    try {
-        const response = await loggedFetch(window.appConfig.basePath + '/api/boards', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name })
-        });
-        
-        if (response.ok) {
-            const board = await response.json();
-            state.boards[board.id] = board;
-            window.renderBoards(state, elements);
-            switchBoard(board.id);
-        }
-    } catch (error) {
-        console.error('Failed to create board:', error);
-    }
-}
+// createBoard function has been moved to /public/src/board-utils.js
+// Import using: import { createBoard } from './src/board-utils.js';
 
 // Column Management (UI terminology)
 async function addColumn(boardId) {
@@ -282,7 +251,7 @@ function initEventListeners() {
     // Add board button
     elements.addBoardBtn.addEventListener('click', () => {
         const name = prompt('Enter board name:');
-        if (name) createBoard(name);
+        if (name) window.createBoard(name);
     });
 
     // Task modal close button
@@ -848,63 +817,12 @@ function renderTask(task) {
 // Import using: import { handleTaskMove } from './src/task-utils.js';
 
 // Add the deleteSection function
-async function deleteSection(sectionId) {
-    try {
-        const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' }
-        });
-        
-        if (response.ok) {
-            delete state.sections[sectionId];
-            const board = state.boards[state.activeBoard];
-            if (board) {
-                const sectionIndex = board.sectionOrder.indexOf(sectionId);
-                if (sectionIndex !== -1) {
-                    board.sectionOrder.splice(sectionIndex, 1);
-                }
-                const section = state.sections[sectionId];
-                if (section && Array.isArray(section.taskIds)) {
-                    section.taskIds.forEach(taskId => delete state.tasks[taskId]);
-                }
-            }
-            return true;
-        }
-        return false;
-    } catch (error) {
-        console.error('Error deleting section:', error);
-        return false;
-    }
-}
+// deleteSection function has been moved to /public/src/board-utils.js
+// Import using: import { deleteSection } from './src/board-utils.js';
 
 // Add the deleteBoard function
-async function deleteBoard(boardId) {
-    try {
-        const response = await loggedFetch(`${window.appConfig.basePath}/api/boards/${boardId}`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' }
-        });
-        
-        if (response.ok) {
-            Object.entries(state.sections).forEach(([sectionId, section]) => {
-                if (section.boardId === boardId) {
-                    section.taskIds.forEach(taskId => delete state.tasks[taskId]);
-                    delete state.sections[sectionId];
-                }
-            });
-            delete state.boards[boardId];
-            if (state.activeBoard === boardId) {
-                const remainingBoards = Object.keys(state.boards);
-                state.activeBoard = remainingBoards.length > 0 ? remainingBoards[0] : null;
-            }
-            return true;
-        }
-        return false;
-    } catch (error) {
-        console.error('Error deleting board:', error);
-        return false;
-    }
-}
+// deleteBoard function has been moved to /public/src/board-utils.js
+// Import using: import { deleteBoard } from './src/board-utils.js';
 
 function createInlineTaskEditor(sectionId, addTaskBtn) {
     const editor = document.createElement('div');
@@ -1109,12 +1027,9 @@ function initCalendarInputSlide() {
 // Note: handleTouchStart, handleTouchMove, and handleTouchEnd functions have been moved to drag-drop-utils.js and are exposed on the window there
 // Note: handleDragStart, handleDragEnd, handleDragOver, handleDrop functions have been moved to drag-drop-utils.js and are exposed on the window there
 // Note: handleSectionMove, handleSectionDragStart, handleSectionDragOver, handleSectionDrop functions have been moved to drag-drop-utils.js and are exposed on the window there
+// Note: deleteSection, deleteBoard, createBoard, and switchBoard functions have been moved to board-utils.js and are exposed on the window there
 window.loadBoards = loadBoards;
 window.addColumn = addColumn;
-window.switchBoard = switchBoard;
-window.createBoard = createBoard;
 window.createInlineTaskEditor = createInlineTaskEditor;
-window.deleteSection = deleteSection;
-window.deleteBoard = deleteBoard;
 window.renderColumn = renderColumn;
 window.renderTask = renderTask;

@@ -1,3 +1,9 @@
+/**
+ * UI utility functions
+ * Provides common UI interaction utilities for the application
+ * Handles things like editable fields, error messages, and UI helpers
+ */
+
 // UI Utility Functions
 
 /**
