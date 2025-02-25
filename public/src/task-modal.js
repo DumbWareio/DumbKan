@@ -215,16 +215,18 @@ async function addTask(sectionId, title, description = '', status = 'active', du
         console.log('State check before API call:', {
             boardId: effectiveBoardId,
             boardExists: window.state.boards && window.state.boards[effectiveBoardId] ? true : false,
-            boardStructure: window.state.boards ? 
-                (window.state.boards[effectiveBoardId] ? 
-                    Object.keys(window.state.boards[effectiveBoardId]) : 'Board not found') 
-                : 'No boards object'
+            boardStructure: window.state.boards && window.state.boards[effectiveBoardId] ? 
+                window.state.boards[effectiveBoardId].sectionOrder : 'Not available'
         });
         
-        const response = await window.loggedFetch(`${window.appConfig.basePath}/api/boards/${effectiveBoardId}/sections/${sectionId}/tasks`, {
+        // Perform API call with appropriate board ID in path
+        const response = await fetch(`/api/boards/${effectiveBoardId}/sections/${sectionId}/tasks`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
                 title, 
                 description, 
                 status, 
@@ -235,7 +237,8 @@ async function addTask(sectionId, title, description = '', status = 'active', du
         });
         
         if (!response.ok) {
-            throw new Error(`Failed to add task: ${response.status}`);
+            const errorText = await response.text().catch(() => 'Unknown error');
+            throw new Error(`Server error: ${response.status} - ${errorText}`);
         }
         
         let data;
@@ -338,7 +341,8 @@ async function addTask(sectionId, title, description = '', status = 'active', du
         return data;
     } catch (error) {
         console.error('Failed to add task:', error);
-        throw new Error(`Failed to add task: ${error.message}`);
+        // Don't nest error messages, just pass it through
+        throw error;
     }
 }
 

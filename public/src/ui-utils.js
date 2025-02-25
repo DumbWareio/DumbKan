@@ -432,9 +432,9 @@ export function createInlineTaskEditor(sectionId, addTaskBtn) {
     let isProcessing = false;
 
     const saveTask = async (keepEditorOpen = false) => {
-        if (isProcessing) return;
+        if (isProcessing) return; // Prevent multiple submissions
         isProcessing = true;
-
+        
         const title = input.value.trim();
         if (title) {
             try {
@@ -447,7 +447,16 @@ export function createInlineTaskEditor(sectionId, addTaskBtn) {
                 input.disabled = true;
                 input.classList.add('saving');
                 
-                const task = await window.addTask(sectionId, title, '', 'active', null, null, boardId);
+                // Set a timeout for the API call to handle network issues
+                const taskPromise = window.addTask(sectionId, title, '', 'active', null, null, boardId);
+                
+                // Create a timeout promise
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('Request timed out')), 8000);
+                });
+                
+                // Race the task creation against the timeout
+                const task = await Promise.race([taskPromise, timeoutPromise]);
                 
                 console.log('Task created successfully:', task);
                 
@@ -469,8 +478,11 @@ export function createInlineTaskEditor(sectionId, addTaskBtn) {
                 console.error('Error adding task:', error);
                 
                 // Show error to user
+                const errorMessage = error.message || 'Failed to add task. Please try again.';
                 if (typeof window.showError === 'function') {
-                    window.showError('Failed to add task. Please try again.');
+                    window.showError(errorMessage);
+                } else {
+                    alert(errorMessage);
                 }
                 
                 input.disabled = false;
@@ -479,11 +491,13 @@ export function createInlineTaskEditor(sectionId, addTaskBtn) {
                 if (!keepEditorOpen) {
                     closeEditor();
                 }
+            } finally {
+                isProcessing = false;
             }
         } else {
             closeEditor();
+            isProcessing = false;
         }
-        isProcessing = false;
     };
 
     const closeEditor = () => {

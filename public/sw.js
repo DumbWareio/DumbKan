@@ -1,12 +1,58 @@
-const CACHE_NAME = 'dumbkan-v1';
-// Allow for dynamic protocol setting based on configuration
-self.PREFERRED_PROTOCOL = null; // Will be set via messages from main thread
+/**
+ * Service Worker for DumbKan
+ * Handles offline support and asset caching strategies
+ * Provides mechanisms for clean updates and version control
+ */
 
-// Listen for messages from main thread to set protocol preference
+// Version-based cache name - increment this with each significant update
+const VERSION = '3';
+const CACHE_NAME = `dumbkan-v${VERSION}`;
+const API_CACHE_NAME = `dumbkan-api-v${VERSION}`;
+
+// For communicating with the main thread
+self.PREFERRED_PROTOCOL = null;
+
+// Debug mode for more verbose logging
+const DEBUG = true;
+
+// Message handler for main thread communication
 self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SET_PROTOCOL') {
         self.PREFERRED_PROTOCOL = event.data.protocol;
-        console.log(`[SW] Protocol preference set to: ${self.PREFERRED_PROTOCOL}`);
+        if (DEBUG) console.log(`[SW] Protocol preference set to: ${self.PREFERRED_PROTOCOL}`);
+    }
+    
+    // Handle skip waiting request (for immediate updates)
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        if (DEBUG) console.log('[SW] Skip waiting requested - activating new version immediately');
+        self.skipWaiting();
+    }
+
+    // Handle debug toggle
+    if (event.data && event.data.type === 'SET_DEBUG') {
+        if (DEBUG) console.log('[SW] Debug mode set to:', event.data.enabled);
+    }
+    
+    // Handle forced cache clear request
+    if (event.data && event.data.type === 'CLEAR_CACHES') {
+        if (DEBUG) console.log('[SW] Clearing all caches as requested by client');
+        event.waitUntil(
+            caches.keys().then(keyList => {
+                return Promise.all(keyList.map(key => {
+                    if (DEBUG) console.log('[SW] Deleting cache:', key);
+                    return caches.delete(key);
+                }));
+            }).then(() => {
+                if (DEBUG) console.log('[SW] All caches cleared');
+                // Notify client that caches are cleared
+                if (event.source) {
+                    event.source.postMessage({
+                        type: 'CACHES_CLEARED',
+                        timestamp: Date.now()
+                    });
+                }
+            })
+        );
     }
 });
 
@@ -19,29 +65,35 @@ const ASSETS_TO_CACHE = [
     BASE_PATH + 'manifest.json',
     BASE_PATH + 'favicon.svg',
     BASE_PATH + 'logo.png',
-    BASE_PATH + 'config.js',
     BASE_PATH + 'marked.min.js',
-    BASE_PATH + 'dumbdateparser.js'  // Add missing dependency
+    BASE_PATH + 'dumbdateparser.js'
 ];
 
-// Debug logging for service worker
-console.log('[SW] Service worker loaded');
-console.log('[SW] Current location:', location.href);
-console.log('[SW] Protocol:', location.protocol);
-console.log('[SW] Assets to cache:', ASSETS_TO_CACHE);
+// Add offline fallback page
+const OFFLINE_PAGE = BASE_PATH + 'offline.html';
 
-// Install event - cache assets
+// Debug logging
+if (DEBUG) {
+    console.log('[SW] Service worker v' + VERSION + ' loaded');
+    console.log('[SW] Current location:', location.href);
+    console.log('[SW] Protocol:', location.protocol);
+}
+
+// Install event - cache core assets
 self.addEventListener('install', (event) => {
-    console.log('[SW] Install event');
+    if (DEBUG) console.log('[SW] Install event for version ' + VERSION);
+
+    // Skip waiting to become active immediately
+    self.skipWaiting();
+    
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => {
-                console.log('[SW] Caching assets');
-                // Cache each asset individually and ignore failures
+                if (DEBUG) console.log('[SW] Caching core assets for version ' + VERSION);
                 return Promise.allSettled(
                     ASSETS_TO_CACHE.map(url => 
                         fetch(new Request(url), { 
-                            cache: 'no-cache',
+                            cache: 'reload', // Use reload to bypass browser cache
                             credentials: 'same-origin'
                         })
                             .then(response => {
@@ -49,10 +101,11 @@ self.addEventListener('install', (event) => {
                                     console.warn(`[SW] Failed to fetch ${url}: ${response.status}`);
                                     throw new Error(`Failed to fetch ${url}`);
                                 }
-                                cache.put(url, response.clone())
-                                    .then(() => console.log(`[SW] Successfully cached ${url}`))
+                                return cache.put(url, response.clone())
+                                    .then(() => {
+                                        if (DEBUG) console.log(`[SW] Cached ${url}`);
+                                    })
                                     .catch(err => console.error(`[SW] Error caching ${url}:`, err));
-                                return response;
                             })
                             .catch(err => {
                                 console.error(`[SW] Failed to fetch ${url}:`, err);
@@ -66,87 +119,112 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-    console.log('[SW] Activate event');
+    if (DEBUG) console.log('[SW] Activate event for version ' + VERSION);
+    
+    // Claim clients immediately to control pages without reload
     event.waitUntil(
-        caches.keys().then((keyList) => {
-            return Promise.all(keyList.map((key) => {
-                if (key !== CACHE_NAME) {
-                    console.log('[SW] Removing old cache:', key);
-                    return caches.delete(key);
-                }
-            }));
+        Promise.all([
+            // Clean up old caches
+            caches.keys().then((keyList) => {
+                return Promise.all(keyList.map((key) => {
+                    if (key !== CACHE_NAME && key !== API_CACHE_NAME) {
+                        if (DEBUG) console.log('[SW] Removing old cache:', key);
+                        return caches.delete(key);
+                    }
+                }));
+            }),
+            // Claim all clients
+            self.clients.claim().then(() => {
+                if (DEBUG) console.log('[SW] Claimed all clients');
+                
+                // Notify all clients that the service worker has been updated
+                return self.clients.matchAll().then(clients => {
+                    return Promise.all(clients.map(client => {
+                        return client.postMessage({
+                            type: 'SW_UPDATED',
+                            version: VERSION
+                        });
+                    }));
+                });
+            })
+        ]).then(() => {
+            if (DEBUG) console.log('[SW] Version ' + VERSION + ' now ready to handle fetches');
         })
     );
-    return self.clients.claim();
 });
 
-// Fetch event - respond with cache then network
-self.addEventListener('fetch', function(event) {
-    // Parse the URL to determine how to handle the request
-    const url = new URL(event.request.url);
-    const requestInfo = {
-        url: url.toString(),
-        protocol: url.protocol,
-        hostname: url.hostname,
-        pathname: url.pathname,
-        isApi: url.pathname.startsWith('/api/')
-    };
+// Helper function to determine if a request should be cached
+function shouldCache(url) {
+    const parsedUrl = new URL(url);
     
-    console.log('[SW] Fetch event for:', url.pathname);
-    console.log('[SW] Request info:', requestInfo);
+    // Don't cache API requests or auth endpoints
+    if (parsedUrl.pathname.startsWith('/api/') || 
+        parsedUrl.pathname === '/verify-pin') {
+        return false;
+    }
+    
+    // Don't cache query parameters that indicate non-cacheable content
+    if (parsedUrl.searchParams.has('no-cache') || 
+        parsedUrl.searchParams.has('bypass-cache')) {
+        return false;
+    }
+    
+    // Cache static assets and HTML pages
+    return true;
+}
+
+// Fetch event - implement stale-while-revalidate for most assets
+self.addEventListener('fetch', function(event) {
+    const url = new URL(event.request.url);
+    
+    // Skip non-GET requests
+    if (event.request.method !== 'GET') {
+        return;
+    }
     
     // For API requests or authentication endpoints, bypass cache completely
-    // Let these go directly to network to handle authentication properly
-    if (requestInfo.isApi || url.pathname === '/verify-pin') {
-        console.log('[SW] API or auth request - passing through to network:', url.pathname);
+    if (!shouldCache(event.request.url)) {
+        if (DEBUG && url.pathname.startsWith('/api/')) console.log('[SW] API request - passing through to network:', url.pathname);
         return; // Let the browser handle this request normally
     }
     
-    // For all other requests, use cache-first strategy
+    // For all other requests, use stale-while-revalidate strategy
     event.respondWith(
         caches.open(CACHE_NAME)
             .then(cache => {
                 return cache.match(event.request)
                     .then(cachedResponse => {
-                        if (cachedResponse) {
-                            console.log('[SW] Serving from cache:', url.pathname);
-                            return cachedResponse;
-                        }
-                        
-                        console.log('[SW] Not in cache, fetching from network:', url.pathname);
-                        return fetch(event.request)
+                        // Create a network request
+                        const fetchPromise = fetch(event.request)
                             .then(networkResponse => {
-                                // Clone the response so we can return one and cache the other
-                                const clonedResponse = networkResponse.clone();
-                                
-                                // Only cache successful responses
-                                if (networkResponse.status === 200) {
-                                    // Cache the fetched resource
-                                    cache.put(event.request, clonedResponse)
-                                        .then(() => {
-                                            console.log('[SW] Added to cache:', url.pathname);
-                                        })
-                                        .catch(error => {
-                                            console.error('[SW] Cache add error:', error);
-                                        });
+                                // If we got a valid response, cache it for next time
+                                if (networkResponse.ok) {
+                                    cache.put(event.request, networkResponse.clone())
+                                        .catch(err => console.error('[SW] Error updating cache for', url.pathname, err));
+                                    if (DEBUG) console.log('[SW] Updated cache for:', url.pathname);
                                 }
-                                
                                 return networkResponse;
                             })
                             .catch(error => {
                                 console.error('[SW] Network fetch error:', error);
-                                // Fall back to a generic offline page if available
-                                return caches.match('/offline.html')
-                                    .then(offlineResponse => {
-                                        return offlineResponse || new Response(
-                                            'You are offline and the requested resource is not cached.',
-                                            {
-                                                status: 503,
-                                                headers: {'Content-Type': 'text/plain'}
-                                            }
-                                        );
-                                    });
+                                // If offline fallback requested, try to serve it
+                                if (event.request.headers.get('Accept')?.includes('text/html')) {
+                                    return caches.match(OFFLINE_PAGE)
+                                        .then(offlineResponse => {
+                                            return offlineResponse || new Response(
+                                                'You are offline and the requested resource is not cached.',
+                                                {
+                                                    status: 503,
+                                                    headers: {'Content-Type': 'text/plain'}
+                                                }
+                                            );
+                                        });
+                                }
+                                throw error;
                             });
+                        
+                        // Return the cached response if we have one, otherwise wait for the network response
+                        return cachedResponse || fetchPromise;
                     });
             })
     );
