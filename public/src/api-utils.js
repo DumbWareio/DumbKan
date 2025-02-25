@@ -47,10 +47,7 @@ function loggedFetch(url, options = {}) {
             }
 
             if (!response.ok) {
-                console.log(`
-            
-            
-           ${options.method || 'GET'} ${url} ${response.status} (${response.statusText})`);
+                console.log(`${options.method || 'GET'} ${url} ${response.status} (${response.statusText})`);
                 
                 // For 401 or 403 status codes, redirect to login
                 if (response.status === 401 || response.status === 403) {
@@ -69,16 +66,37 @@ function loggedFetch(url, options = {}) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             
+            // Create a clone of the response that maintains the original methods
+            // This makes the loggedFetch response compatible with both patterns:
+            // 1. Direct use of parsed data (from loggedFetch)
+            // 2. Using response.json() again (backward compatibility)
+            const clonedResponse = response.clone();
+            
+            // Parse the response and attach the data to the cloned response
             return response.json().then(data => {
-                console.log('Response:', { status: response.status, ok: response.ok, data });
-                return data;
+                console.log('Response:', { status: clonedResponse.status, ok: clonedResponse.ok, data });
+                
+                // Enhance the cloned response with the parsed data
+                Object.assign(clonedResponse, data);
+                
+                // Override the json method to return the already parsed data
+                // This ensures code that calls response.json() again will still work
+                const originalJson = clonedResponse.json;
+                clonedResponse.json = function() {
+                    console.log('Using cached JSON response data');
+                    return Promise.resolve(data);
+                };
+                
+                return clonedResponse;
             }).catch(err => {
                 console.error('Error parsing JSON:', err);
-                return { error: 'Invalid JSON response', details: err.message };
+                // If JSON parsing fails, still return the cloned response
+                // This allows callers to handle non-JSON responses properly
+                return clonedResponse;
             });
         })
         .catch(error => {
-            console.error('Fetch error:', error.message, '\nStack:', error.stack);
+            console.error('Fetch error:', error);
             throw error;
         });
 }

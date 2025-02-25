@@ -115,18 +115,53 @@ function ensureAddColumnButtonIsLast(columnsContainer) {
  * @param {number} clientX - Horizontal position of cursor/touch
  */
 function positionDraggedColumn(draggingColumn, columnsContainer, clientX) {
+    if (!draggingColumn || !columnsContainer) {
+        console.warn('Missing required elements for drag positioning');
+        return;
+    }
+    
+    // Store the column ID for verification
+    const columnId = draggingColumn.dataset.sectionId;
+    if (!columnId) {
+        console.warn('Missing section ID on dragged column');
+        return;
+    }
+    
+    console.log(`Positioning dragged column ${columnId}`);
+    
     // Ensure add column button is positioned correctly first
     ensureAddColumnButtonIsLast(columnsContainer);
     
-    // Get columns for position calculation
-    const columns = [...document.querySelectorAll('.column:not(.dragging)')];
+    // Get columns for position calculation, excluding the dragging column
+    const columns = [...columnsContainer.querySelectorAll('.column:not(.dragging):not(.add-column-btn)')];
+    
+    // Find the column where the dragged item should be placed after
     const afterElement = getDragAfterElement(columns, clientX);
     
-    // Position the dragged column
+    // Only reposition if needed to avoid unnecessary DOM changes
+    const currentPrevSibling = draggingColumn.previousElementSibling;
+    const currentNextSibling = draggingColumn.nextElementSibling;
+    
+    let shouldReposition = false;
+    
     if (afterElement) {
-        columnsContainer.insertBefore(draggingColumn, afterElement);
+        shouldReposition = afterElement !== draggingColumn && afterElement !== currentNextSibling;
     } else {
-        columnsContainer.appendChild(draggingColumn);
+        // Should be placed at the end, check if it's already there
+        shouldReposition = currentNextSibling !== null && !currentNextSibling.classList.contains('add-column-btn');
+    }
+    
+    if (shouldReposition) {
+        // Position the dragged column
+        if (afterElement) {
+            console.log(`Inserting column ${columnId} before`, afterElement.dataset.sectionId);
+            columnsContainer.insertBefore(draggingColumn, afterElement);
+        } else {
+            console.log(`Appending column ${columnId} to end`);
+            columnsContainer.appendChild(draggingColumn);
+        }
+    } else {
+        console.log(`No repositioning needed for column ${columnId}`);
     }
     
     // Ensure add column button is at the end again after positioning
@@ -282,6 +317,20 @@ async function handleTaskDrop(data, column) {
         console.error('Failed to move task:', error);
         if (window.showToast) {
             window.showToast('Failed to move task. Please try again.', 'error');
+        } else if (window.showError) {
+            window.showError('Failed to move task. Please try again.');
+        } else {
+            // Fallback to alert if neither toast nor error function is available
+            alert('Failed to move task. Please try again.');
+        }
+        
+        // Attempt to restore original positions by refreshing the board
+        if (typeof window.refreshBoard === 'function') {
+            window.refreshBoard(window.state, window.elements);
+        } else if (typeof window.renderBoard === 'function') {
+            window.renderBoard(window.state, window.elements);
+        } else if (typeof window.renderActiveBoard === 'function') {
+            window.renderActiveBoard(window.state, window.elements);
         }
     }
 }
@@ -299,13 +348,32 @@ async function handleSectionDrop(data, column) {
         return;
     }
     
-    const columns = [...document.querySelectorAll('.column')];
+    // Get all columns, excluding the add column button
+    const columns = [...document.querySelectorAll('.column:not(.add-column-btn)')];
     const newIndex = columns.indexOf(column);
     
     if (newIndex === -1) {
         console.warn('Target column not found in columns list');
         return;
     }
+    
+    // Remove the dragging class immediately to prevent visual duplication
+    document.querySelectorAll('.column.dragging').forEach(el => {
+        el.classList.remove('dragging');
+    });
+    
+    // Get the current index of the section in state
+    const boardId = window.state.activeBoard;
+    const board = window.state.boards[boardId];
+    const oldIndex = board.sectionOrder.indexOf(sectionId);
+    
+    // Only proceed if the position actually changed
+    if (oldIndex === newIndex) {
+        console.log('Section dropped at same position, no changes needed');
+        return;
+    }
+    
+    console.log(`Dropping section ${sectionId} from position ${oldIndex} to ${newIndex}`);
     
     // Ensure the "add column" button is at the end of the columns container
     ensureAddColumnButtonIsLast(column.parentNode);
@@ -316,7 +384,12 @@ async function handleSectionDrop(data, column) {
         console.error('Failed to move section:', error);
         if (window.showToast) {
             window.showToast('Failed to move column. Please try again.', 'error');
+        } else if (window.showError) {
+            window.showError('Failed to move column. Please try again.');
         }
+        
+        // Force a full board refresh to reset the UI
+        window.loadBoards();
     }
 }
 
@@ -326,12 +399,49 @@ async function handleSectionDrop(data, column) {
  * @param {DragEvent} e - The drag end event
  */
 function handleDragEnd(e) {
+    console.log('Drag end event detected');
+    
+    // Remove dragging classes from all elements
     document.querySelectorAll('.task.dragging, .column.dragging').forEach(el => {
         el.classList.remove('dragging');
     });
+    
+    // Remove drag-over classes from all columns
     document.querySelectorAll('.column').forEach(col => {
         col.classList.remove('drag-over');
     });
+    
+    // Check for any duplicate sections
+    const sectionIds = new Set();
+    const duplicateSections = [];
+    
+    document.querySelectorAll('.column[data-section-id]').forEach(column => {
+        const sectionId = column.dataset.sectionId;
+        if (sectionId) {
+            if (sectionIds.has(sectionId)) {
+                duplicateSections.push(column);
+            } else {
+                sectionIds.add(sectionId);
+            }
+        }
+    });
+    
+    // Remove any duplicated sections
+    if (duplicateSections.length > 0) {
+        console.warn(`Found ${duplicateSections.length} duplicate sections, removing them`);
+        duplicateSections.forEach(section => section.remove());
+        
+        // Force a render to ensure consistent state
+        if (typeof window.renderActiveBoard === 'function') {
+            window.renderActiveBoard(window.state, window.elements);
+        }
+    }
+    
+    // Ensure the add column button is last
+    const columnsContainer = document.getElementById('columns');
+    if (columnsContainer) {
+        ensureAddColumnButtonIsLast(columnsContainer);
+    }
 }
 
 /**
@@ -343,40 +453,72 @@ function handleDragEnd(e) {
 async function handleSectionMove(sectionId, newIndex) {
     try {
         const boardId = window.state.activeBoard;
-        const response = await fetch(`${window.appConfig.basePath}/api/boards/${boardId}/sections/${sectionId}/move`, {
+        console.log(`Moving section ${sectionId} to position ${newIndex} in board ${boardId}`);
+        
+        // Use loggedFetch instead of fetch for consistent API handling and logging
+        const response = await window.loggedFetch(`${window.appConfig.basePath}/api/boards/${boardId}/sections/${sectionId}/move`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ newIndex })
         });
 
         if (!response.ok) {
-            throw new Error('Failed to move section');
+            throw new Error(`Failed to move section: ${response.status} ${response.statusText}`);
         }
 
-        // Update local state
+        // Get current section order
         const board = window.state.boards[boardId];
-        const currentIndex = board.sectionOrder.indexOf(sectionId);
+        console.log('Board section order before update:', [...board.sectionOrder]);
+        
+        // Create a new array instead of modifying the existing one
+        const updatedSectionOrder = [...board.sectionOrder];
+        const currentIndex = updatedSectionOrder.indexOf(sectionId);
+        
         if (currentIndex !== -1) {
-            board.sectionOrder.splice(currentIndex, 1);
-            board.sectionOrder.splice(newIndex, 0, sectionId);
+            // Only move if the section exists and the position actually changed
+            if (currentIndex !== newIndex) {
+                // Remove from current position
+                updatedSectionOrder.splice(currentIndex, 1);
+                // Add at new position
+                updatedSectionOrder.splice(newIndex > currentIndex ? newIndex - 1 : newIndex, 0, sectionId);
+                
+                // Update the board's section order with our new array
+                board.sectionOrder = updatedSectionOrder;
+                console.log('Board section order after update:', board.sectionOrder);
+            } else {
+                console.log('Section position unchanged, skipping reorder');
+            }
+        } else {
+            console.warn(`Section ${sectionId} not found in board section order`);
         }
 
         // Ensure the "add column" button is at the end of the columns container
-        const addColumnBtn = document.querySelector('.add-column-btn');
-        const columnsContainer = document.getElementById('columns');
-        if (addColumnBtn && columnsContainer) {
-            columnsContainer.appendChild(addColumnBtn);
-        }
+        ensureAddColumnButtonIsLast(document.getElementById('columns'));
 
-        // Use the window function for rendering
+        // Render the updated board using the most appropriate render function
         if (typeof window.renderActiveBoard === 'function') {
+            console.log('Rendering board after section move');
             window.renderActiveBoard(window.state, window.elements);
+        } else if (typeof window.renderBoard === 'function') {
+            window.renderBoard(window.state, window.elements);
         } else {
-            console.warn('renderActiveBoard not available');
+            console.warn('No render function available');
+            // Fallback to reload if no render function is available
+            window.loadBoards();
         }
     } catch (error) {
         console.error('Failed to move section:', error);
-        window.loadBoards(); // Reload the board state in case of error
+        
+        // Show error to user
+        if (window.showToast) {
+            window.showToast('Failed to move column. Please try again.', 'error');
+        } else if (window.showError) {
+            window.showError('Failed to move column. Please try again.');
+        }
+        
+        // Force a clean reload of the board state
+        console.log('Reloading boards after section move error');
+        window.loadBoards();
     }
 }
 

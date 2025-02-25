@@ -447,32 +447,51 @@ export function createInlineTaskEditor(sectionId, addTaskBtn) {
                 input.disabled = true;
                 input.classList.add('saving');
                 
-                // Set a timeout for the API call to handle network issues
-                const taskPromise = window.addTask(sectionId, title, '', 'active', null, null, boardId);
-                
-                // Create a timeout promise
-                const timeoutPromise = new Promise((_, reject) => {
-                    setTimeout(() => reject(new Error('Request timed out')), 8000);
-                });
-                
-                // Race the task creation against the timeout
-                const task = await Promise.race([taskPromise, timeoutPromise]);
-                
-                console.log('Task created successfully:', task);
-                
-                if (keepEditorOpen) {
-                    input.value = '';
+                try {
+                    // Set a timeout for the API call to handle network issues
+                    const taskPromise = window.addTask(sectionId, title, '', 'active', null, null, boardId);
+                    
+                    // Create a timeout promise
+                    const timeoutPromise = new Promise((_, reject) => {
+                        setTimeout(() => reject(new Error('Request timed out')), 8000);
+                    });
+                    
+                    // Race the task creation against the timeout
+                    const task = await Promise.race([taskPromise, timeoutPromise]);
+                    
+                    console.log('Task created successfully:', task);
+                    
+                    if (keepEditorOpen) {
+                        input.value = '';
+                        input.disabled = false;
+                        input.classList.remove('saving');
+                        input.focus();
+                    } else {
+                        closeEditor();
+                    }
+                    
+                    // Force a board refresh just in case
+                    if (typeof window.refreshBoard === 'function') {
+                        console.log('Explicitly refreshing board after task creation');
+                        window.refreshBoard(window.state, window.elements);
+                    }
+                } catch (error) {
+                    console.error('Error adding task:', error);
+                    
+                    // Show error to user
+                    const errorMessage = error.message || 'Failed to add task. Please try again.';
+                    if (typeof window.showError === 'function') {
+                        window.showError(errorMessage);
+                    } else {
+                        alert(errorMessage);
+                    }
+                    
                     input.disabled = false;
                     input.classList.remove('saving');
-                    input.focus();
-                } else {
-                    closeEditor();
-                }
-                
-                // Force a board refresh just in case
-                if (typeof window.refreshBoard === 'function') {
-                    console.log('Explicitly refreshing board after task creation');
-                    window.refreshBoard(window.state, window.elements);
+                    
+                    if (!keepEditorOpen) {
+                        closeEditor();
+                    }
                 }
             } catch (error) {
                 console.error('Error adding task:', error);
@@ -491,8 +510,6 @@ export function createInlineTaskEditor(sectionId, addTaskBtn) {
                 if (!keepEditorOpen) {
                     closeEditor();
                 }
-            } finally {
-                isProcessing = false;
             }
         } else {
             closeEditor();

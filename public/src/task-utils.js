@@ -106,73 +106,129 @@ function deleteTask(taskId, sectionId) {
 }
 
 /**
- * Moves a task from one section to another or reorders within the same section
- * @param {string} taskId - The ID of the task to move
- * @param {string} fromSectionId - The source section ID
- * @param {string} toSectionId - The target section ID
- * @param {number} newIndex - The new position within the target section
- * @returns {Promise<void>} - Promise that resolves when the task is moved
+ * Handles moving a task to a different section or position
+ * @param {string} taskId - ID of the task being moved
+ * @param {string} fromSectionId - ID of the source section
+ * @param {string} toSectionId - ID of the destination section
+ * @param {number} newPosition - New position index in the destination section
+ * @returns {Promise<Object>} - The updated task data
  */
-async function handleTaskMove(taskId, fromSectionId, toSectionId, newIndex) {
+window.handleTaskMove = async function(taskId, fromSectionId, toSectionId, newPosition) {
+    const boardId = window.state.activeBoard;
+    if (!boardId) {
+        throw new Error('No active board');
+    }
+
+    console.log(`Moving task ${taskId} from section ${fromSectionId} to section ${toSectionId} at position ${newPosition}`);
+    
+    // Debug state structure to understand what we're working with
+    console.log('Current state structure:', {
+        tasksIsArray: Array.isArray(window.state.tasks),
+        tasksType: typeof window.state.tasks,
+        sectionsIsArray: Array.isArray(window.state.sections),
+        sectionsType: typeof window.state.sections,
+        taskCount: window.state.tasks ? Object.keys(window.state.tasks).length : 0,
+        sectionCount: window.state.sections ? Object.keys(window.state.sections).length : 0
+    });
+    
     try {
-        const response = await window.loggedFetch(`${window.appConfig.basePath}/api/tasks/${taskId}/move`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                toSectionId,
-                newIndex
-            })
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || 'Failed to move task');
-        }
-
-        // Get the updated task data from the response
-        const updatedData = await response.json();
+        // Make API call to move task
+        const response = await window.loggedFetch(
+            `${window.appConfig.basePath}/api/tasks/${taskId}/move`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    fromSectionId,
+                    toSectionId,
+                    position: newPosition,
+                    boardId: boardId // Explicitly include the board ID in case the API needs it
+                })
+            }
+        );
         
-        // Update local state with the response data
-        if (updatedData.task) {
-            window.state.tasks[taskId] = updatedData.task;
-        }
-        
-        if (updatedData.sections) {
-            // Update the sections with their new task orders
-            Object.assign(window.state.sections, updatedData.sections);
+        // Check if response contains data directly (loggedFetch might parse it)
+        let data;
+        if (response.task) {
+            // Response already contains parsed data with task property
+            data = response;
+            console.log('Task move response contained direct task data:', data);
         } else {
-            // Fallback to manual state update if server doesn't provide section data
-            const fromSection = window.state.sections[fromSectionId];
-            const toSection = window.state.sections[toSectionId];
-
-            if (fromSection && toSection) {
-                // Remove task from source section
-                const taskIndex = fromSection.taskIds.indexOf(taskId);
-                if (taskIndex !== -1) {
-                    fromSection.taskIds.splice(taskIndex, 1);
-                }
-
-                // Add task to target section
-                if (typeof newIndex === 'number') {
-                    toSection.taskIds.splice(newIndex, 0, taskId);
+            // Need to parse the JSON response
+            try {
+                data = await response.json();
+                console.log('Task move parsed JSON response:', data);
+            } catch (parseError) {
+                console.warn('Failed to parse task move response as JSON:', parseError);
+                // If we can't parse it but response was OK, return a minimal object
+                if (response.ok) {
+                    data = { success: true, message: 'Task moved successfully' };
+                    console.log('Created minimal success response object');
                 } else {
-                    toSection.taskIds.push(taskId);
-                }
-
-                // Update task's section reference
-                if (window.state.tasks[taskId]) {
-                    window.state.tasks[taskId].sectionId = toSectionId;
+                    throw new Error('Failed to parse server response');
                 }
             }
         }
         
-        // Only re-render if we successfully updated the state
-        // Use the window function reference for consistency
-        if (typeof window.renderActiveBoard === 'function') {
-            window.renderActiveBoard(window.state, window.elements);
-        } else {
-            console.warn('renderActiveBoard not available');
+        // Update state locally if task data is available
+        if (data && data.task) {
+            // Update the task in state - tasks is an object with task IDs as keys, not an array
+            if (window.state && window.state.tasks) {
+                window.state.tasks[taskId] = data.task;
+            }
+
+            // Update section task lists if section data is provided
+            if (data.sections) {
+                // Check if sections is an array or object and update accordingly
+                if (Array.isArray(data.sections)) {
+                    // Handle array of sections
+                    data.sections.forEach(section => {
+                        if (window.state.sections[section.id]) {
+                            window.state.sections[section.id] = section;
+                        }
+                    });
+                } else {
+                    // Handle object of sections where keys are section IDs
+                    Object.keys(data.sections).forEach(sectionId => {
+                        const section = data.sections[sectionId];
+                        if (window.state.sections[sectionId]) {
+                            window.state.sections[sectionId] = section;
+                        }
+                    });
+                }
+            } else {
+                // If server didn't return updated sections, manually update the task lists
+                // Remove task from the source section
+                const fromSection = window.state.sections[fromSectionId];
+                if (fromSection && fromSection.taskIds) {
+                    const taskIndex = fromSection.taskIds.indexOf(taskId);
+                    if (taskIndex !== -1) {
+                        fromSection.taskIds.splice(taskIndex, 1);
+                    }
+                }
+                
+                // Add task to the target section
+                const toSection = window.state.sections[toSectionId];
+                if (toSection && toSection.taskIds) {
+                    if (typeof newPosition === 'number' && newPosition >= 0) {
+                        toSection.taskIds.splice(newPosition, 0, taskId);
+                    } else {
+                        toSection.taskIds.push(taskId);
+                    }
+                }
+            }
+
+            // Re-render the board to reflect changes
+            if (typeof window.renderBoard === 'function') {
+                window.renderBoard(window.state, window.elements);
+            } else if (typeof window.renderActiveBoard === 'function') {
+                window.renderActiveBoard(window.state, window.elements);
+            } else {
+                console.warn('No board render function found. Board may need manual refresh.');
+            }
         }
+        
+        return data;
     } catch (error) {
         console.error('Failed to move task:', error);
         throw error;
