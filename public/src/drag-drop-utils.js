@@ -1,9 +1,26 @@
 /**
- * Touch Drag and Drop Utilities
- * This module provides touch event handling for mobile drag-and-drop functionality
- * It simulates drag-and-drop events on touch devices by converting touch events
- * to standard drag-and-drop events
+ * Drag and Drop Utilities
+ * This module provides utilities for drag-and-drop operations, including:
+ * - Touch event handling for mobile drag-and-drop functionality
+ * - Position calculation utilities for placing dragged elements
+ * - Simulated drag-and-drop events on touch devices
  */
+
+/**
+ * Determines the element after which a dragged item should be placed
+ * based on the horizontal position of the cursor
+ * @param {Array<Element>} elements - Array of elements to check position against
+ * @param {number} x - The horizontal position of the cursor/touch
+ * @returns {Element|null} - The element after which the dragged item should be placed, or null if it should be placed last
+ */
+function getDragAfterElement(elements, x) {
+    const draggableElements = elements.filter(element => {
+        const box = element.getBoundingClientRect();
+        return x < box.left + box.width / 2;
+    });
+    
+    return draggableElements[0];
+}
 
 /**
  * Handles the start of a touch on a draggable task
@@ -141,7 +158,16 @@ function handleTouchEnd(e) {
     draggedTask.dispatchEvent(dragEndEvent);
 }
 
-// Expose the functions globally
+// Export all functions
+export {
+    getDragAfterElement,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd
+};
+
+// Make functions available on window for legacy code
 window.handleTouchStart = handleTouchStart;
 window.handleTouchMove = handleTouchMove;
-window.handleTouchEnd = handleTouchEnd; 
+window.handleTouchEnd = handleTouchEnd;
+window.getDragAfterElement = getDragAfterElement; 

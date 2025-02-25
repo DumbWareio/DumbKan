@@ -963,14 +963,8 @@ function handleSectionDragOver(e) {
     }
 }
 
-function getDragAfterElement(elements, x) {
-    const draggableElements = elements.filter(element => {
-        const box = element.getBoundingClientRect();
-        return x < box.left + box.width / 2;
-    });
-    
-    return draggableElements[0];
-}
+// getDragAfterElement function has been moved to /public/src/drag-drop-utils.js
+// Import using: import { getDragAfterElement } from './src/drag-drop-utils.js';
 
 async function handleSectionDrop(e) {
                 e.preventDefault();
