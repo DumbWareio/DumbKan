@@ -76,8 +76,9 @@ function loggedFetch(url, options = {}) {
             return response.json().then(data => {
                 console.log('Response:', { status: clonedResponse.status, ok: clonedResponse.ok, data });
                 
-                // Enhance the cloned response with the parsed data
-                Object.assign(clonedResponse, data);
+                // Instead of directly assigning to the response object which has read-only properties,
+                // create a data property that contains the parsed JSON
+                clonedResponse.data = data;
                 
                 // Override the json method to return the already parsed data
                 // This ensures code that calls response.json() again will still work
