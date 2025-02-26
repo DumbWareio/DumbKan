@@ -254,7 +254,7 @@
                 
                 // Add update action
                 updateButton.addEventListener('click', () => {
-                    if (updateAvailable && navigator.serviceWorker.controller) {
+                    if (updateAvailable && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
                         updateAccepted = true;
                         // Send skip-waiting message to activate the new service worker
                         navigator.serviceWorker.controller.postMessage({
@@ -353,38 +353,38 @@
         let cacheClearInProgress = false;
         let cacheClearedCallback = null;
         
-        // Listen for messages from service worker
-        navigator.serviceWorker.addEventListener('message', (event) => {
-            // Handle cache cleared message
-            if (event.data && event.data.type === 'CACHES_CLEARED') {
-                console.log('Received confirmation that caches were cleared at:', new Date(event.data.timestamp).toLocaleTimeString());
-                cacheClearInProgress = false;
-                
-                // Call callback if one was registered
-                if (typeof cacheClearedCallback === 'function') {
-                    cacheClearedCallback();
-                    cacheClearedCallback = null;
+        // Listen for messages from service worker, only if supported
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                // Handle cache cleared message
+                if (event.data && event.data.type === 'CACHES_CLEARED') {
+                    console.log('Received confirmation that caches were cleared at:', new Date(event.data.timestamp).toLocaleTimeString());
+                    cacheClearInProgress = false;
+                    
+                    // Call callback if one was registered
+                    if (typeof cacheClearedCallback === 'function') {
+                        cacheClearedCallback();
+                        cacheClearedCallback = null;
+                    }
                 }
-            }
-            
-            // Handle service worker update notification
-            if (event.data && event.data.type === 'SW_UPDATED') {
-                console.log('Service worker updated to version:', event.data.version);
-            }
-        });
+                
+                // Handle service worker update notification
+                if (event.data && event.data.type === 'SW_UPDATED') {
+                    console.log('Service worker updated to version:', event.data.version);
+                }
+            });
+        }
         
-        // This helper function will be available in the browser console
-        // to allow developers to manually clear caches if needed
-        window.clearAppCache = async function(reloadAfter = true) {
-            console.log('Manually clearing all caches...');
+        /**
+         * Force refresh the app by clearing caches and service workers
+         * Used during development or in emergency recovery situations
+         */
+        async function refreshApp() {
+            console.log('Starting app refresh process...');
             
-            // Create a promise that resolves when cache clearing is complete
-            const clearPromise = new Promise((resolve) => {
-                if (cacheClearInProgress) {
-                    console.log('Cache clearing already in progress, please wait...');
-                    return resolve(false);
-                }
-                
+            // Clear caches and unregister service workers
+            const clearPromise = new Promise(async (resolve) => {
+                // Set cache clear in progress
                 cacheClearInProgress = true;
                 
                 // Set callback to be called when service worker confirms clearing
@@ -394,25 +394,32 @@
                 };
                 
                 try {
-                    // If we have a service worker controlling the page, send message
-                    if (navigator.serviceWorker.controller) {
-                        navigator.serviceWorker.controller.postMessage({
-                            type: 'CLEAR_CACHES'
-                        });
-                        console.log('Sent cache clear request to service worker');
-                        
-                        // Set a timeout in case the service worker doesn't respond
-                        setTimeout(() => {
-                            if (cacheClearInProgress) {
-                                console.log('Timeout waiting for service worker response, continuing with unregister');
-                                cacheClearInProgress = false;
-                                resolve(true);
-                            }
-                        }, 3000);
+                    // Check if service workers are supported before trying to use them
+                    if ('serviceWorker' in navigator) {
+                        // If we have a service worker controlling the page, send message
+                        if (navigator.serviceWorker.controller) {
+                            navigator.serviceWorker.controller.postMessage({
+                                type: 'CLEAR_CACHES'
+                            });
+                            console.log('Sent cache clear request to service worker');
+                            
+                            // Set a timeout in case the service worker doesn't respond
+                            setTimeout(() => {
+                                if (cacheClearInProgress) {
+                                    console.log('Timeout waiting for service worker response, continuing with unregister');
+                                    cacheClearInProgress = false;
+                                    resolve(false);
+                                }
+                            }, 3000);
+                        } else {
+                            console.log('No controlling service worker found');
+                            cacheClearInProgress = false;
+                            resolve(false);
+                        }
                     } else {
-                        console.log('No service worker controlling the page, proceeding with direct cache clear');
+                        console.log('Service workers not supported in this browser');
                         cacheClearInProgress = false;
-                        resolve(true);
+                        resolve(false);
                     }
                 } catch (error) {
                     console.error('Error sending message to service worker:', error);
@@ -425,13 +432,15 @@
             const cleared = await clearPromise;
             
             try {
-                // Now unregister all service workers
-                const registrations = await navigator.serviceWorker.getRegistrations();
-                for(let registration of registrations) {
-                    console.log('Unregistering service worker');
-                    await registration.unregister();
+                // Now unregister all service workers if supported
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for(let registration of registrations) {
+                        console.log('Unregistering service worker');
+                        await registration.unregister();
+                    }
+                    console.log('All service workers unregistered');
                 }
-                console.log('All service workers unregistered');
                 
                 // Manually clear caches as well (belt and suspenders)
                 const cacheNames = await caches.keys();
@@ -446,7 +455,7 @@
                 cacheClearInProgress = false;
                 resolve(false);
             }
-        };
+        }
     </script>
 
     <!-- Add this before the closing body tag -->
