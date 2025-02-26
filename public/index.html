@@ -302,8 +302,10 @@
             <button class="modal-close" aria-label="Close modal">×</button>
             <div class="editable-title-container">
                 <span id="taskStatusToggle" class="badge status-badge active" title="Active"></span>
-                <div id="taskTitleDisplay" class="editable-title">Task Title</div>
-                <input type="text" id="taskTitle" class="title-edit-input" required hidden>
+                <div class="title-wrapper">
+                    <div id="taskTitleDisplay" class="editable-title">Task Title</div>
+                    <input type="text" id="taskTitle" class="title-edit-input" required hidden>
+                </div>
             </div>
             <form id="taskForm">
                 <div class="form-group" hidden>

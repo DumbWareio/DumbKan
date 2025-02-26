@@ -42,16 +42,36 @@ function showTaskModal(task) {
     }
     
     // Update editable title display element
-    const titleDisplay = elements.taskModal.querySelector('#taskTitleDisplay');
+    const titleDisplay = elements.taskTitleDisplay;
     if (titleDisplay) {
         titleDisplay.textContent = isNewTask ? 'New Task' : (currentTask.title || 'Untitled Task');
         
         // Add click event to make title editable
         titleDisplay.onclick = function() {
             if (elements.taskTitle) {
+                // Save the current text content before hiding
+                const currentText = titleDisplay.textContent;
+                
+                // Get the dimensions and position of the display element before hiding it
+                const rect = titleDisplay.getBoundingClientRect();
+                const styles = window.getComputedStyle(titleDisplay);
+                
+                // Prepare the input element first, then make it visible
+                elements.taskTitle.value = currentText;
+                elements.taskTitle.style.width = rect.width + 'px';
+                elements.taskTitle.style.height = rect.height + 'px';
+                elements.taskTitle.style.lineHeight = styles.lineHeight;
+                elements.taskTitle.style.top = '0px'; 
+                elements.taskTitle.style.left = '0px';
+                elements.taskTitle.style.paddingTop = styles.paddingTop;
+                elements.taskTitle.style.paddingBottom = styles.paddingBottom;
+                elements.taskTitle.style.fontFamily = styles.fontFamily;
+                elements.taskTitle.style.fontSize = styles.fontSize;
+                elements.taskTitle.style.fontWeight = styles.fontWeight;
+                
+                // Switch visibility
                 titleDisplay.hidden = true;
                 elements.taskTitle.hidden = false;
-                elements.taskTitle.value = titleDisplay.textContent;
                 elements.taskTitle.focus();
                 
                 // Also update the hidden form input

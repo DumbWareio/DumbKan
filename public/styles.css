@@ -2139,6 +2139,13 @@ select#taskStatus:focus {
     gap: 0.75rem;
 }
 
+.title-wrapper {
+    position: relative;
+    flex-grow: 1;
+    display: flex; /* Ensure proper alignment */
+    align-items: center; /* Center align text vertically */
+}
+
 .editable-title {
     font-size: 1.5rem;
     font-weight: 600;
@@ -2147,7 +2154,10 @@ select#taskStatus:focus {
     padding: 0.5rem 0;
     border-radius: 4px;
     transition: background-color var(--transition);
-    flex-grow: 1;
+    width: 100%;
+    position: relative;
+    display: block; /* Ensure consistent display */
+    line-height: 1.2; /* Set a consistent line height */
 }
 
 .editable-title:hover {
@@ -2156,16 +2166,23 @@ select#taskStatus:focus {
 
 .title-edit-input {
     position: absolute;
-    left: 0;
     top: 0;
+    left: 0;
     width: 100%;
     font-size: 1.5rem;
     font-weight: 600;
-    padding: 0.5rem;
+    padding: 0.5rem 0;
     border: 1px solid var(--primary);
     border-radius: 4px;
     background: var(--container);
     color: var(--text);
+    z-index: 1;
+    margin: 0;
+    box-sizing: border-box;
+    line-height: inherit;
+    height: auto;
+    transform: translateY(0); /* Prevent any shifting */
+    vertical-align: top; /* Align text at the top */
 }
 
 .title-edit-input:focus {
@@ -2177,9 +2194,10 @@ select#taskStatus:focus {
 .editable-title-container .status-badge {
     margin-left: 0.25rem;
     flex-shrink: 0;
+    z-index: 2; /* Ensure the toggle is always on top */
 }
 
 /* Make the editable title fill the remaining space */
-.editable-title-container .editable-title {
+.editable-title-container .title-wrapper {
     flex-grow: 1;
 }
