@@ -135,7 +135,7 @@ form {
     width: calc(100% - 2rem);
     max-width: 400px;
     transition: background var(--transition), box-shadow var(--transition);
-    text-align: center;
+    text-align: left;
     margin: 1rem auto;
     transform: translateY(-10%);
 }
@@ -1841,23 +1841,23 @@ h2 {
 }
 
 .priority-option.urgent {
-    background-color: var(--priority-urgent-bg);
-    color: var(--priority-urgent-text);
+    background-color: var(--priority-urgent-bg, #ff4d4f);
+    color: var(--priority-urgent-text, white);
 }
 
 .priority-option.high {
-    background-color: var(--priority-high-bg);
-    color: var(--priority-high-text);
+    background-color: var(--priority-high-bg, #faad14);
+    color: var(--priority-high-text, white);
 }
 
 .priority-option.medium {
-    background-color: #1976d2;
-    color: white;
+    background-color: var(--priority-medium-bg, #1890ff);
+    color: var(--priority-medium-text, white);
 }
 
 .priority-option.low {
-    background-color: var(--priority-low-bg);
-    color: var(--priority-low-text);
+    background-color: var(--priority-low-bg, #52c41a);
+    color: var(--priority-low-text, white);
 }
 
 /* Update priority badge to show it's clickable */
@@ -1886,8 +1886,8 @@ h2 {
 }
 
 .priority-badge.medium {
-    background-color: #1976d2;
-    color: white;
+    background-color: var(--priority-medium-bg);
+    color: var(--priority-medium-text);
 }
 
 .priority-badge.low {
@@ -2138,8 +2138,7 @@ h2 {
 /* Editable title in task modal */
 .editable-title-container {
     position: relative;
-    padding: 1rem 0;
-    margin: 0.5rem 0 2rem 0;
+    margin: 0.5rem 0 0rem 0;
     display: flex;
     align-items: center;
     gap: 0.75rem;
@@ -2160,7 +2159,7 @@ h2 {
     padding: 0.5rem 0;
     border-radius: 4px;
     transition: background-color var(--transition);
-    width: 100%;
+    width: 95%;
     position: relative;
     display: block; /* Ensure consistent display */
     line-height: 1.2; /* Set a consistent line height */
@@ -2210,80 +2209,45 @@ h2 {
 
 /* Modal priority container styles */
 .modal-priority-container {
-    display: flex;
-    align-items: center;
-    margin-bottom: 12px;
-    padding-left: 4px;
-}
-
-.modal-priority-container .priority-badge {
+    margin: 0.4rem 0 .5rem;
     position: relative;
-    cursor: pointer;
-    width: 24px;
-    height: 24px;
-    font-size: 14px;
-}
-
-.modal-priority-container .priority-tray {
-    position: absolute;
-    left: calc(100% + 4px);
-    top: 50%;
-    transform: translateY(-50%) scaleX(0);
-    background: var(--container);
-    border: none;
-    border-radius: 12px;
-    box-shadow: var(--shadow);
-    padding: 4px;
-    display: flex;
-    flex-direction: row;
-    gap: 4px;
-    z-index: 1005;
-    opacity: 0;
-    transform-origin: left;
-    transition: transform 0.2s ease, opacity 0.2s ease;
-    pointer-events: none;
-    width: auto;
-}
-
-.modal-priority-container .priority-tray.active {
-    transform: translateY(-50%) scaleX(1);
-    opacity: 1;
-    pointer-events: auto;
-}
-
-.modal-priority-container .priority-option {
-    width: 20px;
-    height: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 50%;
+}
+
+.priority-options-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.priority-options {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: center;
+}
+
+.priority-option {
     cursor: pointer;
-    transition: transform 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
     font-weight: bold;
-    font-size: 12px;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
 }
 
-.modal-priority-container .priority-option:hover {
-    transform: scale(1.1);
-}
-
-.modal-priority-container .priority-option.urgent {
-    background-color: var(--priority-urgent-bg);
-    color: var(--priority-urgent-text);
-}
-
-.modal-priority-container .priority-option.high {
-    background-color: var(--priority-high-bg);
-    color: var(--priority-high-text);
-}
-
-.modal-priority-container .priority-option.medium {
-    background-color: #1976d2;
-    color: white;
-}
-
-.modal-priority-container .priority-option.low {
-    background-color: var(--priority-low-bg);
-    color: var(--priority-low-text);
+.priority-option.selected {
+    width: 2rem;
+    height: 2rem;
+    font-size: 1.2rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    border: 3px solid #888;
+    position: relative;
+    z-index: 2;
 }
