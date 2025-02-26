@@ -2106,11 +2106,33 @@ h2 {
     margin: 0 4px;
     cursor: pointer;
     transition: all var(--transition);
+    position: relative; /* For the pseudo-element */
+    -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
+}
+
+/* Create a larger invisible touch target */
+.info-badge::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: -10px;
+    right: -10px;
+    bottom: -10px;
+    z-index: -1;
 }
 
 .info-badge:hover {
     opacity: 0.8;
     transform: scale(1.1);
+}
+
+/* Make the badge larger on mobile devices */
+@media (max-width: 768px) {
+    .info-badge {
+        width: 24px;
+        height: 24px;
+        font-size: 14px;
+    }
 }
 
 /* Editable title in task modal */

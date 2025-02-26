@@ -404,10 +404,35 @@ function renderTask(task, state) {
     infoBadge.className = 'badge info-badge';
     infoBadge.textContent = 'i';
     infoBadge.setAttribute('title', 'View Task Details');
-    infoBadge.addEventListener('click', (e) => {
+    infoBadge.setAttribute('role', 'button'); // Add role for accessibility
+    infoBadge.setAttribute('tabindex', '0'); // Make it focusable
+    
+    // Handle both click and touch events for better mobile compatibility
+    const showModal = (e) => {
+        e.preventDefault();
         e.stopPropagation();
         window.showTaskModal(task);
+    };
+    
+    // Click event for desktop
+    infoBadge.addEventListener('click', showModal);
+    
+    // Touch events for mobile
+    infoBadge.addEventListener('touchstart', (e) => {
+        // Prevent the event from being treated as a mouse event later
+        e.preventDefault();
+    }, { passive: false });
+    
+    infoBadge.addEventListener('touchend', showModal, { passive: false });
+    
+    // Keyboard accessibility
+    infoBadge.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            showModal(e);
+        }
     });
+    
     metadataBadges.appendChild(infoBadge);
 
     // Add priority badge
