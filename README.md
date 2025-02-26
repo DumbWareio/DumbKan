@@ -58,6 +58,20 @@ When `DUMBKAN_PIN` is set, the app requires PIN verification before accessing or
 ## Data Persistence
 Task data is stored in `/app/dumbdata/tasks.json`. When using Docker, mount this directory as a volume to persist data between container restarts.
 
+## Data Migration
+This version contains significant changes to the data structure. If you're upgrading from an earlier version:
+
+- The application will automatically detect old data files in legacy locations (e.g., `/app/data/tasks.json`)
+- Data will be automatically migrated to the new structure and stored in `/app/dumbdata/tasks.json`
+- A backup of your old data will be created at the original location with a timestamp
+- No manual steps are required for this migration
+
+### Data Structure Changes
+- The data model has been normalized with separate collections for boards, sections, and tasks
+- Columns are now called "sections" and have unique IDs
+- Tasks have more metadata: priority, status, due dates, etc.
+- This new structure improves performance and enables future features
+
 ## Getting Started
 
 ### Option 1: Docker (Recommended)

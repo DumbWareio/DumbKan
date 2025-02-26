@@ -31,12 +31,36 @@ async function writeData(data) {
     await fs.writeFile(config.DATA_FILE, JSON.stringify(data, null, 2));
 }
 
+// Check if data is in the old format
+function isOldFormat(data) {
+    // Check for presence of boards with 'columns' property (old format)
+    if (!data || !data.boards) return false;
+    
+    // Get a sample board
+    const boardKey = Object.keys(data.boards)[0];
+    if (!boardKey) return false;
+    
+    // Check if it has the old 'columns' structure
+    return !!data.boards[boardKey].columns;
+}
+
 // Helper function to read data
 async function readData() {
     await ensureDataDirectory();
     try {
         const data = await fs.readFile(config.DATA_FILE, 'utf8');
-        return JSON.parse(data);
+        const parsedData = JSON.parse(data);
+        
+        // Check if this is old format data that somehow wasn't migrated
+        if (isOldFormat(parsedData)) {
+            console.warn('WARNING: Found data in old format. This should have been migrated during startup.');
+            console.warn('Loading data in current format, but migration should be performed.');
+            
+            // Continue with the data as-is, but log a warning
+            // The proper migration will happen on next server start
+        }
+        
+        return parsedData;
     } catch (error) {
         if (error.code === 'ENOENT') {
             // Create default data structure if file doesn't exist
@@ -91,5 +115,6 @@ module.exports = {
     generateTaskId,
     generateSectionId,
     generateBoardId,
-    generateUniqueSectionId
+    generateUniqueSectionId,
+    isOldFormat
 }; 
