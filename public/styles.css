@@ -2207,3 +2207,83 @@ h2 {
 .editable-title-container .title-wrapper {
     flex-grow: 1;
 }
+
+/* Modal priority container styles */
+.modal-priority-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-left: 4px;
+}
+
+.modal-priority-container .priority-badge {
+    position: relative;
+    cursor: pointer;
+    width: 24px;
+    height: 24px;
+    font-size: 14px;
+}
+
+.modal-priority-container .priority-tray {
+    position: absolute;
+    left: calc(100% + 4px);
+    top: 50%;
+    transform: translateY(-50%) scaleX(0);
+    background: var(--container);
+    border: none;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    padding: 4px;
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+    z-index: 1005;
+    opacity: 0;
+    transform-origin: left;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+    pointer-events: none;
+    width: auto;
+}
+
+.modal-priority-container .priority-tray.active {
+    transform: translateY(-50%) scaleX(1);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.modal-priority-container .priority-option {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.modal-priority-container .priority-option:hover {
+    transform: scale(1.1);
+}
+
+.modal-priority-container .priority-option.urgent {
+    background-color: var(--priority-urgent-bg);
+    color: var(--priority-urgent-text);
+}
+
+.modal-priority-container .priority-option.high {
+    background-color: var(--priority-high-bg);
+    color: var(--priority-high-text);
+}
+
+.modal-priority-container .priority-option.medium {
+    background-color: #1976d2;
+    color: white;
+}
+
+.modal-priority-container .priority-option.low {
+    background-color: var(--priority-low-bg);
+    color: var(--priority-low-text);
+}

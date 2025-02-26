@@ -315,6 +315,14 @@
                 </div>
                 <!-- Hidden status field to store the value for form submission -->
                 <input type="hidden" id="taskStatus" value="active">
+                <!-- Hidden priority field to store the value for form submission -->
+                <input type="hidden" id="taskPriority" value="medium">
+                
+                <!-- Priority badge will be displayed here -->
+                <div class="modal-priority-container">
+                    <span id="taskPriorityBadge" class="badge priority-badge medium" title="Medium">-</span>
+                </div>
+                
                 <div class="form-group">
                     <label for="taskDescription">Description</label>
                     <textarea id="taskDescription" placeholder="Enter task details (supports Markdown)"></textarea>
@@ -427,48 +435,80 @@
                 const cacheNames = await caches.keys();
                 await Promise.all(
                     cacheNames.map(cacheName => {
-                        console.log(`Deleting cache: ${cacheName}`);
+                        console.log(`Clearing cache: ${cacheName}`);
                         return caches.delete(cacheName);
                     })
                 );
-                console.log('All caches deleted directly');
-                
-                // Force clear browser memory cache
-                const urls = await caches.keys().then(cacheNames => {
-                    return Promise.all(
-                        cacheNames.map(async cacheName => {
-                            const cache = await caches.open(cacheName);
-                            return cache.keys().then(keys => keys.map(request => request.url));
-                        })
-                    );
-                }).then(urlArrays => [].concat(...urlArrays));
-                
-                // Reload the page with cache.reload() force flag if requested
-                if (reloadAfter) {
-                    console.log('Reloading page with clean state...');
-                    // Add cache-busting query parameter and force reload
-                    const cacheBuster = `?cache=${Date.now()}`;
-                    window.location.href = window.location.href.split('?')[0] + cacheBuster;
-                } else {
-                    console.log('Cache clearing complete. Reload page manually for a fresh state.');
-                }
-                
-                return true;
             } catch (error) {
                 console.error('Error clearing caches:', error);
-                return false;
+                cacheClearInProgress = false;
+                resolve(false);
             }
         };
-        
-        // Add a simpler version to just reload the page with a cache-busting parameter
-        window.reloadApp = function() {
-            const cacheBuster = `?cache=${Date.now()}`;
-            window.location.href = window.location.href.split('?')[0] + cacheBuster;
-        };
-        
-        console.log('Debug helpers available:');
-        console.log('- window.clearAppCache() - Clear all caches and reload');
-        console.log('- window.reloadApp() - Reload with cache-busting parameter');
     </script>
+
+    <!-- Add this before the closing body tag -->
+    <div id="confirmModal" class="modal" hidden>
+        <div class="modal-content">
+            <div class="modal-drag-handle"></div>
+            <button class="modal-close" aria-label="Close modal">×</button>
+            <h2>Delete Column</h2>
+            <p>Are you sure you want to delete this column? This action cannot be undone.</p>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" data-action="cancel">Cancel</button>
+                <button type="button" class="btn-primary" data-action="confirm">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add this before the closing body tag -->
+    <div id="taskModal" class="modal" hidden>
+        <div class="modal-content">
+            <div class="modal-drag-handle"></div>
+            <button class="modal-close" aria-label="Close modal">×</button>
+            <div class="editable-title-container">
+                <span id="taskStatusToggle" class="badge status-badge active" title="Active"></span>
+                <div class="title-wrapper">
+                    <div id="taskTitleDisplay" class="editable-title">Task Title</div>
+                    <input type="text" id="taskTitle" class="title-edit-input" required hidden>
+                </div>
+            </div>
+            <form id="taskForm">
+                <div class="form-group" hidden>
+                    <!-- Original title input is hidden but kept for form submission -->
+                    <label for="taskTitleHidden">Title</label>
+                    <input type="text" id="taskTitleHidden">
+                </div>
+                <!-- Hidden status field to store the value for form submission -->
+                <input type="hidden" id="taskStatus" value="active">
+                <!-- Hidden priority field to store the value for form submission -->
+                <input type="hidden" id="taskPriority" value="medium">
+                
+                <!-- Priority badge will be displayed here -->
+                <div class="modal-priority-container">
+                    <span id="taskPriorityBadge" class="badge priority-badge medium" title="Medium">-</span>
+                </div>
+                
+                <div class="form-group">
+                    <label for="taskDescription">Description</label>
+                    <textarea id="taskDescription" placeholder="Enter task details (supports Markdown)"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="taskDueDate">Due Date</label>
+                    <input type="text" id="taskDueDate" placeholder="e.g., today, tomorrow, next week">
+                </div>
+                <div class="form-group">
+                    <label for="taskStartDate">Start Date</label>
+                    <input type="text" id="taskStartDate" placeholder="e.g., today, tomorrow, next week">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-delete" data-action="delete">Delete Task</button>
+                    <div class="actions-right">
+                        <button type="submit" class="btn-primary">Save Changes</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
 </body>
-</html> 
+</html>

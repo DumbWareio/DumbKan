@@ -86,6 +86,9 @@ function initEventListeners(state, elements) {
         // Get the status from the select element (already updated by the status toggle)
         const status = elements.taskStatus.value;
         
+        // Get the priority from the hidden input
+        const priority = elements.taskPriority ? elements.taskPriority.value : 'medium';
+        
         // Get raw date values
         const rawDueDate = elements.taskDueDate.value.trim();
         const rawStartDate = elements.taskStartDate.value.trim();
@@ -133,6 +136,7 @@ function initEventListeners(state, elements) {
             title,
             description,
             status,
+            priority,
             dueDate: parsedDueDate ? parsedDueDate.toISOString() : null,
             startDate: parsedStartDate ? parsedStartDate.toISOString() : null
         };
@@ -157,7 +161,7 @@ function initEventListeners(state, elements) {
                 }
             } else {
                 // Create new task using the extracted addTask function
-                await window.addTask(sectionId, title, description, status, parsedDueDate, parsedStartDate, state.activeBoard);
+                await window.addTask(sectionId, title, description, status, parsedDueDate, parsedStartDate, state.activeBoard, priority);
             }
             
             window.hideTaskModal();

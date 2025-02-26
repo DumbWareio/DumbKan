@@ -28,6 +28,8 @@ export function initElements() {
         taskTitleHidden: document.getElementById('taskTitleHidden'),
         taskDescription: document.getElementById('taskDescription'),
         taskStatus: document.getElementById('taskStatus'),
+        taskPriority: document.getElementById('taskPriority'),
+        taskPriorityBadge: document.getElementById('taskPriorityBadge'),
         taskDueDate: document.getElementById('taskDueDate'),
         taskStartDate: document.getElementById('taskStartDate'),
         taskStatusToggle: document.getElementById('taskStatusToggle'),
@@ -41,7 +43,7 @@ export function initElements() {
         'addBoardBtn', 'currentBoard', 'columns', 'boardContainer',
         'taskModal', 'taskForm', 'taskTitle', 'taskTitleDisplay',
         'taskDescription', 'taskStatus', 'taskDueDate', 'taskStartDate',
-        'taskStatusToggle'
+        'taskStatusToggle', 'taskPriority', 'taskPriorityBadge'
     ];
 
     for (const key of requiredElements) {

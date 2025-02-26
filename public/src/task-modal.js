@@ -130,6 +130,89 @@ function showTaskModal(task) {
     if (elements.taskStatus) {
         elements.taskStatus.value = isNewTask ? 'active' : (currentTask.status || 'active');
     }
+    
+    // Set up priority badge and tray
+    if (elements.taskPriorityBadge && elements.taskPriority) {
+        // Get current priority
+        const priority = isNewTask ? 'medium' : (currentTask.priority || 'medium');
+        
+        // Update hidden input
+        elements.taskPriority.value = priority;
+        
+        // Update badge appearance
+        elements.taskPriorityBadge.className = `badge priority-badge ${priority}`;
+        elements.taskPriorityBadge.setAttribute('title', priority.charAt(0).toUpperCase() + priority.slice(1));
+        elements.taskPriorityBadge.textContent = window.getPrioritySymbol(priority);
+        
+        // Create priority tray if it doesn't exist
+        let priorityTray = elements.taskPriorityBadge.querySelector('.priority-tray');
+        if (!priorityTray) {
+            priorityTray = document.createElement('div');
+            priorityTray.className = 'priority-tray';
+            
+            const priorities = [
+                { name: 'low', symbol: '↓' },
+                { name: 'medium', symbol: '-' },
+                { name: 'high', symbol: '↑' },
+                { name: 'urgent', symbol: '!' }
+            ];
+            
+            priorities.forEach(priorityOption => {
+                const option = document.createElement('div');
+                option.className = `priority-option ${priorityOption.name}`;
+                option.textContent = priorityOption.symbol;
+                option.setAttribute('title', priorityOption.name.charAt(0).toUpperCase() + priorityOption.name.slice(1));
+                
+                option.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    
+                    // Update hidden input
+                    elements.taskPriority.value = priorityOption.name;
+                    
+                    // Update badge appearance (but preserve the tray)
+                    elements.taskPriorityBadge.className = `badge priority-badge ${priorityOption.name}`;
+                    elements.taskPriorityBadge.setAttribute('title', priorityOption.name.charAt(0).toUpperCase() + priorityOption.name.slice(1));
+                    
+                    // Instead of changing the entire textContent, find or create a text node
+                    let textNode = null;
+                    for (const node of elements.taskPriorityBadge.childNodes) {
+                        if (node.nodeType === Node.TEXT_NODE) {
+                            textNode = node;
+                            break;
+                        }
+                    }
+                    
+                    if (textNode) {
+                        textNode.nodeValue = priorityOption.symbol;
+                    } else {
+                        // If no text node exists, create one and insert it before the tray
+                        textNode = document.createTextNode(priorityOption.symbol);
+                        elements.taskPriorityBadge.insertBefore(textNode, priorityTray);
+                    }
+                    
+                    // Hide tray
+                    priorityTray.classList.remove('active');
+                });
+                
+                priorityTray.appendChild(option);
+            });
+            
+            elements.taskPriorityBadge.appendChild(priorityTray);
+        }
+        
+        // Add click event to toggle tray
+        elements.taskPriorityBadge.addEventListener('click', (e) => {
+            e.stopPropagation();
+            priorityTray.classList.toggle('active');
+        });
+        
+        // Close tray when clicking outside
+        document.addEventListener('click', () => {
+            if (priorityTray.classList.contains('active')) {
+                priorityTray.classList.remove('active');
+            }
+        }, { capture: true });
+    }
 
     // Set date fields - keep raw input
     if (!isNewTask) {
@@ -267,9 +350,10 @@ function hideTaskModal() {
  * @param {Date} [dueDate=null] - The due date of the task
  * @param {Date} [startDate=null] - The start date of the task
  * @param {string} [boardId=null] - The ID of the board the task belongs to
+ * @param {string} [priority='medium'] - The priority of the task
  * @returns {Promise<void>}
  */
-async function addTask(sectionId, title, description = '', status = 'active', dueDate = null, startDate = null, boardId = null) {
+async function addTask(sectionId, title, description = '', status = 'active', dueDate = null, startDate = null, boardId = null, priority = 'medium') {
     // ALWAYS work with the global state object directly, not a local copy
     // This ensures we're modifying the same state that's used for rendering
     if (!window.state) {
@@ -333,7 +417,7 @@ async function addTask(sectionId, title, description = '', status = 'active', du
                 status, 
                 dueDate: dueDate ? dueDate.toISOString() : null,
                 startDate: startDate ? startDate.toISOString() : null,
-                priority: 'medium' // Set default priority
+                priority // Use the provided priority or default 'medium'
             })
         });
         
