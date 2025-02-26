@@ -157,6 +157,12 @@ self.addEventListener('activate', (event) => {
 function shouldCache(url) {
     const parsedUrl = new URL(url);
     
+    // Don't cache chrome-extension URLs (not supported by Cache API)
+    if (parsedUrl.protocol === 'chrome-extension:') {
+        if (DEBUG) console.log('[SW] Skipping cache for chrome-extension URL:', parsedUrl.href);
+        return false;
+    }
+    
     // Don't cache API requests or auth endpoints
     if (parsedUrl.pathname.startsWith('/api/') || 
         parsedUrl.pathname === '/verify-pin') {
@@ -175,57 +181,64 @@ function shouldCache(url) {
 
 // Fetch event - implement stale-while-revalidate for most assets
 self.addEventListener('fetch', function(event) {
-    const url = new URL(event.request.url);
-    
-    // Skip non-GET requests
-    if (event.request.method !== 'GET') {
+    try {
+        const url = new URL(event.request.url);
+        
+        // Skip non-GET requests
+        if (event.request.method !== 'GET') {
+            return;
+        }
+        
+        // For API requests or authentication endpoints, bypass cache completely
+        if (!shouldCache(event.request.url)) {
+            if (DEBUG && url.pathname.startsWith('/api/')) console.log('[SW] API request - passing through to network:', url.pathname);
+            return; // Let the browser handle this request normally
+        }
+        
+        // For all other requests, use stale-while-revalidate strategy
+        event.respondWith(
+            caches.open(CACHE_NAME)
+                .then(cache => {
+                    return cache.match(event.request)
+                        .then(cachedResponse => {
+                            // Create a network request
+                            const fetchPromise = fetch(event.request)
+                                .then(networkResponse => {
+                                    // If we got a valid response, cache it for next time
+                                    if (networkResponse.ok) {
+                                        cache.put(event.request, networkResponse.clone())
+                                            .catch(err => console.error('[SW] Error updating cache for', url.pathname, err));
+                                        if (DEBUG) console.log('[SW] Updated cache for:', url.pathname);
+                                    }
+                                    return networkResponse;
+                                })
+                                .catch(error => {
+                                    console.error('[SW] Network fetch error:', error);
+                                    // If offline fallback requested, try to serve it
+                                    if (event.request.headers.get('Accept')?.includes('text/html')) {
+                                        return caches.match(OFFLINE_PAGE)
+                                            .then(offlineResponse => {
+                                                return offlineResponse || new Response(
+                                                    'You are offline and the requested resource is not cached.',
+                                                    {
+                                                        status: 503,
+                                                        headers: {'Content-Type': 'text/plain'}
+                                                    }
+                                                );
+                                            });
+                                    }
+                                    throw error;
+                                });
+                            
+                            // Return the cached response if we have one, otherwise wait for the network response
+                            return cachedResponse || fetchPromise;
+                        });
+                })
+        );
+    } catch (error) {
+        // Handle any errors in the service worker's fetch handling
+        console.error('[SW] Error in fetch handler:', error, 'for URL:', event.request.url);
+        // Let the browser handle the request normally
         return;
     }
-    
-    // For API requests or authentication endpoints, bypass cache completely
-    if (!shouldCache(event.request.url)) {
-        if (DEBUG && url.pathname.startsWith('/api/')) console.log('[SW] API request - passing through to network:', url.pathname);
-        return; // Let the browser handle this request normally
-    }
-    
-    // For all other requests, use stale-while-revalidate strategy
-    event.respondWith(
-        caches.open(CACHE_NAME)
-            .then(cache => {
-                return cache.match(event.request)
-                    .then(cachedResponse => {
-                        // Create a network request
-                        const fetchPromise = fetch(event.request)
-                            .then(networkResponse => {
-                                // If we got a valid response, cache it for next time
-                                if (networkResponse.ok) {
-                                    cache.put(event.request, networkResponse.clone())
-                                        .catch(err => console.error('[SW] Error updating cache for', url.pathname, err));
-                                    if (DEBUG) console.log('[SW] Updated cache for:', url.pathname);
-                                }
-                                return networkResponse;
-                            })
-                            .catch(error => {
-                                console.error('[SW] Network fetch error:', error);
-                                // If offline fallback requested, try to serve it
-                                if (event.request.headers.get('Accept')?.includes('text/html')) {
-                                    return caches.match(OFFLINE_PAGE)
-                                        .then(offlineResponse => {
-                                            return offlineResponse || new Response(
-                                                'You are offline and the requested resource is not cached.',
-                                                {
-                                                    status: 503,
-                                                    headers: {'Content-Type': 'text/plain'}
-                                                }
-                                            );
-                                        });
-                                }
-                                throw error;
-                            });
-                        
-                        // Return the cached response if we have one, otherwise wait for the network response
-                        return cachedResponse || fetchPromise;
-                    });
-            })
-    );
 }); 
