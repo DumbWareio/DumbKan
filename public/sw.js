@@ -5,7 +5,7 @@
  */
 
 // Version-based cache name - increment this with each significant update
-const VERSION = '3';
+const VERSION = '4';
 const CACHE_NAME = `dumbkan-v${VERSION}`;
 const API_CACHE_NAME = `dumbkan-api-v${VERSION}`;
 
@@ -56,27 +56,52 @@ self.addEventListener('message', (event) => {
     }
 });
 
-const BASE_PATH = self.location.pathname.replace('sw.js', '');
+// Calculate base path more reliably
+function calculateBasePath() {
+    // Get the path of the service worker
+    const swPath = self.location.pathname;
+    
+    // If the service worker is at the root, return '' 
+    if (swPath === '/sw.js') {
+        return '';
+    }
+    
+    // Extract the base path by removing 'sw.js' from the end
+    let basePath = swPath.replace(/\/sw\.js$/, '');
+    
+    // Debug logging
+    if (DEBUG) {
+        console.log('[SW] Service worker path:', swPath);
+        console.log('[SW] Calculated base path:', basePath);
+    }
+    
+    return basePath;
+}
+
+const BASE_PATH = calculateBasePath();
+
 const ASSETS_TO_CACHE = [
-    BASE_PATH,
-    BASE_PATH + 'index.html',
-    BASE_PATH + 'login.html',
-    BASE_PATH + 'styles.css',
-    BASE_PATH + 'manifest.json',
-    BASE_PATH + 'favicon.svg',
-    BASE_PATH + 'logo.png',
-    BASE_PATH + 'marked.min.js',
-    BASE_PATH + 'dumbdateparser.js'
+    BASE_PATH + '/',
+    BASE_PATH + '/index.html',
+    BASE_PATH + '/login.html',
+    BASE_PATH + '/styles.css',
+    BASE_PATH + '/manifest.json',
+    BASE_PATH + '/favicon.svg',
+    BASE_PATH + '/logo.png',
+    BASE_PATH + '/marked.min.js',
+    BASE_PATH + '/dumbdateparser.js'
 ];
 
 // Add offline fallback page
-const OFFLINE_PAGE = BASE_PATH + 'offline.html';
+const OFFLINE_PAGE = BASE_PATH + '/offline.html';
 
 // Debug logging
 if (DEBUG) {
     console.log('[SW] Service worker v' + VERSION + ' loaded');
     console.log('[SW] Current location:', location.href);
     console.log('[SW] Protocol:', location.protocol);
+    console.log('[SW] Base path:', BASE_PATH);
+    console.log('[SW] Assets to cache:', ASSETS_TO_CACHE);
 }
 
 // Install event - cache core assets

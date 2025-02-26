@@ -98,7 +98,8 @@ const authMiddleware = (req, res, next) => {
             forwarded: req.headers['x-forwarded-host'],
             cookie: !!req.headers.cookie,
             origin: req.headers.origin,
-            referer: req.headers.referer
+            referer: req.headers.referer,
+            'x-forwarded-proto': req.headers['x-forwarded-proto']
         },
         cookies: Object.keys(req.cookies || {}),
         pin: {
@@ -117,11 +118,16 @@ const authMiddleware = (req, res, next) => {
     if (!req.session.authenticated) {
         debugLog('Auth failed - No valid session, redirecting to login');
         
-        // Get protocol from request or BASE_URL
+        // Get protocol based on various sources in order of reliability
         let protocol = 'http';
         
-        // Use BASE_URL protocol if set
-        if (process.env.BASE_URL && process.env.BASE_URL.includes('://')) {
+        // 1. Check x-forwarded-proto header (most reliable for proxied requests)
+        if (req.headers['x-forwarded-proto']) {
+            protocol = req.headers['x-forwarded-proto'];
+            debugLog('Using protocol from x-forwarded-proto header:', protocol);
+        }
+        // 2. Use BASE_URL protocol if set
+        else if (process.env.BASE_URL && process.env.BASE_URL.includes('://')) {
             try {
                 const baseUrlObj = new URL(process.env.BASE_URL);
                 protocol = baseUrlObj.protocol.replace(':', '');
@@ -129,10 +135,11 @@ const authMiddleware = (req, res, next) => {
             } catch (e) {
                 debugLog('Failed to parse protocol from BASE_URL:', e.message);
             }
-        } else {
-            // Use the request protocol as a fallback
+        }
+        // 3. Use the request protocol as a fallback
+        else {
             protocol = req.secure ? 'https' : 'http';
-            debugLog('Using protocol from request:', protocol);
+            debugLog('Using protocol from request secure flag:', protocol);
         }
         
         const host = req.headers['x-forwarded-host'] || req.headers.host;

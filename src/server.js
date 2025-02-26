@@ -222,24 +222,34 @@ app.use(BASE_PATH, auth.protectRoute);
 // Protected routes and API endpoints
 // Second: Special route handlers (before protection)
 app.get(BASE_PATH + '/config.js', (req, res) => {
-    // Determine protocol based on BASE_URL environment variable
+    // Determine protocol based on various sources in order of reliability
     let protocol = 'http';
     
-    // Extract protocol from BASE_URL if it exists and is a full URL
-    if (process.env.BASE_URL && process.env.BASE_URL.includes('://')) {
+    // 1. Check x-forwarded-proto header (most reliable for proxied requests)
+    if (req.headers['x-forwarded-proto']) {
+        protocol = req.headers['x-forwarded-proto'];
+        debugLog('Using protocol from x-forwarded-proto header:', protocol);
+    }
+    // 2. Extract protocol from BASE_URL if it exists and is a full URL
+    else if (process.env.BASE_URL && process.env.BASE_URL.includes('://')) {
         try {
             const url = new URL(process.env.BASE_URL);
             protocol = url.protocol.replace(':', '');
+            debugLog('Using protocol from BASE_URL environment variable:', protocol);
         } catch (e) {
             debugLog('Failed to parse protocol from BASE_URL:', e.message);
         }
-    } else {
-        // Use the request protocol as a fallback
+    }
+    // 3. Use the request protocol as a fallback
+    else {
         protocol = req.secure ? 'https' : 'http';
+        debugLog('Using detected protocol from request secure flag:', protocol);
     }
     
+    // Determine host in order of reliability for proxied setups
     const host = req.headers['x-forwarded-host'] || req.headers.host;
     
+    // Log diagnostic information
     debugLog('Serving config.js:', {
         protocol,
         host,
@@ -269,13 +279,25 @@ app.get(BASE_PATH + '/config.js', (req, res) => {
             basePath: '${BASE_PATH}',
             debug: ${config.DEBUG},
             siteTitle: '${siteTitle}',
-            version: '1.0.0',
+            version: '1.0.1',
             apiUrl: '${protocol}://${host}${BASE_PATH}'
         };
 
         // Log configuration to help debug
         if (${config.DEBUG}) {
             console.log('App config loaded:', window.appConfig);
+            
+            // Log more detailed information about the environment
+            console.log('Browser details:', {
+                userAgent: navigator.userAgent,
+                language: navigator.language,
+                online: navigator.onLine,
+                serviceWorkerSupport: 'serviceWorker' in navigator,
+                windowLocation: window.location.href,
+                windowPathname: window.location.pathname,
+                documentBaseURI: document.baseURI,
+                referrer: document.referrer
+            });
         }
 
         // Wait for DOM to be ready to replace content
