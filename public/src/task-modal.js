@@ -21,6 +21,26 @@ function showTaskModal(task) {
     
     const isNewTask = !currentTask.id;
     
+    // Set up status toggle
+    if (elements.taskStatusToggle) {
+        const status = isNewTask ? 'active' : (currentTask.status || 'active');
+        elements.taskStatusToggle.className = `badge status-badge ${status}`;
+        elements.taskStatusToggle.setAttribute('title', status.charAt(0).toUpperCase() + status.slice(1));
+        
+        // Add click event to toggle status
+        elements.taskStatusToggle.onclick = function() {
+            const currentStatus = elements.taskStatus.value;
+            const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+            
+            // Update the visual status badge
+            elements.taskStatusToggle.className = `badge status-badge ${newStatus}`;
+            elements.taskStatusToggle.setAttribute('title', newStatus.charAt(0).toUpperCase() + newStatus.slice(1));
+            
+            // Update the hidden select field value
+            elements.taskStatus.value = newStatus;
+        };
+    }
+    
     // Update editable title display element
     const titleDisplay = elements.taskModal.querySelector('#taskTitleDisplay');
     if (titleDisplay) {

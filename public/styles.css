@@ -2134,6 +2134,9 @@ select#taskStatus:focus {
     position: relative;
     padding: 1rem 0;
     margin: 0.5rem 0 2rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
 }
 
 .editable-title {
@@ -2144,6 +2147,7 @@ select#taskStatus:focus {
     padding: 0.5rem 0;
     border-radius: 4px;
     transition: background-color var(--transition);
+    flex-grow: 1;
 }
 
 .editable-title:hover {
@@ -2167,4 +2171,15 @@ select#taskStatus:focus {
 .title-edit-input:focus {
     outline: none;
     box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+}
+
+/* Status toggle inside title container */
+.editable-title-container .status-badge {
+    margin-left: 0.25rem;
+    flex-shrink: 0;
+}
+
+/* Make the editable title fill the remaining space */
+.editable-title-container .editable-title {
+    flex-grow: 1;
 }

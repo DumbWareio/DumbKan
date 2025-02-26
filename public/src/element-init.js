@@ -30,6 +30,7 @@ export function initElements() {
         taskStatus: document.getElementById('taskStatus'),
         taskDueDate: document.getElementById('taskDueDate'),
         taskStartDate: document.getElementById('taskStartDate'),
+        taskStatusToggle: document.getElementById('taskStatusToggle'),
         boardContainer: document.querySelector('.board-container'),
         deleteTaskBtn: document.querySelector('#taskModal .btn-delete')
     };
@@ -39,7 +40,8 @@ export function initElements() {
         'themeToggle', 'boardMenu', 'boardMenuBtn', 'boardList', 
         'addBoardBtn', 'currentBoard', 'columns', 'boardContainer',
         'taskModal', 'taskForm', 'taskTitle', 'taskTitleDisplay',
-        'taskDescription', 'taskStatus', 'taskDueDate', 'taskStartDate'
+        'taskDescription', 'taskStatus', 'taskDueDate', 'taskStartDate',
+        'taskStatusToggle'
     ];
 
     for (const key of requiredElements) {

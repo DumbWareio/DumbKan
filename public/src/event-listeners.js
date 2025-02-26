@@ -83,6 +83,7 @@ function initEventListeners(state, elements) {
         }
         
         const description = elements.taskDescription.value.trim();
+        // Get the status from the select element (already updated by the status toggle)
         const status = elements.taskStatus.value;
         
         // Get raw date values
