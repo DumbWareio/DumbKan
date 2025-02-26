@@ -417,6 +417,9 @@ document.head.appendChild(style);
  * @returns {void}
  */
 export function createInlineTaskEditor(sectionId, addTaskBtn) {
+    console.log('createInlineTaskEditor called for section:', sectionId);
+
+    // Create a simple editor and input
     const editor = document.createElement('div');
     editor.className = 'task-inline-editor';
     const input = document.createElement('input');
@@ -428,9 +431,12 @@ export function createInlineTaskEditor(sectionId, addTaskBtn) {
     // Hide the add task button and insert editor in its place
     addTaskBtn.style.display = 'none';
     addTaskBtn.parentNode.insertBefore(editor, addTaskBtn);
+    
+    console.log('Editor added to DOM, ready for task entry');
 
     let isProcessing = false;
 
+    // Handle task creation
     const saveTask = async (keepEditorOpen = false) => {
         if (isProcessing) return; // Prevent multiple submissions
         isProcessing = true;
@@ -438,108 +444,101 @@ export function createInlineTaskEditor(sectionId, addTaskBtn) {
         const title = input.value.trim();
         if (title) {
             try {
-                // Explicitly pass board ID when calling addTask
+                // Get board ID
                 const boardId = window.state.activeBoard;
                 
-                console.log('Saving task in section:', sectionId, 'with board ID:', boardId);
+                console.log('Creating task:', title, 'in section:', sectionId);
                 
-                // Add a loading state to indicate task is being created
+                // Show loading state
                 input.disabled = true;
                 input.classList.add('saving');
                 
                 try {
-                    // Set a timeout for the API call to handle network issues
-                    const taskPromise = window.addTask(sectionId, title, '', 'active', null, null, boardId);
-                    
-                    // Create a timeout promise
-                    const timeoutPromise = new Promise((_, reject) => {
-                        setTimeout(() => reject(new Error('Request timed out')), 8000);
-                    });
-                    
-                    // Race the task creation against the timeout
-                    const task = await Promise.race([taskPromise, timeoutPromise]);
-                    
+                    // Create the task
+                    const task = await window.addTask(sectionId, title, '', 'active', null, null, boardId);
                     console.log('Task created successfully:', task);
                     
-                    if (keepEditorOpen) {
-                        input.value = '';
-                        input.disabled = false;
-                        input.classList.remove('saving');
-                        input.focus();
-                    } else {
-                        closeEditor();
+                    // Always close the current editor
+                    closeEditor();
+                    
+                    // Refresh the board to show the new task
+                    if (typeof window.refreshBoard === 'function') {
+                        await window.refreshBoard(window.state, window.elements);
                     }
                     
-                    // Force a board refresh just in case
-                    if (typeof window.refreshBoard === 'function') {
-                        console.log('Explicitly refreshing board after task creation');
-                        window.refreshBoard(window.state, window.elements);
+                    // If we should keep the editor open for more tasks, create a new one after refresh
+                    if (keepEditorOpen) {
+                        console.log('Creating new editor after task creation');
+                        // Find the section and button again after refresh
+                        const updatedSection = document.querySelector(`.column[data-section-id="${sectionId}"]`);
+                        if (updatedSection) {
+                            const newAddTaskBtn = updatedSection.querySelector('.add-task-btn');
+                            if (newAddTaskBtn) {
+                                // Small delay to ensure DOM is stable
+                                setTimeout(() => {
+                                    createInlineTaskEditor(sectionId, newAddTaskBtn);
+                                }, 10);
+                            }
+                        }
                     }
                 } catch (error) {
                     console.error('Error adding task:', error);
-                    
-                    // Show error to user
-                    const errorMessage = error.message || 'Failed to add task. Please try again.';
+                    // Show error message
                     if (typeof window.showError === 'function') {
-                        window.showError(errorMessage);
-                    } else {
-                        alert(errorMessage);
+                        window.showError(error.message || 'Failed to add task');
                     }
-                    
+                    // Re-enable input
                     input.disabled = false;
                     input.classList.remove('saving');
-                    
-                    if (!keepEditorOpen) {
-                        closeEditor();
-                    }
+                    isProcessing = false;
                 }
             } catch (error) {
-                console.error('Error adding task:', error);
-                
-                // Show error to user
-                const errorMessage = error.message || 'Failed to add task. Please try again.';
-                if (typeof window.showError === 'function') {
-                    window.showError(errorMessage);
-                } else {
-                    alert(errorMessage);
-                }
-                
+                console.error('Error preparing task:', error);
                 input.disabled = false;
                 input.classList.remove('saving');
-                
-                if (!keepEditorOpen) {
-                    closeEditor();
-                }
+                isProcessing = false;
             }
         } else {
             closeEditor();
-            isProcessing = false;
         }
     };
 
+    // Close the editor
     const closeEditor = () => {
+        console.log('Closing editor');
         editor.remove();
         addTaskBtn.style.display = '';
     };
 
-    let blurTimeout;
+    // Set up event listeners
     input.addEventListener('blur', () => {
-        // Delay the blur handling to allow the Enter keydown to prevent it
-        blurTimeout = setTimeout(() => saveTask(false), 100);
+        // Delay slightly to allow Enter key to prevent blur handling
+        setTimeout(() => {
+            if (document.activeElement !== input) {
+                saveTask(false);
+            }
+        }, 100);
     });
-
+    
     input.addEventListener('keydown', async (e) => {
+        console.log('Key pressed:', e.key);
         if (e.key === 'Enter') {
             e.preventDefault();
-            clearTimeout(blurTimeout); // Prevent blur from triggering
-            await saveTask(true);
+            await saveTask(true); // Create task and open a new editor
         } else if (e.key === 'Escape') {
-            clearTimeout(blurTimeout); // Prevent blur from triggering
+            e.preventDefault();
             closeEditor();
         }
     });
-
+    
+    // Focus the input
     input.focus();
+}
+
+// We don't need the complicated window.refreshBoard override anymore.
+// Remove it to avoid complexity and potential conflicts.
+if (window.taskEditorRefreshHandlerAdded) {
+    delete window.taskEditorRefreshHandlerAdded;
 }
 
 // Expose functions on window for backward compatibility
