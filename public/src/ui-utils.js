@@ -310,7 +310,7 @@ export function initCalendarInputSlide(appState) {
                 }
                 
                 // If we got a date, use it. If not, no date!
-                const response = await window.loggedFetch(`${window.appConfig.basePath}/api/boards/${appState.activeBoard}/sections/${task.sectionId}/tasks/${task.id}`, {
+                const response = await window.loggedFetch(`${window.appConfig.basePath}/api/tasks/${task.id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ dueDate: parsedDate ? parsedDate.toISOString() : null })

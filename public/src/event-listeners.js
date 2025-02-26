@@ -122,7 +122,7 @@ function initEventListeners(state, elements) {
         try {
             if (taskId) {
                 // Update existing task
-                const response = await window.loggedFetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${sectionId}/tasks/${taskId}`, {
+                const response = await window.loggedFetch(`${window.appConfig.basePath}/api/tasks/${taskId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(taskData)
