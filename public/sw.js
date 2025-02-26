@@ -11,6 +11,7 @@ const API_CACHE_NAME = `dumbkan-api-v${VERSION}`;
 
 // For communicating with the main thread
 self.PREFERRED_PROTOCOL = null;
+self.CONFIG_BASE_PATH = null;
 
 // Debug mode for more verbose logging
 const DEBUG = true;
@@ -20,6 +21,12 @@ self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SET_PROTOCOL') {
         self.PREFERRED_PROTOCOL = event.data.protocol;
         if (DEBUG) console.log(`[SW] Protocol preference set to: ${self.PREFERRED_PROTOCOL}`);
+    }
+    
+    // Handle base path configuration from the main thread
+    if (event.data && event.data.type === 'SET_BASE_PATH') {
+        self.CONFIG_BASE_PATH = event.data.basePath;
+        if (DEBUG) console.log(`[SW] Base path set by main thread: ${self.CONFIG_BASE_PATH}`);
     }
     
     // Handle skip waiting request (for immediate updates)
@@ -58,6 +65,12 @@ self.addEventListener('message', (event) => {
 
 // Calculate base path more reliably
 function calculateBasePath() {
+    // If we have a base path from the main thread, use that
+    if (self.CONFIG_BASE_PATH) {
+        if (DEBUG) console.log('[SW] Using base path from config:', self.CONFIG_BASE_PATH);
+        return self.CONFIG_BASE_PATH;
+    }
+    
     // Get the path of the service worker
     const swPath = self.location.pathname;
     
@@ -80,20 +93,34 @@ function calculateBasePath() {
 
 const BASE_PATH = calculateBasePath();
 
+// Function to construct asset paths with proper base path
+function getAssetPath(path) {
+    // If path already starts with the base path, return as is
+    if (BASE_PATH && path.startsWith(BASE_PATH)) {
+        return path;
+    }
+    
+    // Ensure path starts with a slash if not empty and not already starting with one
+    const normalizedPath = path.startsWith('/') ? path : '/' + path;
+    
+    // Combine base path with the normalized path
+    return BASE_PATH + normalizedPath;
+}
+
 const ASSETS_TO_CACHE = [
-    BASE_PATH + '/',
-    BASE_PATH + '/index.html',
-    BASE_PATH + '/login.html',
-    BASE_PATH + '/styles.css',
-    BASE_PATH + '/manifest.json',
-    BASE_PATH + '/favicon.svg',
-    BASE_PATH + '/logo.png',
-    BASE_PATH + '/marked.min.js',
-    BASE_PATH + '/dumbdateparser.js'
+    getAssetPath('/'),
+    getAssetPath('/index.html'),
+    getAssetPath('/login.html'),
+    getAssetPath('/styles.css'),
+    getAssetPath('/manifest.json'),
+    getAssetPath('/favicon.svg'),
+    getAssetPath('/logo.png'),
+    getAssetPath('/marked.min.js'),
+    getAssetPath('/dumbdateparser.js')
 ];
 
 // Add offline fallback page
-const OFFLINE_PAGE = BASE_PATH + '/offline.html';
+const OFFLINE_PAGE = getAssetPath('/offline.html');
 
 // Debug logging
 if (DEBUG) {
@@ -189,8 +216,11 @@ function shouldCache(url) {
     }
     
     // Don't cache API requests or auth endpoints
-    if (parsedUrl.pathname.startsWith('/api/') || 
-        parsedUrl.pathname === '/verify-pin') {
+    const apiPath = BASE_PATH + '/api/';
+    const verifyPath = BASE_PATH + '/verify-pin';
+    
+    if (parsedUrl.pathname.startsWith(apiPath) || 
+        parsedUrl.pathname === verifyPath) {
         return false;
     }
     
@@ -204,19 +234,49 @@ function shouldCache(url) {
     return true;
 }
 
+// Helper function to normalize request URLs based on base path
+function normalizeRequestUrl(request) {
+    const url = new URL(request.url);
+    
+    // Only process URLs from our domain
+    if (url.origin !== location.origin) {
+        return request;
+    }
+    
+    // If the URL doesn't include our base path and it should, add it
+    if (BASE_PATH && !url.pathname.startsWith(BASE_PATH)) {
+        // But don't modify service worker or root page requests
+        if (!url.pathname.endsWith('/sw.js') && url.pathname !== '/') {
+            const newUrl = new URL(url);
+            newUrl.pathname = BASE_PATH + url.pathname;
+            if (DEBUG) console.log('[SW] Normalizing URL:', { 
+                from: url.pathname, 
+                to: newUrl.pathname 
+            });
+            return new Request(newUrl, request);
+        }
+    }
+    
+    return request;
+}
+
 // Fetch event - implement stale-while-revalidate for most assets
 self.addEventListener('fetch', function(event) {
     try {
-        const url = new URL(event.request.url);
+        // Normalize the request URL
+        const normalizedRequest = normalizeRequestUrl(event.request);
+        const url = new URL(normalizedRequest.url);
         
         // Skip non-GET requests
-        if (event.request.method !== 'GET') {
+        if (normalizedRequest.method !== 'GET') {
             return;
         }
         
         // For API requests or authentication endpoints, bypass cache completely
-        if (!shouldCache(event.request.url)) {
-            if (DEBUG && url.pathname.startsWith('/api/')) console.log('[SW] API request - passing through to network:', url.pathname);
+        if (!shouldCache(normalizedRequest.url)) {
+            if (DEBUG && url.pathname.startsWith(BASE_PATH + '/api/')) {
+                console.log('[SW] API request - passing through to network:', url.pathname);
+            }
             return; // Let the browser handle this request normally
         }
         
@@ -224,14 +284,14 @@ self.addEventListener('fetch', function(event) {
         event.respondWith(
             caches.open(CACHE_NAME)
                 .then(cache => {
-                    return cache.match(event.request)
+                    return cache.match(normalizedRequest)
                         .then(cachedResponse => {
                             // Create a network request
-                            const fetchPromise = fetch(event.request)
+                            const fetchPromise = fetch(normalizedRequest)
                                 .then(networkResponse => {
                                     // If we got a valid response, cache it for next time
                                     if (networkResponse.ok) {
-                                        cache.put(event.request, networkResponse.clone())
+                                        cache.put(normalizedRequest, networkResponse.clone())
                                             .catch(err => console.error('[SW] Error updating cache for', url.pathname, err));
                                         if (DEBUG) console.log('[SW] Updated cache for:', url.pathname);
                                     }
@@ -240,7 +300,7 @@ self.addEventListener('fetch', function(event) {
                                 .catch(error => {
                                     console.error('[SW] Network fetch error:', error);
                                     // If offline fallback requested, try to serve it
-                                    if (event.request.headers.get('Accept')?.includes('text/html')) {
+                                    if (normalizedRequest.headers.get('Accept')?.includes('text/html')) {
                                         return caches.match(OFFLINE_PAGE)
                                             .then(offlineResponse => {
                                                 return offlineResponse || new Response(

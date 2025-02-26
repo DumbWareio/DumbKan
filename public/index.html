@@ -134,57 +134,84 @@
         // Service worker registration and update handling
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(registration => {
-                        console.log('ServiceWorker registration successful');
+                // Use options to set the correct scope
+                const swOptions = {};
+                
+                // Wait for config to be available
+                function registerServiceWorker() {
+                    if (window.appConfig && window.appConfig.basePath) {
+                        // Set the correct scope based on the base path
+                        swOptions.scope = window.appConfig.basePath + '/';
+                        console.log('Setting service worker scope to:', swOptions.scope);
                         
-                        // Wait for appConfig to be loaded before setting protocol
-                        function setServiceWorkerProtocol() {
-                            if (window.appConfig) {
-                                // Extract protocol from apiUrl
-                                const apiUrl = window.appConfig.apiUrl;
-                                const protocol = apiUrl.startsWith('https://') ? 'https' : 'http';
+                        // Register the service worker with the correct scope
+                        navigator.serviceWorker.register('./sw.js', swOptions)
+                            .then(registration => {
+                                console.log('ServiceWorker registration successful with scope:', registration.scope);
                                 
-                                // Send protocol preference to service worker
-                                if (navigator.serviceWorker.controller) {
-                                    navigator.serviceWorker.controller.postMessage({
-                                        type: 'SET_PROTOCOL',
-                                        protocol: protocol
-                                    });
-                                    console.log(`Set service worker protocol preference to: ${protocol}`);
-                                } else {
-                                    console.log('Service worker not yet controlling the page');
-                                    // Try again in a second if not ready
-                                    setTimeout(setServiceWorkerProtocol, 1000);
+                                // Wait for appConfig to be loaded before setting protocol
+                                function setServiceWorkerProtocol() {
+                                    if (window.appConfig) {
+                                        // Extract protocol from apiUrl
+                                        const apiUrl = window.appConfig.apiUrl;
+                                        const protocol = apiUrl.startsWith('https://') ? 'https' : 'http';
+                                        
+                                        // Send protocol preference to service worker
+                                        if (navigator.serviceWorker.controller) {
+                                            // Send protocol preference
+                                            navigator.serviceWorker.controller.postMessage({
+                                                type: 'SET_PROTOCOL',
+                                                protocol: protocol
+                                            });
+                                            
+                                            // Also send base path from config
+                                            navigator.serviceWorker.controller.postMessage({
+                                                type: 'SET_BASE_PATH',
+                                                basePath: window.appConfig.basePath || ''
+                                            });
+                                            
+                                            console.log(`Set service worker protocol preference to: ${protocol}`);
+                                            console.log(`Set service worker base path to: ${window.appConfig.basePath || ''}`);
+                                        } else {
+                                            console.log('Service worker not yet controlling the page');
+                                            // Try again in a second if not ready
+                                            setTimeout(setServiceWorkerProtocol, 1000);
+                                        }
+                                    } else {
+                                        console.log('appConfig not yet loaded, waiting...');
+                                        setTimeout(setServiceWorkerProtocol, 1000);
+                                    }
                                 }
-                            } else {
-                                console.log('appConfig not yet loaded, waiting...');
+                                
                                 setTimeout(setServiceWorkerProtocol, 1000);
-                            }
-                        }
-                        
-                        setTimeout(setServiceWorkerProtocol, 1000);
-                        
-                        // Check for updates
-                        registration.addEventListener('updatefound', () => {
-                            const newWorker = registration.installing;
-                            console.log('New service worker installing');
-                            
-                            newWorker.addEventListener('statechange', () => {
-                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    console.log('New service worker installed but waiting for activation');
-                                    updateAvailable = true;
+                                
+                                // Check for updates
+                                registration.addEventListener('updatefound', () => {
+                                    const newWorker = registration.installing;
+                                    console.log('New service worker installing');
                                     
-                                    // Show update notification
-                                    showUpdateNotification();
-                                }
+                                    newWorker.addEventListener('statechange', () => {
+                                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                            console.log('New service worker installed but waiting for activation');
+                                            updateAvailable = true;
+                                            
+                                            // Show update notification
+                                            showUpdateNotification();
+                                        }
+                                    });
+                                });
+                            })
+                            .catch(error => {
+                                console.error('ServiceWorker registration failed:', error);
                             });
-                        });
-                    })
-                    .catch(error => {
-                        console.error('ServiceWorker registration failed:', error);
-                    });
-                    
+                    } else {
+                        console.log('appConfig not yet loaded, waiting...');
+                        setTimeout(registerServiceWorker, 1000);
+                    }
+                }
+                
+                setTimeout(registerServiceWorker, 1000);
+                
                 // Detect controller change (service worker activated)
                 navigator.serviceWorker.addEventListener('controllerchange', () => {
                     console.log('Service worker controller changed');
