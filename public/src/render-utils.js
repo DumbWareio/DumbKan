@@ -594,6 +594,8 @@ function renderTask(task, state) {
                     const updatedTask = await window.updateTask(task, { description: newDescription });
                     if (updatedTask) {
                         state.tasks[task.id] = updatedTask;
+                        // Remove the description hook after saving
+                        descriptionHook.remove();
                         return true;
                     }
                     return false;
