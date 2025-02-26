@@ -27,17 +27,25 @@ function showTaskModal(task) {
         elements.taskStatusToggle.className = `badge status-badge ${status}`;
         elements.taskStatusToggle.setAttribute('title', status.charAt(0).toUpperCase() + status.slice(1));
         
+        // Ensure hidden status field is set
+        if (elements.taskStatus) {
+            elements.taskStatus.value = status;
+        }
+        
         // Add click event to toggle status
         elements.taskStatusToggle.onclick = function() {
-            const currentStatus = elements.taskStatus.value;
+            // Get current status from hidden field
+            const currentStatus = elements.taskStatus ? elements.taskStatus.value : 'active';
             const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
             
             // Update the visual status badge
             elements.taskStatusToggle.className = `badge status-badge ${newStatus}`;
             elements.taskStatusToggle.setAttribute('title', newStatus.charAt(0).toUpperCase() + newStatus.slice(1));
             
-            // Update the hidden select field value
-            elements.taskStatus.value = newStatus;
+            // Update the hidden input value
+            if (elements.taskStatus) {
+                elements.taskStatus.value = newStatus;
+            }
         };
     }
     
@@ -117,7 +125,11 @@ function showTaskModal(task) {
     }
     
     elements.taskDescription.value = isNewTask ? '' : (currentTask.description || '');
-    elements.taskStatus.value = isNewTask ? 'active' : (currentTask.status || 'active');
+    
+    // Set the hidden status field value
+    if (elements.taskStatus) {
+        elements.taskStatus.value = isNewTask ? 'active' : (currentTask.status || 'active');
+    }
 
     // Set date fields - keep raw input
     if (!isNewTask) {

@@ -313,24 +313,19 @@
                     <label for="taskTitleHidden">Title</label>
                     <input type="text" id="taskTitleHidden">
                 </div>
+                <!-- Hidden status field to store the value for form submission -->
+                <input type="hidden" id="taskStatus" value="active">
                 <div class="form-group">
                     <label for="taskDescription">Description</label>
-                    <textarea id="taskDescription" rows="4"></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="taskStatus">Status</label>
-                    <select id="taskStatus" required>
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                    </select>
+                    <textarea id="taskDescription" placeholder="Enter task details (supports Markdown)"></textarea>
                 </div>
                 <div class="form-group">
                     <label for="taskDueDate">Due Date</label>
-                    <input type="text" id="taskDueDate" placeholder="Enter due date">
+                    <input type="text" id="taskDueDate" placeholder="e.g., today, tomorrow, next week">
                 </div>
                 <div class="form-group">
                     <label for="taskStartDate">Start Date</label>
-                    <input type="text" id="taskStartDate" placeholder="Enter start date">
+                    <input type="text" id="taskStartDate" placeholder="e.g., today, tomorrow, next week">
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="btn-delete" data-action="delete">Delete Task</button>

@@ -2067,23 +2067,7 @@ h2 {
     background: var(--status-inactive-text);
 }
 
-/* Status selector styling */
-select#taskStatus {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background-color: var(--container);
-    color: var(--text);
-    font-size: 0.9rem;
-    transition: border-color var(--transition);
-}
-
-select#taskStatus:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
-}
+/* Status selector styling - removed as we now use a hidden input */
 
 .calendar-date-input {
     margin-left: 4px;
