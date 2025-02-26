@@ -3,21 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <!-- Load config.js first to prevent theme flash -->
-    <script src="config.js"></script>
+    <!-- Dynamic base path script - execute before anything else loads -->
+    <script>
+        // Function to get the base path from the current URL
+        function getBasePath() {
+            const path = window.location.pathname;
+            // Find the last segment (after the last slash)
+            const lastSlashIndex = path.lastIndexOf('/');
+            if (lastSlashIndex <= 0) {
+                // We're at the root
+                return '';
+            }
+            
+            // Check if the URL ends with index.html or similar
+            const lastSegment = path.substring(lastSlashIndex + 1);
+            if (lastSegment === '' || lastSegment.includes('.html')) {
+                // Return everything before the last slash
+                return path.substring(0, lastSlashIndex);
+            }
+            
+            // Otherwise the entire path is our base
+            return path;
+        }
+        
+        // Set the base path as a global variable
+        window.APP_BASE_PATH = getBasePath();
+        console.log('Detected base path: "' + window.APP_BASE_PATH + '"');
+        
+        // Helper to get full resource path
+        function getResourcePath(path) {
+            // If there's no app base path, just ensure the path starts with a slash
+            if (!window.APP_BASE_PATH) {
+                return path.startsWith('/') ? path : '/' + path;
+            }
+            
+            // If path already starts with the base path, return as is
+            if (path.startsWith(window.APP_BASE_PATH + '/') || path === window.APP_BASE_PATH) {
+                return path;
+            }
+            
+            // If path starts with '/', remove the slash if we have a non-empty base path
+            if (path.startsWith('/') && window.APP_BASE_PATH !== '') {
+                path = path.substring(1);
+            }
+            
+            // If path doesn't start with '/' and base path is not empty, add a slash
+            const separator = (window.APP_BASE_PATH !== '' && !path.startsWith('/')) ? '/' : '';
+            
+            return window.APP_BASE_PATH + separator + path;
+        }
+        
+        // Dynamically create a base element
+        if (window.APP_BASE_PATH) {
+            const baseElement = document.createElement('base');
+            baseElement.href = window.APP_BASE_PATH + '/';
+            document.head.appendChild(baseElement);
+        }
+    </script>
+    
+    <!-- Load config.js with dynamic path -->
+    <script>
+        document.write('<script src="' + getResourcePath('/config.js') + '"><\/script>');
+    </script>
     <title>{{SITE_TITLE}}</title>
-    <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <link rel="stylesheet" href="styles.css">
-    <link rel="manifest" href="manifest.json">
+    <!-- Load other resources with dynamic paths -->
+    <script>
+        document.write('<link rel="icon" type="image/svg+xml" href="' + getResourcePath('/favicon.svg') + '">');
+        document.write('<link rel="stylesheet" href="' + getResourcePath('/styles.css') + '">');
+        document.write('<link rel="manifest" href="' + getResourcePath('/manifest.json') + '">');
+        document.write('<link rel="apple-touch-icon" href="' + getResourcePath('/icons/icon-192x192.png') + '">');
+        document.write('<script src="' + getResourcePath('/marked.min.js') + '"><\/script>');
+    </script>
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
     <meta name="description" content="A lightweight Kanban board application">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="format-detection" content="telephone=no">
-    <script src="marked.min.js"></script>
     <style>
         @media (max-width: 768px) {
             .app-title {
@@ -99,33 +162,29 @@
         A Dumbware by <a href="https://dumbware.io" target="_blank" rel="noopener noreferrer">Dumbware.io</a>
     </div>
     <!-- IMPORTANT: Do not modify this script type unless the entire file is fully structured as an ES module. -->
-    <script src="marked.min.js"></script>
-    <script src="dumbdateparser.js"></script>
-    <script src="src/api-utils.js"></script>
-    <script src="src/theme.js"></script>
-    <script src="src/date-utils.js"></script>
-    <script src="src/text-utils.js"></script>
-    <script type="module" src="src/state.js"></script>
-    <script type="module" src="src/auth-storage.js"></script>
-    <script type="module" src="src/login-utils.js"></script>
-    <script type="module" src="src/ui-utils.js"></script>
-    <script type="module" src="src/element-init.js"></script>
-    <script src="src/task-modal.js"></script>
-    <script src="src/task-utils.js"></script>
-    <script type="module" src="src/drag-drop-utils.js"></script>
-    <!-- New ES Modules for rendering -->
-    <script type="module" src="src/render-utils.js"></script>
-    <script type="module" src="src/render-init.js"></script>
-    <!-- Board management utilities -->
-    <script type="module" src="src/board-utils.js"></script>
-    <!-- Event listeners module -->
-    <script type="module" src="src/event-listeners.js"></script>
-    <!-- Data loading module -->
-    <script type="module" src="src/data-loading.js"></script>
-    <!-- Application initialization module -->
-    <script type="module" src="src/app-init.js"></script>
-    <!-- Application bootstrap module -->
-    <script type="module" src="src/app-bootstrap.js"></script>
+    <script>
+        document.write('<script src="' + getResourcePath('/marked.min.js') + '"><\/script>');
+        document.write('<script src="' + getResourcePath('/dumbdateparser.js') + '"><\/script>');
+        document.write('<script src="' + getResourcePath('/src/api-utils.js') + '"><\/script>');
+        document.write('<script src="' + getResourcePath('/src/theme.js') + '"><\/script>');
+        document.write('<script src="' + getResourcePath('/src/date-utils.js') + '"><\/script>');
+        document.write('<script src="' + getResourcePath('/src/text-utils.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/state.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/auth-storage.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/login-utils.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/ui-utils.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/element-init.js') + '"><\/script>');
+        document.write('<script src="' + getResourcePath('/src/task-modal.js') + '"><\/script>');
+        document.write('<script src="' + getResourcePath('/src/task-utils.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/drag-drop-utils.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/render-utils.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/render-init.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/board-utils.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/event-listeners.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/data-loading.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/app-init.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/app-bootstrap.js') + '"><\/script>');
+    </script>
     <!-- Service Worker Registration -->
     <script>
         // Track if an update is available
@@ -137,79 +196,72 @@
                 // Use options to set the correct scope
                 const swOptions = {};
                 
-                // Wait for config to be available
+                // Use the dynamically detected base path
+                const basePath = window.APP_BASE_PATH || '';
+                
+                // Function to register the service worker
                 function registerServiceWorker() {
-                    if (window.appConfig && window.appConfig.basePath) {
-                        // Set the correct scope based on the base path
-                        swOptions.scope = window.appConfig.basePath + '/';
-                        console.log('Setting service worker scope to:', swOptions.scope);
-                        
-                        // Register the service worker with the correct scope
-                        navigator.serviceWorker.register('./sw.js', swOptions)
-                            .then(registration => {
-                                console.log('ServiceWorker registration successful with scope:', registration.scope);
-                                
-                                // Wait for appConfig to be loaded before setting protocol
-                                function setServiceWorkerProtocol() {
-                                    if (window.appConfig) {
-                                        // Extract protocol from apiUrl
-                                        const apiUrl = window.appConfig.apiUrl;
-                                        const protocol = apiUrl.startsWith('https://') ? 'https' : 'http';
-                                        
-                                        // Send protocol preference to service worker
-                                        if (navigator.serviceWorker.controller) {
-                                            // Send protocol preference
-                                            navigator.serviceWorker.controller.postMessage({
-                                                type: 'SET_PROTOCOL',
-                                                protocol: protocol
-                                            });
-                                            
-                                            // Also send base path from config
-                                            navigator.serviceWorker.controller.postMessage({
-                                                type: 'SET_BASE_PATH',
-                                                basePath: window.appConfig.basePath || ''
-                                            });
-                                            
-                                            console.log(`Set service worker protocol preference to: ${protocol}`);
-                                            console.log(`Set service worker base path to: ${window.appConfig.basePath || ''}`);
-                                        } else {
-                                            console.log('Service worker not yet controlling the page');
-                                            // Try again in a second if not ready
-                                            setTimeout(setServiceWorkerProtocol, 1000);
-                                        }
-                                    } else {
-                                        console.log('appConfig not yet loaded, waiting...');
-                                        setTimeout(setServiceWorkerProtocol, 1000);
-                                    }
-                                }
-                                
-                                setTimeout(setServiceWorkerProtocol, 1000);
-                                
-                                // Check for updates
-                                registration.addEventListener('updatefound', () => {
-                                    const newWorker = registration.installing;
-                                    console.log('New service worker installing');
+                    // Set the correct scope based on the base path
+                    // For empty base path, use '/' as the scope
+                    swOptions.scope = basePath ? basePath + '/' : '/';
+                    console.log('Setting service worker scope to:', swOptions.scope);
+                    
+                    // Register the service worker with the correct scope and path
+                    navigator.serviceWorker.register(getResourcePath('/sw.js'), swOptions)
+                        .then(registration => {
+                            console.log('ServiceWorker registration successful with scope:', registration.scope);
+                            
+                            // Send configuration to service worker
+                            function setServiceWorkerConfig() {
+                                if (navigator.serviceWorker.controller) {
+                                    // Determine protocol from current location
+                                    const protocol = window.location.protocol === 'https:' ? 'https' : 'http';
                                     
-                                    newWorker.addEventListener('statechange', () => {
-                                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                            console.log('New service worker installed but waiting for activation');
-                                            updateAvailable = true;
-                                            
-                                            // Show update notification
-                                            showUpdateNotification();
-                                        }
+                                    // Send protocol preference to service worker
+                                    navigator.serviceWorker.controller.postMessage({
+                                        type: 'SET_PROTOCOL',
+                                        protocol: protocol
                                     });
+                                    
+                                    // Also send base path
+                                    navigator.serviceWorker.controller.postMessage({
+                                        type: 'SET_BASE_PATH',
+                                        basePath: basePath
+                                    });
+                                    
+                                    console.log(`Set service worker protocol preference to: ${protocol}`);
+                                    console.log(`Set service worker base path to: "${basePath}"`);
+                                } else {
+                                    console.log('Service worker not yet controlling the page');
+                                    // Try again in a second if not ready
+                                    setTimeout(setServiceWorkerConfig, 1000);
+                                }
+                            }
+                            
+                            setTimeout(setServiceWorkerConfig, 1000);
+                            
+                            // Check for updates
+                            registration.addEventListener('updatefound', () => {
+                                const newWorker = registration.installing;
+                                console.log('New service worker installing');
+                                
+                                newWorker.addEventListener('statechange', () => {
+                                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                        console.log('New service worker installed but waiting for activation');
+                                        updateAvailable = true;
+                                        
+                                        // Show update notification
+                                        showUpdateNotification();
+                                    }
                                 });
-                            })
-                            .catch(error => {
-                                console.error('ServiceWorker registration failed:', error);
                             });
-                    } else {
-                        console.log('appConfig not yet loaded, waiting...');
-                        setTimeout(registerServiceWorker, 1000);
-                    }
+                        })
+                        .catch(error => {
+                            console.error('ServiceWorker registration failed:', error);
+                        });
                 }
                 
+                // Wait a bit before registering to ensure everything is ready
                 setTimeout(registerServiceWorker, 1000);
                 
                 // Detect controller change (service worker activated)

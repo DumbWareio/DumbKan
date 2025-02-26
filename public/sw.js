@@ -5,7 +5,7 @@
  */
 
 // Version-based cache name - increment this with each significant update
-const VERSION = '4';
+const VERSION = '6';
 const CACHE_NAME = `dumbkan-v${VERSION}`;
 const API_CACHE_NAME = `dumbkan-api-v${VERSION}`;
 
@@ -25,8 +25,11 @@ self.addEventListener('message', (event) => {
     
     // Handle base path configuration from the main thread
     if (event.data && event.data.type === 'SET_BASE_PATH') {
-        self.CONFIG_BASE_PATH = event.data.basePath;
-        if (DEBUG) console.log(`[SW] Base path set by main thread: ${self.CONFIG_BASE_PATH}`);
+        self.CONFIG_BASE_PATH = event.data.basePath || '';
+        if (DEBUG) console.log(`[SW] Base path set by main thread: "${self.CONFIG_BASE_PATH}"`);
+        
+        // Update the assets to cache with the new base path
+        updateAssetsToCache();
     }
     
     // Handle skip waiting request (for immediate updates)
@@ -66,7 +69,7 @@ self.addEventListener('message', (event) => {
 // Calculate base path more reliably
 function calculateBasePath() {
     // If we have a base path from the main thread, use that
-    if (self.CONFIG_BASE_PATH) {
+    if (self.CONFIG_BASE_PATH !== null) {
         if (DEBUG) console.log('[SW] Using base path from config:', self.CONFIG_BASE_PATH);
         return self.CONFIG_BASE_PATH;
     }
@@ -91,10 +94,19 @@ function calculateBasePath() {
     return basePath;
 }
 
-const BASE_PATH = calculateBasePath();
+// Initial base path calculation
+let BASE_PATH = calculateBasePath();
 
 // Function to construct asset paths with proper base path
 function getAssetPath(path) {
+    // Recalculate the base path if it might have changed
+    BASE_PATH = calculateBasePath();
+    
+    // If the base path is empty, just return the path with leading slash
+    if (BASE_PATH === '') {
+        return path.startsWith('/') ? path : '/' + path;
+    }
+    
     // If path already starts with the base path, return as is
     if (BASE_PATH && path.startsWith(BASE_PATH)) {
         return path;
@@ -107,20 +119,37 @@ function getAssetPath(path) {
     return BASE_PATH + normalizedPath;
 }
 
-const ASSETS_TO_CACHE = [
-    getAssetPath('/'),
-    getAssetPath('/index.html'),
-    getAssetPath('/login.html'),
-    getAssetPath('/styles.css'),
-    getAssetPath('/manifest.json'),
-    getAssetPath('/favicon.svg'),
-    getAssetPath('/logo.png'),
-    getAssetPath('/marked.min.js'),
-    getAssetPath('/dumbdateparser.js')
-];
+// Define offline fallback page
+let OFFLINE_PAGE = getAssetPath('/offline.html');
 
-// Add offline fallback page
-const OFFLINE_PAGE = getAssetPath('/offline.html');
+// Define assets to cache with defaults - will be updated when BASE_PATH is known
+let ASSETS_TO_CACHE = [];
+
+// Update the assets to cache with the current base path
+function updateAssetsToCache() {
+    ASSETS_TO_CACHE = [
+        getAssetPath('/'),
+        getAssetPath('/index.html'),
+        getAssetPath('/login.html'),
+        getAssetPath('/styles.css'),
+        getAssetPath('/manifest.json'),
+        getAssetPath('/favicon.svg'),
+        getAssetPath('/logo.png'),
+        getAssetPath('/marked.min.js'),
+        getAssetPath('/dumbdateparser.js')
+    ];
+    
+    // Update offline fallback page
+    OFFLINE_PAGE = getAssetPath('/offline.html');
+    
+    if (DEBUG) {
+        console.log('[SW] Updated assets to cache with base path:', BASE_PATH);
+        console.log('[SW] Assets to cache:', ASSETS_TO_CACHE);
+    }
+}
+
+// Initialize assets to cache
+updateAssetsToCache();
 
 // Debug logging
 if (DEBUG) {
@@ -216,8 +245,10 @@ function shouldCache(url) {
     }
     
     // Don't cache API requests or auth endpoints
-    const apiPath = BASE_PATH + '/api/';
-    const verifyPath = BASE_PATH + '/verify-pin';
+    // Always recalculate the base path to ensure we have the latest
+    const basePath = calculateBasePath();
+    const apiPath = basePath + '/api/';
+    const verifyPath = basePath + '/verify-pin';
     
     if (parsedUrl.pathname.startsWith(apiPath) || 
         parsedUrl.pathname === verifyPath) {
@@ -243,18 +274,33 @@ function normalizeRequestUrl(request) {
         return request;
     }
     
+    // Always recalculate the base path to ensure we have the latest
+    const basePath = calculateBasePath();
+    
     // If the URL doesn't include our base path and it should, add it
-    if (BASE_PATH && !url.pathname.startsWith(BASE_PATH)) {
+    if (basePath && !url.pathname.startsWith(basePath)) {
         // But don't modify service worker or root page requests
         if (!url.pathname.endsWith('/sw.js') && url.pathname !== '/') {
             const newUrl = new URL(url);
-            newUrl.pathname = BASE_PATH + url.pathname;
+            newUrl.pathname = basePath + url.pathname;
             if (DEBUG) console.log('[SW] Normalizing URL:', { 
                 from: url.pathname, 
                 to: newUrl.pathname 
             });
             return new Request(newUrl, request);
         }
+    }
+    
+    // Remove double base paths if they exist (a potential issue)
+    if (basePath && url.pathname.startsWith(basePath + basePath + '/')) {
+        const cleanPath = url.pathname.replace(new RegExp(`^${basePath}${basePath}`), basePath);
+        if (DEBUG) console.log('[SW] Fixing double base path:', {
+            from: url.pathname,
+            to: cleanPath
+        });
+        const fixedUrl = new URL(url);
+        fixedUrl.pathname = cleanPath;
+        return new Request(fixedUrl, request);
     }
     
     return request;
@@ -274,7 +320,9 @@ self.addEventListener('fetch', function(event) {
         
         // For API requests or authentication endpoints, bypass cache completely
         if (!shouldCache(normalizedRequest.url)) {
-            if (DEBUG && url.pathname.startsWith(BASE_PATH + '/api/')) {
+            // Use the latest BASE_PATH calculation
+            const basePath = calculateBasePath();
+            if (DEBUG && url.pathname.startsWith(basePath + '/api/')) {
                 console.log('[SW] API request - passing through to network:', url.pathname);
             }
             return; // Let the browser handle this request normally

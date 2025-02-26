@@ -130,15 +130,15 @@ app.use(BASE_PATH, (req, res, next) => {
 });
 
 // Serve static files BEFORE auth middleware, but AFTER our placeholder replacement middleware
-// Modify the static file serving to handle HTML files specially
+// Modify the static file serving to handle HTML files and manifest.json specially
 app.use(BASE_PATH, (req, res, next) => {
-    // Only intercept HTML file requests
-    if (req.path.endsWith('.html') || req.path === '/') {
+    // Only intercept HTML files and manifest.json
+    if (req.path.endsWith('.html') || req.path === '/' || req.path === '/manifest.json') {
         const filePath = path.join(config.PUBLIC_DIR, req.path === '/' ? 'index.html' : req.path);
         
         // Check if file exists
         if (fs.existsSync(filePath)) {
-            debugLog('Intercepting HTML file request:', {
+            debugLog('Intercepting file with placeholders:', {
                 path: req.path,
                 filePath
             });
@@ -146,7 +146,7 @@ app.use(BASE_PATH, (req, res, next) => {
             // Read file manually
             fs.readFile(filePath, 'utf8', (err, content) => {
                 if (err) {
-                    debugLog('Error reading HTML file:', {
+                    debugLog('Error reading file:', {
                         path: req.path,
                         error: err.message
                     });
@@ -154,17 +154,37 @@ app.use(BASE_PATH, (req, res, next) => {
                 }
                 
                 // Replace placeholders
+                let modified = false;
+                
                 if (content.includes('{{SITE_TITLE}}')) {
                     content = content.replace(/{{SITE_TITLE}}/g, siteTitle);
-                    debugLog('Replaced {{SITE_TITLE}} in static HTML file');
+                    debugLog('Replaced {{SITE_TITLE}} placeholder');
+                    modified = true;
                 }
                 
-                // Set proper headers
-                res.setHeader('Content-Type', 'text/html');
+                if (content.includes('{{BASE_PATH}}')) {
+                    content = content.replace(/{{BASE_PATH}}/g, BASE_PATH);
+                    debugLog('Replaced {{BASE_PATH}} placeholder with:', BASE_PATH);
+                    modified = true;
+                }
+                
+                // Set proper headers based on file type
+                if (req.path.endsWith('.html') || req.path === '/') {
+                    res.setHeader('Content-Type', 'text/html');
+                } else if (req.path === '/manifest.json') {
+                    res.setHeader('Content-Type', 'application/json');
+                }
+                
                 res.setHeader('Cache-Control', 'no-cache');
                 
                 // Send modified content
-                res.send(content);
+                if (modified) {
+                    debugLog('Sending modified content for file:', req.path);
+                    res.send(content);
+                } else {
+                    debugLog('No placeholders found, letting static middleware handle it');
+                    next();
+                }
             });
         } else {
             next();

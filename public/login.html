@@ -3,21 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Load config.js first to prevent theme flash -->
-    <script src="config.js"></script>
+    <!-- Dynamic base path script - execute before anything else loads -->
+    <script>
+        // Function to get the base path from the current URL
+        function getBasePath() {
+            const path = window.location.pathname;
+            // Find the last segment (after the last slash)
+            const lastSlashIndex = path.lastIndexOf('/');
+            if (lastSlashIndex <= 0) {
+                // We're at the root
+                return '';
+            }
+            
+            // Check if the URL ends with index.html or similar
+            const lastSegment = path.substring(lastSlashIndex + 1);
+            if (lastSegment === '' || lastSegment.includes('.html')) {
+                // Return everything before the last slash
+                return path.substring(0, lastSlashIndex);
+            }
+            
+            // Otherwise the entire path is our base
+            return path;
+        }
+        
+        // Set the base path as a global variable
+        window.APP_BASE_PATH = getBasePath();
+        console.log('Detected base path: "' + window.APP_BASE_PATH + '"');
+        
+        // Helper to get full resource path
+        function getResourcePath(path) {
+            // If there's no app base path, just ensure the path starts with a slash
+            if (!window.APP_BASE_PATH) {
+                return path.startsWith('/') ? path : '/' + path;
+            }
+            
+            // If path already starts with the base path, return as is
+            if (path.startsWith(window.APP_BASE_PATH + '/') || path === window.APP_BASE_PATH) {
+                return path;
+            }
+            
+            // If path starts with '/', remove the slash if we have a non-empty base path
+            if (path.startsWith('/') && window.APP_BASE_PATH !== '') {
+                path = path.substring(1);
+            }
+            
+            // If path doesn't start with '/' and base path is not empty, add a slash
+            const separator = (window.APP_BASE_PATH !== '' && !path.startsWith('/')) ? '/' : '';
+            
+            return window.APP_BASE_PATH + separator + path;
+        }
+        
+        // Dynamically create a base element
+        if (window.APP_BASE_PATH) {
+            const baseElement = document.createElement('base');
+            baseElement.href = window.APP_BASE_PATH + '/';
+            document.head.appendChild(baseElement);
+        }
+    </script>
+    
+    <!-- Load config.js with dynamic path -->
+    <script>
+        document.write('<script src="' + getResourcePath('/config.js') + '"><\/script>');
+    </script>
     <title>{{SITE_TITLE}}</title>
-    <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <link rel="stylesheet" href="styles.css">
+    <!-- Load other resources with dynamic paths -->
+    <script>
+        document.write('<link rel="icon" type="image/svg+xml" href="' + getResourcePath('/favicon.svg') + '">');
+        document.write('<link rel="stylesheet" href="' + getResourcePath('/styles.css') + '">');
+    </script>
     <script>
         // Debug logging for URL and protocol
         console.log('Current URL:', window.location.href);
         console.log('Current Protocol:', window.location.protocol);
-        console.log('Base Path:', window.appConfig?.basePath || 'Not set');
+        console.log('Base Path:', window.APP_BASE_PATH);
     </script>
 </head>
 <body>
     <main>
-        <form id="pinForm" action="verify-pin" method="POST">
+        <form id="pinForm" action="javascript:void(0);">
             <button id="themeToggle" aria-label="Toggle theme" type="button">
                 <svg class="moon" viewBox="0 0 24 24">
                     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
@@ -44,30 +107,36 @@
         A Dumbware by <a href="https://dumbware.io" target="_blank" rel="noopener noreferrer">Dumbware.io</a>
     </div>
     <!-- IMPORTANT: Do not modify this script type unless the entire file is fully structured as an ES module. -->
-    <script src="src/api-utils.js"></script>
-    <script src="src/theme.js"></script>
-    <script src="src/date-utils.js"></script>
-    <script src="src/text-utils.js"></script>
-    <script type="module" src="src/ui-utils.js"></script>
-    <script type="module" src="src/state.js"></script>
-    <script type="module" src="src/auth-storage.js"></script>
-    <script type="module" src="src/login-utils.js"></script>
-    <script type="module" src="src/element-init.js"></script>
-    <script src="src/task-modal.js"></script>
-    <script src="src/task-utils.js"></script>
-    <script type="module" src="src/drag-drop-utils.js"></script>
-    <!-- Board management utilities -->
-    <script type="module" src="src/board-utils.js"></script>
-    <!-- Event listeners module -->
-    <script type="module" src="src/event-listeners.js"></script>
-    <!-- Data loading utilities -->
-    <script type="module" src="src/data-loading.js"></script>
-    <!-- Render utilities -->
-    <script type="module" src="src/render-utils.js"></script>
-    <script type="module" src="src/render-init.js"></script>
-    <!-- Application initialization -->
-    <script type="module" src="src/app-init.js"></script>
-    <!-- Application bootstrap -->
-    <script type="module" src="src/app-bootstrap.js"></script>
+    <script>
+        document.write('<script src="' + getResourcePath('/src/api-utils.js') + '"><\/script>');
+        document.write('<script src="' + getResourcePath('/src/theme.js') + '"><\/script>');
+        document.write('<script src="' + getResourcePath('/src/date-utils.js') + '"><\/script>');
+        document.write('<script src="' + getResourcePath('/src/text-utils.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/ui-utils.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/state.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/auth-storage.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/login-utils.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/element-init.js') + '"><\/script>');
+        document.write('<script src="' + getResourcePath('/src/task-modal.js') + '"><\/script>');
+        document.write('<script src="' + getResourcePath('/src/task-utils.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/drag-drop-utils.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/board-utils.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/event-listeners.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/data-loading.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/render-utils.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/render-init.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/app-init.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/app-bootstrap.js') + '"><\/script>');
+    </script>
+    <script>
+        // Update the form action to use the dynamic base path
+        document.addEventListener('DOMContentLoaded', function() {
+            const pinForm = document.getElementById('pinForm');
+            if (pinForm) {
+                pinForm.setAttribute('action', getResourcePath('/verify-pin'));
+                console.log('Updated form action to:', pinForm.getAttribute('action'));
+            }
+        });
+    </script>
 </body>
 </html> 
