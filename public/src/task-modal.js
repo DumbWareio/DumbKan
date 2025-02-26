@@ -20,12 +20,64 @@ function showTaskModal(task) {
     const currentTask = window.state.tasks && task.id ? window.state.tasks[task.id] || task : task;
     
     const isNewTask = !currentTask.id;
-    elements.taskModal.querySelector('h2').textContent = isNewTask ? 'Add Task' : 'Edit Task';
-    elements.taskTitle.value = isNewTask ? '' : (currentTask.title || '');
-    elements.taskDescription.value = isNewTask ? '' : (currentTask.description || '');
-    elements.taskStatus.value = isNewTask ? 'active' : (currentTask.status || 'active');
+    
+    // Update editable title display element
+    const titleDisplay = elements.taskModal.querySelector('#taskTitleDisplay');
+    if (titleDisplay) {
+        titleDisplay.textContent = isNewTask ? 'New Task' : (currentTask.title || 'Untitled Task');
+        
+        // Add click event to make title editable
+        titleDisplay.onclick = function() {
+            if (elements.taskTitle) {
+                titleDisplay.hidden = true;
+                elements.taskTitle.hidden = false;
+                elements.taskTitle.value = titleDisplay.textContent;
+                elements.taskTitle.focus();
+                
+                // Also update the hidden form input
+                if (elements.taskTitleHidden) {
+                    elements.taskTitleHidden.value = titleDisplay.textContent;
+                }
+                
+                // Handle blur event to save changes
+                const handleBlur = function() {
+                    if (elements.taskTitle.value.trim() !== '') {
+                        titleDisplay.textContent = elements.taskTitle.value;
+                        if (elements.taskTitleHidden) {
+                            elements.taskTitleHidden.value = elements.taskTitle.value;
+                        }
+                    }
+                    titleDisplay.hidden = false;
+                    elements.taskTitle.hidden = true;
+                    elements.taskTitle.removeEventListener('blur', handleBlur);
+                    elements.taskTitle.removeEventListener('keydown', handleKeydown);
+                };
+                
+                // Handle enter key press
+                const handleKeydown = function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        elements.taskTitle.blur();
+                    }
+                };
+                
+                elements.taskTitle.addEventListener('blur', handleBlur);
+                elements.taskTitle.addEventListener('keydown', handleKeydown);
+            }
+        };
+    }
+    
+    // Set initial form values
     elements.taskForm.dataset.taskId = currentTask.id || '';
     elements.taskForm.dataset.sectionId = currentTask.sectionId;
+    
+    // Set hidden title field value (for form submission)
+    if (elements.taskTitleHidden) {
+        elements.taskTitleHidden.value = isNewTask ? '' : (currentTask.title || '');
+    }
+    
+    elements.taskDescription.value = isNewTask ? '' : (currentTask.description || '');
+    elements.taskStatus.value = isNewTask ? 'active' : (currentTask.status || 'active');
 
     // Set date fields - keep raw input
     if (!isNewTask) {

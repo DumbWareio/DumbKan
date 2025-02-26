@@ -64,7 +64,24 @@ function initEventListeners(state, elements) {
         e.preventDefault();
         const taskId = elements.taskForm.dataset.taskId;
         const sectionId = elements.taskForm.dataset.sectionId;
-        const title = elements.taskTitle.value.trim();
+        
+        // Get the title from the appropriate source
+        let title;
+        if (elements.taskTitleHidden) {
+            // First try the hidden field which holds the latest value
+            title = elements.taskTitleHidden.value.trim();
+        } 
+        
+        if (!title && elements.taskTitleDisplay) {
+            // If not found or empty, try the display element
+            title = elements.taskTitleDisplay.textContent.trim();
+        }
+        
+        if (!title && elements.taskTitle) {
+            // Last resort, try the original input field
+            title = elements.taskTitle.value.trim();
+        }
+        
         const description = elements.taskDescription.value.trim();
         const status = elements.taskStatus.value;
         

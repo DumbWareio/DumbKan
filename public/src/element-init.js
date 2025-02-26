@@ -24,6 +24,8 @@ export function initElements() {
         taskModal: document.getElementById('taskModal'),
         taskForm: document.getElementById('taskForm'),
         taskTitle: document.getElementById('taskTitle'),
+        taskTitleDisplay: document.getElementById('taskTitleDisplay'),
+        taskTitleHidden: document.getElementById('taskTitleHidden'),
         taskDescription: document.getElementById('taskDescription'),
         taskStatus: document.getElementById('taskStatus'),
         taskDueDate: document.getElementById('taskDueDate'),
@@ -36,8 +38,8 @@ export function initElements() {
     const requiredElements = [
         'themeToggle', 'boardMenu', 'boardMenuBtn', 'boardList', 
         'addBoardBtn', 'currentBoard', 'columns', 'boardContainer',
-        'taskModal', 'taskForm', 'taskTitle', 'taskDescription', 'taskStatus',
-        'taskDueDate', 'taskStartDate'
+        'taskModal', 'taskForm', 'taskTitle', 'taskTitleDisplay',
+        'taskDescription', 'taskStatus', 'taskDueDate', 'taskStartDate'
     ];
 
     for (const key of requiredElements) {
