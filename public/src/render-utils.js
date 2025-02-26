@@ -194,65 +194,38 @@ function renderColumn(section, state, elements) {
 
     // Ensure taskIds exists and is an array
     const taskIds = Array.isArray(section.taskIds) ? section.taskIds : [];
-    const taskCount = taskIds.length;
+    
+    // Determine if this column has a filter active
+    const columnFilter = state.columnFilters[section.id] || { showOnlyActive: false };
+    
+    // Count tasks based on filter state
+    let visibleTaskCount = taskIds.length;
+    let activeTaskCount = 0;
+    
+    // Count active tasks for display
+    taskIds.forEach(taskId => {
+        const task = state.tasks?.[taskId];
+        if (task && task.status === 'active') {
+            activeTaskCount++;
+        }
+    });
+    
+    // If filter is active, update visible count to show only active tasks
+    if (columnFilter.showOnlyActive) {
+        visibleTaskCount = activeTaskCount;
+    }
 
     const headerEl = document.createElement('div');
     headerEl.className = 'column-header';
     headerEl.draggable = true; // Only the header is draggable
     headerEl.setAttribute('draggable', true);
-    
-    // Add touch support for mobile drag and drop
-    headerEl.addEventListener('touchstart', function(e) {
-        // Create a synthetic event with a minimal dataTransfer polyfill
-        const syntheticEvent = {
-            target: headerEl,
-            dataTransfer: {
-                setData: (type, val) => { headerEl.dataset.dragData = val; },
-                effectAllowed: 'move'
-            },
-            clientX: e.touches[0].clientX,
-            clientY: e.touches[0].clientY,
-            preventDefault: () => {}
-        };
-        // Invoke the existing drag start handler
-        window.handleDragStart(syntheticEvent);
-    });
 
-    // Add touchmove listener to simulate dragover
-    headerEl.addEventListener('touchmove', function(e) {
-        e.preventDefault(); // Prevent scrolling while dragging
-        const syntheticEvent = {
-            target: e.target,
-            touches: e.touches,
-            preventDefault: () => {},
-            dataTransfer: {
-                effectAllowed: 'move'
-            }
-        };
-        window.handleDragOver(syntheticEvent);
-    });
-
-    // Add touchend listener to simulate drop
-    headerEl.addEventListener('touchend', function(e) {
-        const touch = e.changedTouches[0];
-        const dropTarget = document.elementFromPoint(touch.clientX, touch.clientY);
-        if (dropTarget) {
-            const syntheticEvent = {
-                target: dropTarget,
-                preventDefault: () => {},
-                dataTransfer: {
-                    getData: () => headerEl.dataset.dragData
-                }
-            };
-            window.handleDrop(syntheticEvent);
-        }
-        // Clean up
-        headerEl.classList.remove('dragging');
-    });
-    
-    const columnTitle = document.createElement('h2');
+    const columnTitle = document.createElement('div');
     columnTitle.className = 'column-title';
-    columnTitle.textContent = section.name || 'Unnamed Section';
+    columnTitle.textContent = section.name || 'Untitled';
+    columnTitle.setAttribute('role', 'button');
+    columnTitle.setAttribute('aria-label', `Edit ${section.name || 'Untitled'} column title`);
+    
     window.makeEditable(columnTitle, async (newName) => {
         try {
             const response = await fetch(`${window.appConfig.basePath}/api/boards/${state.activeBoard}/sections/${section.id}`, {
@@ -272,14 +245,48 @@ function renderColumn(section, state, elements) {
             return false;
         }
     }, state);
+    
+    // Create column count element
+    const columnCount = document.createElement('div');
+    columnCount.className = 'column-count';
+    columnCount.textContent = visibleTaskCount.toString();
+    
+    // Add a title to indicate the column count is clickable
+    columnCount.setAttribute('title', columnFilter.showOnlyActive 
+        ? `Showing ${activeTaskCount} active tasks. Click to show all tasks.` 
+        : `Showing all tasks (${activeTaskCount} active, ${taskIds.length - activeTaskCount} inactive). Click to show only active tasks.`);
+    
+    // Add filter indicator class if filter is active
+    if (columnFilter.showOnlyActive) {
+        columnCount.classList.add('filtered');
+    }
+    
+    // Make column count clickable
+    columnCount.setAttribute('role', 'button');
+    columnCount.setAttribute('tabindex', '0');
+    columnCount.addEventListener('click', () => {
+        // Toggle filter state
+        const newFilter = {
+            showOnlyActive: !columnFilter.showOnlyActive
+        };
         
-    headerEl.innerHTML = `
-        <div class="column-count">${taskCount}</div>
-        <div class="column-drag-handle">
-            <svg viewBox="0 0 24 24" width="16" height="16">
-                <path d="M8 6h8M8 12h8M8 18h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-        </div>
+        // Update state
+        state.columnFilters[section.id] = newFilter;
+        
+        // Re-render the column
+        const columnsContainer = columnEl.parentElement;
+        if (columnsContainer) {
+            const newColumnEl = renderColumn(section, state, elements);
+            columnsContainer.replaceChild(newColumnEl, columnEl);
+        }
+    });
+    
+    headerEl.appendChild(columnCount);
+    headerEl.appendChild(document.createElement('div')).className = 'column-drag-handle';
+    headerEl.lastChild.innerHTML = `
+        <svg viewBox="0 0 24 24" width="16" height="16">
+            <path d="M8 6h8M8 12h8M8 18h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
     `;
     headerEl.insertBefore(columnTitle, headerEl.lastElementChild);
 
@@ -294,10 +301,15 @@ function renderColumn(section, state, elements) {
     tasksContainer.dataset.sectionId = section.id;
     columnEl.appendChild(tasksContainer);
 
-    // Render tasks
+    // Render tasks (filtered by active status if needed)
     taskIds.forEach(taskId => {
         const task = state.tasks?.[taskId];
         if (task) {
+            // Skip inactive tasks if filter is active
+            if (columnFilter.showOnlyActive && task.status !== 'active') {
+                return;
+            }
+            
             const taskEl = renderTask(task, state);
             if (taskEl) {
                 tasksContainer.appendChild(taskEl);
@@ -732,4 +744,7 @@ function refreshBoard(state, elements) {
     } catch (error) {
         console.error('Error in refreshBoard:', error);
     }
-} 
+}
+
+// At the bottom of the file, add renderColumn to the window object
+window.renderColumn = renderColumn; 

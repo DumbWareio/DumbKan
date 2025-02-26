@@ -582,6 +582,27 @@ h2 {
     aspect-ratio: 1;
     line-height: 1;
     text-align: center;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.column-count:hover {
+    background: rgba(128, 128, 128, 0.3);
+    transform: scale(1.05);
+}
+
+.column-count:focus {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+.column-count.filtered {
+    background: var(--primary);
+    color: white;
+}
+
+.column-count.filtered:hover {
+    background: var(--primary-hover);
 }
 
 .tasks {

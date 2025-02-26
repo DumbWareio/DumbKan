@@ -9,7 +9,12 @@ export const state = {
     boards: {},
     sections: {},
     tasks: {},
-    activeBoard: null
+    activeBoard: null,
+    user: null,
+    columnFilters: {},
+    settings: {
+        theme: localStorage.getItem('theme') || 'auto'
+    }
 };
 
 /**
@@ -21,6 +26,11 @@ export function resetState() {
     state.sections = {};
     state.tasks = {};
     state.activeBoard = null;
+    state.user = null;
+    state.columnFilters = {};
+    state.settings = {
+        theme: localStorage.getItem('theme') || 'auto'
+    };
 }
 
 /**

@@ -48,7 +48,23 @@ function updateTask(task, updates) {
                     const significantChanges = ['title', 'status', 'priority', 'sectionId'];
                     const hasSignificantChanges = Object.keys(updates).some(key => significantChanges.includes(key));
                     
-                    if (hasSignificantChanges && typeof window.refreshBoard === 'function') {
+                    // If status changed and we have column filtering active, re-render column
+                    if (updates.status && window.state && window.state.columnFilters) {
+                        const sectionId = taskData.sectionId || task.sectionId;
+                        if (sectionId && window.state.columnFilters[sectionId]) {
+                            const columnEl = document.querySelector(`.column[data-section-id="${sectionId}"]`);
+                            const section = window.state.sections[sectionId];
+                            
+                            // Re-render just the one column with the updated task status
+                            if (columnEl && section && typeof window.renderColumn === 'function') {
+                                const newColumnEl = window.renderColumn(section, window.state, window.elements);
+                                if (newColumnEl && columnEl.parentElement) {
+                                    columnEl.parentElement.replaceChild(newColumnEl, columnEl);
+                                }
+                            }
+                        }
+                    }
+                    else if (hasSignificantChanges && typeof window.refreshBoard === 'function') {
                         window.refreshBoard(window.state, window.elements);
                     }
                     
