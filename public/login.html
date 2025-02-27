@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
     <!-- Dynamic base path script - execute before anything else loads -->
     <script>
         // Function to get the base path from the current URL
@@ -74,18 +75,25 @@
         }
     </script>
     
+    <!-- Preload critical assets -->
+    <link rel="preload" href="/config.js" as="script">
+    <link rel="preload" href="/styles.css" as="style">
+    
     <!-- Load server-generated config.js with dynamic path -->
     <script>
         document.write('<script src="' + getResourcePath('/config.js') + '"><\/script>');
     </script>
+    
     <title>{{SITE_TITLE}}</title>
+    
     <!-- Load other resources with dynamic paths -->
     <script>
         document.write('<link rel="icon" type="image/svg+xml" href="' + getResourcePath('/favicon.svg') + '">');
         document.write('<link rel="stylesheet" href="' + getResourcePath('/styles.css') + '">');
     </script>
+    
+    <!-- Debug logging -->
     <script>
-        // Debug logging for URL and protocol
         console.log('Current URL:', window.location.href);
         console.log('Current Protocol:', window.location.protocol);
         console.log('Base Path:', window.APP_BASE_PATH);
@@ -119,36 +127,96 @@
     <div class="dumbware-credit">
         A Dumbware by <a href="https://dumbware.io" target="_blank" rel="noopener noreferrer">Dumbware.io</a>
     </div>
-    <!-- IMPORTANT: Do not modify this script type unless the entire file is fully structured as an ES module. -->
+    
+    <!-- Critical path scripts for login (minimized set) -->
     <script>
-        document.write('<script src="' + getResourcePath('/src/api-utils.js') + '"><\/script>');
-        document.write('<script src="' + getResourcePath('/src/theme.js') + '"><\/script>');
-        document.write('<script src="' + getResourcePath('/src/date-utils.js') + '"><\/script>');
-        document.write('<script src="' + getResourcePath('/src/text-utils.js') + '"><\/script>');
-        document.write('<script type="module" src="' + getResourcePath('/src/ui-utils.js') + '"><\/script>');
-        document.write('<script type="module" src="' + getResourcePath('/src/state.js') + '"><\/script>');
-        document.write('<script type="module" src="' + getResourcePath('/src/auth-storage.js') + '"><\/script>');
-        document.write('<script type="module" src="' + getResourcePath('/src/login-utils.js') + '"><\/script>');
-        document.write('<script type="module" src="' + getResourcePath('/src/element-init.js') + '"><\/script>');
-        document.write('<script src="' + getResourcePath('/src/task-modal.js') + '"><\/script>');
-        document.write('<script src="' + getResourcePath('/src/task-utils.js') + '"><\/script>');
-        document.write('<script type="module" src="' + getResourcePath('/src/drag-drop-utils.js') + '"><\/script>');
-        document.write('<script type="module" src="' + getResourcePath('/src/board-utils.js') + '"><\/script>');
-        document.write('<script type="module" src="' + getResourcePath('/src/event-listeners.js') + '"><\/script>');
-        document.write('<script type="module" src="' + getResourcePath('/src/data-loading.js') + '"><\/script>');
-        document.write('<script type="module" src="' + getResourcePath('/src/render-utils.js') + '"><\/script>');
-        document.write('<script type="module" src="' + getResourcePath('/src/render-init.js') + '"><\/script>');
-        document.write('<script type="module" src="' + getResourcePath('/src/app-init.js') + '"><\/script>');
-        document.write('<script type="module" src="' + getResourcePath('/src/app-bootstrap.js') + '"><\/script>');
+        const criticalScripts = [
+            '/src/api-utils.js',
+            '/src/theme.js'
+        ];
+        
+        // Load critical scripts synchronously to ensure they're available immediately
+        criticalScripts.forEach(script => {
+            document.write('<script src="' + getResourcePath(script) + '"><\/script>');
+        });
     </script>
+    
+    <!-- Deferred module loading - load asynchronously -->
     <script>
-        // Update the form action to use the dynamic base path
-        document.addEventListener('DOMContentLoaded', function() {
+        // Function to load scripts asynchronously
+        function loadScript(src, isModule = false) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = getResourcePath(src);
+                if (isModule) script.type = 'module';
+                script.async = true;
+                script.onload = resolve;
+                script.onerror = reject;
+                document.body.appendChild(script);
+            });
+        }
+        
+        // Login essential modules - load these first
+        const essentialModules = [
+            { src: '/src/auth-storage.js', module: true },
+            { src: '/src/login-utils.js', module: true }
+        ];
+        
+        // Secondary modules - load these after essential ones
+        const secondaryModules = [
+            { src: '/src/date-utils.js', module: false },
+            { src: '/src/text-utils.js', module: false },
+            { src: '/src/ui-utils.js', module: true },
+            { src: '/src/state.js', module: true },
+            { src: '/src/element-init.js', module: true },
+            { src: '/src/app-bootstrap.js', module: true }
+        ];
+        
+        // Not needed for login but preload for faster subsequent page loads
+        const deferredModules = [
+            { src: '/src/task-modal.js', module: false },
+            { src: '/src/task-utils.js', module: false },
+            { src: '/src/drag-drop-utils.js', module: true },
+            { src: '/src/board-utils.js', module: true },
+            { src: '/src/event-listeners.js', module: true },
+            { src: '/src/data-loading.js', module: true },
+            { src: '/src/render-utils.js', module: true },
+            { src: '/src/render-init.js', module: true },
+            { src: '/src/app-init.js', module: true }
+        ];
+        
+        // Load scripts in priority order
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Update form action
             const pinForm = document.getElementById('pinForm');
             if (pinForm) {
                 pinForm.setAttribute('action', getResourcePath('/verify-pin'));
                 console.log('Updated form action to:', pinForm.getAttribute('action'));
             }
+            
+            // Load essential modules immediately
+            const essentialPromises = essentialModules.map(mod => 
+                loadScript(mod.src, mod.module)
+            );
+            
+            // After essential modules are loaded, initialize login
+            Promise.all(essentialPromises).then(() => {
+                if (typeof window.initLogin === 'function') {
+                    window.initLogin();
+                }
+                
+                // Then load secondary modules
+                secondaryModules.forEach(mod => 
+                    loadScript(mod.src, mod.module)
+                );
+                
+                // Load deferred modules with a delay
+                setTimeout(() => {
+                    deferredModules.forEach(mod => 
+                        loadScript(mod.src, mod.module)
+                    );
+                }, 1000);
+            });
         });
     </script>
 </body>
