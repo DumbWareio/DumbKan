@@ -7,22 +7,32 @@
     <script>
         // Function to get the base path from the current URL
         function getBasePath() {
+            // Get the current path from the window location
             const path = window.location.pathname;
-            // Find the last segment (after the last slash)
-            const lastSlashIndex = path.lastIndexOf('/');
-            if (lastSlashIndex <= 0) {
-                // We're at the root
+            
+            // Skip leading slash if present for splitting
+            const pathToProcess = path.startsWith('/') ? path.substring(1) : path;
+            
+            // Split by slashes to get path segments
+            const segments = pathToProcess.split('/');
+            
+            // If no segments or only empty segments, we're at the root
+            if (segments.length === 0 || (segments.length === 1 && segments[0] === '')) {
                 return '';
             }
             
-            // Check if the URL ends with index.html or similar
-            const lastSegment = path.substring(lastSlashIndex + 1);
-            if (lastSegment === '' || lastSegment.includes('.html')) {
-                // Return everything before the last slash
-                return path.substring(0, lastSlashIndex);
+            // Check if the last segment is a file (like index.html)
+            const lastSegment = segments[segments.length - 1];
+            const isLastSegmentFile = lastSegment.includes('.');
+            
+            // If the last segment is a file, use all segments except the last one
+            if (isLastSegmentFile) {
+                // Join all segments except the last one, preceded by a slash
+                return '/' + segments.slice(0, segments.length - 1).join('/');
             }
             
-            // Otherwise the entire path is our base
+            // If we have segments and the last one isn't a file, use the full path
+            // This typically means we're at a route like /app or /some/other/path
             return path;
         }
         
@@ -61,7 +71,7 @@
         }
     </script>
     
-    <!-- Load config.js with dynamic path -->
+    <!-- Load server-generated config.js with dynamic path -->
     <script>
         document.write('<script src="' + getResourcePath('/config.js') + '"><\/script>');
     </script>

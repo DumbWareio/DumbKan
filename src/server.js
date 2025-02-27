@@ -295,6 +295,12 @@ app.get(BASE_PATH + '/config.js', (req, res) => {
             }
         })();
 
+        // CRITICAL: Force the correct base path from server configuration
+        // This ensures that no matter what client-side detection does,
+        // we use the server's definitive base path configuration
+        window.APP_BASE_PATH = '${BASE_PATH}';
+        console.log('[CONFIG] Server configured base path: "${BASE_PATH}"');
+
         window.appConfig = {
             basePath: '${BASE_PATH}',
             debug: ${config.DEBUG},

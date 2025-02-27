@@ -38,7 +38,7 @@ function initializeBasePath() {
         });
     } catch (e) {
         // If it's not a valid URL, check if it starts with a slash
-        // This means it's likely a path like "/kan" and not a domain
+        // This means it's likely a path like "/app" and not a domain
         if (path.startsWith('/')) {
             debugLog('BASE_URL appears to be a path:', {
                 value: path
