@@ -15,15 +15,22 @@
                 return '';
             }
             
+            let resultPath;
+            
             // Check if the URL ends with index.html or similar
             const lastSegment = path.substring(lastSlashIndex + 1);
             if (lastSegment === '' || lastSegment.includes('.html')) {
                 // Return everything before the last slash
-                return path.substring(0, lastSlashIndex);
+                resultPath = path.substring(0, lastSlashIndex);
+            } else {
+                // Otherwise the entire path is our base
+                resultPath = path;
             }
             
-            // Otherwise the entire path is our base
-            return path;
+            // IMPORTANT: Always remove trailing slashes to prevent double slashes in URLs
+            resultPath = resultPath.replace(/\/+$/, '');
+            
+            return resultPath;
         }
         
         // Set the base path as a global variable
@@ -32,25 +39,31 @@
         
         // Helper to get full resource path
         function getResourcePath(path) {
-            // If there's no app base path, just ensure the path starts with a slash
+            // Normalize path to ensure it starts with exactly one slash
+            const normalizedPath = path.replace(/^\/*/, '/');
+            
+            // If there's no app base path, just return the normalized path
             if (!window.APP_BASE_PATH) {
-                return path.startsWith('/') ? path : '/' + path;
+                return normalizedPath;
             }
             
             // If path already starts with the base path, return as is
-            if (path.startsWith(window.APP_BASE_PATH + '/') || path === window.APP_BASE_PATH) {
-                return path;
+            if (normalizedPath.startsWith(window.APP_BASE_PATH + '/') || normalizedPath === window.APP_BASE_PATH) {
+                return normalizedPath;
             }
             
-            // If path starts with '/', remove the slash if we have a non-empty base path
-            if (path.startsWith('/') && window.APP_BASE_PATH !== '') {
-                path = path.substring(1);
-            }
+            // Ensure no double slashes when joining paths
+            const fullPath = window.APP_BASE_PATH + normalizedPath;
             
-            // If path doesn't start with '/' and base path is not empty, add a slash
-            const separator = (window.APP_BASE_PATH !== '' && !path.startsWith('/')) ? '/' : '';
+            // Log the path construction for debugging
+            console.log('Resource path construction:', {
+                basePath: window.APP_BASE_PATH,
+                resourcePath: path,
+                normalizedPath: normalizedPath,
+                fullPath: fullPath
+            });
             
-            return window.APP_BASE_PATH + separator + path;
+            return fullPath;
         }
         
         // Dynamically create a base element

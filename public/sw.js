@@ -71,7 +71,8 @@ function calculateBasePath() {
     // If we have a base path from the main thread, use that
     if (self.CONFIG_BASE_PATH !== null) {
         if (DEBUG) console.log('[SW] Using base path from config:', self.CONFIG_BASE_PATH);
-        return self.CONFIG_BASE_PATH;
+        // Remove trailing slash if present - use a more robust regex to remove ALL trailing slashes
+        return self.CONFIG_BASE_PATH.replace(/\/+$/, '');
     }
     
     // Get the path of the service worker
@@ -84,6 +85,9 @@ function calculateBasePath() {
     
     // Extract the base path by removing 'sw.js' from the end
     let basePath = swPath.replace(/\/sw\.js$/, '');
+    
+    // Remove trailing slash if present - use a more robust regex to remove ALL trailing slashes
+    basePath = basePath.replace(/\/+$/, '');
     
     // Debug logging
     if (DEBUG) {
@@ -102,21 +106,32 @@ function getAssetPath(path) {
     // Recalculate the base path if it might have changed
     BASE_PATH = calculateBasePath();
     
-    // If the base path is empty, just return the path with leading slash
+    // Normalize path to ensure it starts with exactly one slash
+    const normalizedPath = path.replace(/^\/*/, '/');
+    
+    // If the base path is empty, just return the normalized path
     if (BASE_PATH === '') {
-        return path.startsWith('/') ? path : '/' + path;
+        return normalizedPath;
     }
     
     // If path already starts with the base path, return as is
-    if (BASE_PATH && path.startsWith(BASE_PATH)) {
+    if (path.startsWith(BASE_PATH + '/') || path === BASE_PATH) {
         return path;
     }
     
-    // Ensure path starts with a slash if not empty and not already starting with one
-    const normalizedPath = path.startsWith('/') ? path : '/' + path;
+    // Ensure no double slashes when joining
+    const fullPath = BASE_PATH + normalizedPath;
     
-    // Combine base path with the normalized path
-    return BASE_PATH + normalizedPath;
+    // Log path construction for debugging
+    if (DEBUG) {
+        console.log('[SW] Path construction:', {
+            basePath: BASE_PATH,
+            normalizedPath,
+            fullPath
+        });
+    }
+    
+    return fullPath;
 }
 
 // Define offline fallback page

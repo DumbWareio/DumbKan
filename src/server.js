@@ -49,8 +49,16 @@ debugLog('PIN Configuration:', {
     PIN_VALUE: config.PIN ? '****' : 'NOT SET'
 });
 
-// BASE_PATH configuration has been moved to ./config/base-path.js
-// The logic for BASE_PATH initialization and normalization now lives there
+// Debug log the BASE_PATH value with more details
+debugLog('Starting server with BASE_PATH:', {
+    value: BASE_PATH,
+    type: typeof BASE_PATH,
+    length: BASE_PATH.length,
+    lastChar: BASE_PATH.length > 0 ? BASE_PATH.charAt(BASE_PATH.length - 1) : 'N/A',
+    endsWithSlash: BASE_PATH.endsWith('/'),
+    valueWithSlash: BASE_PATH + '/',
+    absoluteUrl: process.env.BASE_URL
+});
 
 // Get the project name from package.json to use for the PIN environment variable
 const projectName = config.projectName;
