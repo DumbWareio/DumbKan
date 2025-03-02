@@ -6,11 +6,6 @@ on:
       - main
       - Rewrite
       - dev
-  pull_request:
-    branches:
-      - main
-      - Rewrite
-      - dev
 
 env:
   DOCKER_IMAGE: dumbwareio/dumbkan
