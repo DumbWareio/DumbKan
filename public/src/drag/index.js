@@ -226,6 +226,8 @@ window.handleTouchStart = handleTouchStart;
 window.handleTouchMove = handleTouchMove;
 window.handleTouchEnd = handleTouchEnd;
 window.cleanupColumnDuplicates = cleanupColumnDuplicates;
+// Explicitly add handleSectionMove to ensure it's available for touch handlers
+window.handleSectionMove = handleSectionMove;
 
 // Log the initialization
 console.log('Drag and drop handlers initialized'); 

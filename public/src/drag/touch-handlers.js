@@ -257,8 +257,9 @@ function handleColumnTouchEnd(e, draggedColumn) {
         return;
     }
     
-    // Get all column elements
-    const allColumns = [...columnsContainer.querySelectorAll('.column')];
+    // Get all column elements EXCEPT the dragged one to avoid self-placement issues
+    const allColumns = [...columnsContainer.querySelectorAll('.column:not(.dragging):not(.add-column-btn)')];
+    console.log(`Found ${allColumns.length} columns for placement calculation (excluding dragged column)`);
     
     // Get the section ID of the dragged column
     const sectionId = draggedColumn.dataset.sectionId;
@@ -275,21 +276,50 @@ function handleColumnTouchEnd(e, draggedColumn) {
     }
     
     // Calculate the position where the column should be placed
+    // We use the modified list that excludes the dragged column
     const afterElement = getDragAfterElement(allColumns, touch.clientX);
     
-    // Determine the new index for the column
+    // Current index in the board's section order
+    const currentIndex = board.sectionOrder.indexOf(sectionId);
+    if (currentIndex === -1) {
+        console.warn(`Section ${sectionId} not found in board section order`);
+        return;
+    }
+    
+    // Determine the new index
     let newIndex;
     if (afterElement) {
-        newIndex = board.sectionOrder.indexOf(afterElement.dataset.sectionId);
-        console.log(`Column will be placed before: ${afterElement.dataset.sectionId} at index ${newIndex}`);
+        const afterElementId = afterElement.dataset.sectionId;
+        // Get the index in the full section order (not our filtered DOM list)
+        const afterElementIndex = board.sectionOrder.indexOf(afterElementId);
+        if (afterElementIndex === -1) {
+            console.warn(`After element section ${afterElementId} not found in board order`);
+            return;
+        }
+        
+        // If dropping after an element that was before the dragged item in the original order,
+        // we can use its index directly
+        if (afterElementIndex < currentIndex) {
+            newIndex = afterElementIndex;
+        } else {
+            // Otherwise, we need to account for the shifted position
+            newIndex = afterElementIndex - 1;
+        }
+        
+        console.log(`Column will be placed before: ${afterElementId} at adjusted index ${newIndex}`);
     } else {
-        // Place at the end if no afterElement
-        newIndex = allColumns.length - 1; // -1 because we don't count the add column button
+        // Place at the end
+        newIndex = board.sectionOrder.length - 1;
         console.log(`Column will be placed at the end, index ${newIndex}`);
     }
     
+    // Validate the new index makes sense
+    if (newIndex < 0 || newIndex >= board.sectionOrder.length) {
+        console.warn(`Invalid new index ${newIndex}, must be between 0 and ${board.sectionOrder.length - 1}`);
+        newIndex = Math.max(0, Math.min(newIndex, board.sectionOrder.length - 1));
+    }
+    
     // If the column wasn't moved, don't do anything
-    const currentIndex = board.sectionOrder.indexOf(sectionId);
     if (currentIndex === newIndex) {
         console.log('Column was not moved (same position)');
         return;
@@ -297,6 +327,23 @@ function handleColumnTouchEnd(e, draggedColumn) {
     
     console.log(`Moving column from index ${currentIndex} to ${newIndex}`);
     
+    // PROBLEM: The synthetic drop event approach isn't saving to the server
+    // Let's directly call the handleSectionMove function to ensure server update
+    if (typeof window.handleSectionMove === 'function') {
+        console.log(`Directly calling handleSectionMove for section ${sectionId} to position ${newIndex}`);
+        window.handleSectionMove(sectionId, newIndex).then(() => {
+            console.log('Section move completed successfully via direct call');
+        }).catch(error => {
+            console.error('Failed to move section via direct call:', error);
+        });
+        
+        // Remove dragging class
+        draggedColumn.classList.remove('dragging');
+        return; // Skip the synthetic event approach since we're handling it directly
+    }
+    
+    // If handleSectionMove isn't available, fall back to synthetic events
+    console.log('handleSectionMove not available, falling back to synthetic events');
     // Create a synthetic drop event for the column
     const dataTransfer = new DataTransfer();
     dataTransfer.setData('application/json', JSON.stringify({

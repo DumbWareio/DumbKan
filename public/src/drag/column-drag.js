@@ -214,14 +214,14 @@ async function handleSectionDrop(data, column) {
 async function handleSectionMove(sectionId, newIndex) {
     try {
         const boardId = window.state.activeBoard;
-        console.log(`Moving section ${sectionId} to position ${newIndex} in board ${boardId}`);
+        console.log(`[SECTION MOVE] Moving section ${sectionId} to position ${newIndex} in board ${boardId}`);
         
         // Get current section order BEFORE making the API call
         const board = window.state.boards[boardId];
         const originalSectionOrder = [...board.sectionOrder];
         const currentIndex = originalSectionOrder.indexOf(sectionId);
 
-        console.log('Board section order before update:', [...originalSectionOrder]);
+        console.log('[SECTION MOVE] Board section order before update:', [...originalSectionOrder]);
         
         // Calculate what the new order should be (for verification)
         const expectedNewOrder = [...originalSectionOrder];
@@ -230,9 +230,10 @@ async function handleSectionMove(sectionId, newIndex) {
             expectedNewOrder.splice(currentIndex, 1);
             // Add at new position
             expectedNewOrder.splice(newIndex > currentIndex ? newIndex - 1 : newIndex, 0, sectionId);
-            console.log('Expected new order after move:', expectedNewOrder);
+            console.log('[SECTION MOVE] Expected new order after move:', expectedNewOrder);
         }
         
+        console.log(`[SECTION MOVE] Making API call to ${window.appConfig.basePath}/api/boards/${boardId}/sections/${sectionId}/move`);
         // Use loggedFetch instead of fetch for consistent API handling and logging
         const response = await window.loggedFetch(`${window.appConfig.basePath}/api/boards/${boardId}/sections/${sectionId}/move`, {
             method: 'POST',
@@ -240,6 +241,8 @@ async function handleSectionMove(sectionId, newIndex) {
             body: JSON.stringify({ newIndex })
         });
 
+        console.log('[SECTION MOVE] API response status:', response.status, response.statusText);
+        
         if (!response.ok) {
             throw new Error(`Failed to move section: ${response.status} ${response.statusText}`);
         }
@@ -248,11 +251,13 @@ async function handleSectionMove(sectionId, newIndex) {
         let responseData;
         if (response.data) {
             responseData = response.data;
+            console.log('[SECTION MOVE] Using response.data:', responseData);
         } else {
             try {
                 responseData = await response.json();
+                console.log('[SECTION MOVE] Parsed response JSON:', responseData);
             } catch (error) {
-                console.warn('Could not parse server response, using calculated order instead');
+                console.warn('[SECTION MOVE] Could not parse server response, using calculated order instead');
                 responseData = { success: true };
             }
         }
@@ -260,17 +265,17 @@ async function handleSectionMove(sectionId, newIndex) {
         // If the server returns an updated sectionOrder, use it
         if (responseData && responseData.sectionOrder) {
             board.sectionOrder = [...responseData.sectionOrder];
-            console.log('Using server-provided section order:', board.sectionOrder);
+            console.log('[SECTION MOVE] Using server-provided section order:', board.sectionOrder);
         } else {
             // Otherwise, manually update the order based on our calculations
             if (currentIndex !== -1 && currentIndex !== newIndex) {
                 // Use our pre-calculated expected order
                 board.sectionOrder = expectedNewOrder;
-                console.log('Using client-calculated section order:', board.sectionOrder);
+                console.log('[SECTION MOVE] Using client-calculated section order:', board.sectionOrder);
             }
         }
 
-        console.log('Board section order after update:', board.sectionOrder);
+        console.log('[SECTION MOVE] Board section order after update:', board.sectionOrder);
 
         // Ensure the "add column" button is at the end of the columns container
         ensureAddColumnButtonIsLast(document.getElementById('columns'));
