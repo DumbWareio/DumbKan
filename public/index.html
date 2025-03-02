@@ -432,11 +432,23 @@
                 </div>
                 <div class="form-group">
                     <label for="taskDueDate">Due Date</label>
-                    <input type="text" id="taskDueDate" placeholder="e.g., today, tomorrow, next week">
+                    <div class="date-input-container">
+                        <input type="text" id="taskDueDate" placeholder="e.g., today, tomorrow, next week">
+                        <button type="button" class="calendar-trigger" data-for="taskDueDate" aria-label="Open calendar">
+                            <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M8 2v3M16 2v3M3.5 8h17M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.5" fill="none"></path></svg>
+                        </button>
+                        <div class="calendar-popup" id="dueDateCalendar"></div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="taskStartDate">Start Date</label>
-                    <input type="text" id="taskStartDate" placeholder="e.g., today, tomorrow, next week">
+                    <div class="date-input-container">
+                        <input type="text" id="taskStartDate" placeholder="e.g., today, tomorrow, next week">
+                        <button type="button" class="calendar-trigger" data-for="taskStartDate" aria-label="Open calendar">
+                            <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M8 2v3M16 2v3M3.5 8h17M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.5" fill="none"></path></svg>
+                        </button>
+                        <div class="calendar-popup" id="startDateCalendar"></div>
+                    </div>
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="btn-delete" data-action="delete">Delete Task</button>
@@ -609,11 +621,23 @@
                 </div>
                 <div class="form-group">
                     <label for="taskDueDate">Due Date</label>
-                    <input type="text" id="taskDueDate" placeholder="e.g., today, tomorrow, next week">
+                    <div class="date-input-container">
+                        <input type="text" id="taskDueDate" placeholder="e.g., today, tomorrow, next week">
+                        <button type="button" class="calendar-trigger" data-for="taskDueDate" aria-label="Open calendar">
+                            <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M8 2v3M16 2v3M3.5 8h17M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.5" fill="none"></path></svg>
+                        </button>
+                        <div class="calendar-popup" id="dueDateCalendar"></div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="taskStartDate">Start Date</label>
-                    <input type="text" id="taskStartDate" placeholder="e.g., today, tomorrow, next week">
+                    <div class="date-input-container">
+                        <input type="text" id="taskStartDate" placeholder="e.g., today, tomorrow, next week">
+                        <button type="button" class="calendar-trigger" data-for="taskStartDate" aria-label="Open calendar">
+                            <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M8 2v3M16 2v3M3.5 8h17M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.5" fill="none"></path></svg>
+                        </button>
+                        <div class="calendar-popup" id="startDateCalendar"></div>
+                    </div>
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="btn-delete" data-action="delete">Delete Task</button>

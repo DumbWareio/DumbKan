@@ -2272,3 +2272,174 @@ h2 {
     position: relative;
     z-index: 2;
 }
+
+/* Date input field with calendar icon */
+.date-input-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.date-input-container input {
+    width: 100%;
+    padding-right: 36px; /* Make room for the calendar icon */
+}
+
+.calendar-trigger {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: var(--text-secondary);
+    background: none;
+    border: none;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+}
+
+.calendar-trigger:hover {
+    color: var(--primary);
+}
+
+.calendar-trigger svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Calendar popup */
+.calendar-popup {
+    position: absolute !important;
+    top: 100% !important;
+    right: 0 !important;
+    z-index: 9999 !important;
+    background-color: var(--container) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 4px !important;
+    box-shadow: var(--shadow) !important;
+    padding: 8px !important;
+    width: 240px !important;
+    display: none !important;
+    margin-top: 5px !important;
+    pointer-events: auto !important;
+    opacity: 1 !important;
+    visibility: hidden !important;
+}
+
+.calendar-popup.open {
+    display: block !important;
+    visibility: visible !important;
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.calendar-nav {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 4px;
+    border-radius: 4px;
+}
+
+.calendar-nav:hover {
+    background-color: var(--background);
+    color: var(--primary);
+}
+
+.calendar-month-year {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+
+.calendar-weekday {
+    text-align: center;
+    font-size: 0.8em;
+    color: var(--text-secondary);
+    padding: 4px 0;
+}
+
+.calendar-day {
+    text-align: center;
+    padding: 6px 0;
+    cursor: pointer;
+    border-radius: 4px;
+    color: var(--text);
+}
+
+.calendar-day:hover {
+    background-color: var(--background);
+    color: var(--primary);
+}
+
+.calendar-day.today {
+    background-color: var(--primary-bg);
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.calendar-day.selected {
+    background-color: var(--primary);
+    color: white;
+}
+
+.calendar-day.other-month {
+    color: var(--text-secondary);
+    opacity: 0.6;
+}
+
+.calendar-day.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.calendar-footer {
+    margin-top: 8px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.calendar-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.calendar-button:hover {
+    background-color: var(--background);
+    color: var(--primary);
+}
+
+.calendar-button.primary {
+    background-color: var(--primary);
+    color: white;
+}
+
+.calendar-button.primary:hover {
+    background-color: var(--primary-hover);
+}
+
+/* Make sure our date-input-container doesn't interfere with existing modal styling */
+.modal .form-group .date-input-container {
+    margin-bottom: 0;
+}

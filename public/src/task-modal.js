@@ -237,6 +237,14 @@ function showTaskModal(task) {
         elements.taskStartDate.value = '';
     }
     
+    // Initialize the date pickers
+    if (typeof window.initTaskDatePickers === 'function') {
+        console.log('Task modal: Initializing date pickers');
+        window.initTaskDatePickers();
+    } else {
+        console.error('Task modal: initTaskDatePickers function not available');
+    }
+    
     // Store raw input when user types
     elements.taskDueDate.addEventListener('input', (e) => {
         e.target.dataset.rawInput = e.target.value;

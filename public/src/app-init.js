@@ -67,4 +67,41 @@ export async function init() {
     } else {
         console.error('initModalHandlers function not found. Ensure event-listeners.js is loaded properly.');
     }
+
+    // Initialize date pickers if available
+    if (typeof window.initTaskDatePickers === 'function') {
+        window.initTaskDatePickers();
+    }
+}
+
+/**
+ * Initialize application components
+ * Handles setup of all UI elements and event listeners
+ */
+export default async function initApp() {
+    console.log('Initializing application');
+    
+    // Create global state object if it doesn't exist
+    if (!window.state) {
+        window.state = {
+            tasks: {},
+            sections: {},
+            boards: [],
+            activeBoard: null
+        };
+    }
+    
+    // Initialize date pickers if available
+    if (typeof window.initTaskDatePickers === 'function') {
+        window.initTaskDatePickers();
+    }
+    
+    // Initialize UI elements and bind to DOM
+    await initializeElements();
+    
+    // Set up event listeners for UI interactions
+    initializeEventListeners(window.state);
+    
+    // Start data loading process
+    startDataLoading();
 } 
