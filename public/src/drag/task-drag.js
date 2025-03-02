@@ -51,14 +51,25 @@ function handleTaskDragOver(e, column) {
     // Use requestAnimationFrame for smoother task positioning
     requestAnimationFrame(() => {
         const siblings = [...tasksContainer.querySelectorAll('.task:not(.dragging)')];
+        
+        // If there are no siblings, just append the task
+        if (siblings.length === 0) {
+            tasksContainer.appendChild(draggingTask);
+            return;
+        }
+        
+        // Find the task whose middle point is below the cursor position
         const nextSibling = siblings.find(sibling => {
             const rect = sibling.getBoundingClientRect();
+            // Using the middle point (rect.top + rect.height / 2) for more intuitive positioning
             return clientY < rect.top + rect.height / 2;
         });
     
         if (nextSibling) {
+            // Insert before the found element
             tasksContainer.insertBefore(draggingTask, nextSibling);
         } else {
+            // If no element is found, append at the end
             tasksContainer.appendChild(draggingTask);
         }
     });
@@ -76,6 +87,14 @@ async function handleTaskDrop(data, column) {
         console.warn('Missing required task data in drop event');
         return;
     }
+    
+    // Debug log the initial data
+    console.log('Task drop initial data:', { 
+        taskId, 
+        sourceSectionId, 
+        targetSectionId: toSectionId || column?.dataset?.sectionId,
+        providedIndex 
+    });
     
     const targetSectionId = toSectionId || column.dataset.sectionId;
     if (!targetSectionId) {
@@ -97,9 +116,60 @@ async function handleTaskDrop(data, column) {
 
     let newIndex = providedIndex;
     if (typeof newIndex !== 'number') {
-        const siblings = [...tasksContainer.querySelectorAll('.task')];
-        newIndex = siblings.indexOf(task);
+        // Get all tasks including the dragged one
+        const allTasks = [...tasksContainer.querySelectorAll('.task')];
+        
+        // We need to find the position of the dragged task before modifying the DOM
+        // If we're in the same section, we need to calculate correctly based on 
+        // the task's original position
+        const draggingTask = document.querySelector('.task.dragging');
+        
+        if (draggingTask) {
+            // We need to determine the index where the task will be after the drop
+            // This accounts for the visual position during dragging
+            newIndex = allTasks.indexOf(draggingTask);
+            
+            // Check if source and target sections are the same
+            if (sourceSectionId === targetSectionId) {
+                // For same section moves, we need to adjust the index based on
+                // the original position of the task in the section
+                const fromSection = window.state.sections[sourceSectionId];
+                const originalIndex = fromSection?.taskIds.indexOf(taskId);
+                
+                console.log('Same section task move:', {
+                    originalIndex,
+                    calculatedNewIndex: newIndex,
+                    taskId,
+                    sectionId: sourceSectionId,
+                    sectionTaskCount: fromSection?.taskIds?.length
+                });
+                
+                // If moving to a later position in the same section, we need to
+                // account for the removal of the task from its original position
+                if (originalIndex !== -1 && originalIndex < newIndex) {
+                    newIndex--;
+                    console.log('Adjusted index for same section move:', newIndex);
+                }
+            } else {
+                // Different section move
+                const toSection = window.state.sections[targetSectionId];
+                
+                console.log('Cross-section task move:', {
+                    calculatedNewIndex: newIndex,
+                    taskId,
+                    fromSectionId: sourceSectionId,
+                    toSectionId: targetSectionId,
+                    toSectionTaskCount: toSection?.taskIds?.length
+                });
+            }
+        } else {
+            // Fallback to the old method if no dragging task is found
+            newIndex = allTasks.indexOf(task);
+            console.log('Fallback position calculation:', newIndex);
+        }
     }
+    
+    console.log(`Final calculated position for task ${taskId}: ${newIndex}`);
 
     try {
         await window.handleTaskMove(taskId, sourceSectionId, targetSectionId, newIndex);

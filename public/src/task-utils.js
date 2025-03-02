@@ -160,7 +160,7 @@ window.handleTaskMove = async function(taskId, fromSectionId, toSectionId, newPo
                 body: JSON.stringify({
                     fromSectionId,
                     toSectionId,
-                    position: newPosition,
+                    newIndex: newPosition,
                     boardId: boardId // Explicitly include the board ID in case the API needs it
                 })
             }
