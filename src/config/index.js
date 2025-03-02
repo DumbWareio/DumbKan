@@ -17,6 +17,9 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 // Change from dynamic PIN env var to hardcoded one
 const PIN = process.env.DUMBKAN_PIN;
 
+// API secret for external service authorization
+const DUMB_SECRET = process.env.DUMB_SECRET;
+
 // Get site title from environment variable or use default
 const SITE_TITLE = process.env.SITE_TITLE || 'DumbKan';
 
@@ -39,6 +42,7 @@ console.log('Loading environment configuration:', {
     PIN_ENV_VAR: 'DUMBKAN_PIN',
     PIN_SET: !!process.env.DUMBKAN_PIN,
     PIN_VALUE: process.env.DUMBKAN_PIN ? 'SET' : 'NOT SET',
+    DUMB_SECRET_SET: !!process.env.DUMB_SECRET,
     SITE_TITLE,
     BASE_PATH
 });
@@ -48,6 +52,7 @@ module.exports = {
     DEBUG,
     NODE_ENV,
     PIN,
+    DUMB_SECRET,
     SITE_TITLE,
     BASE_PATH,
     MAX_ATTEMPTS,

@@ -7,6 +7,7 @@ This document provides information about all available GET requests in the DumbK
 - [Authentication](#authentication)
   - [Get PIN Length](#get-pin-length)
   - [Get Login Page](#get-login-page)
+  - [API Authorization](#api-authorization)
 - [Boards](#boards)
   - [Get All Boards](#get-all-boards)
 - [Tasks](#tasks)
@@ -39,6 +40,20 @@ Retrieves the login page HTML.
 **Description:** Returns the login page HTML with site title placeholders replaced with the configured site title.
 
 **Response:** HTML content
+
+### API Authorization
+
+API endpoints can be authorized using two methods:
+
+1. **Session-based authentication:** Using browser cookies after PIN entry
+2. **API Key authentication:** Using the `X-API-Key` header with the `DUMB_SECRET` value
+
+**Example API Key Usage:**
+```bash
+curl -H "X-API-Key: your_dumb_secret_value" https://your-dumbkan-instance/api/boards
+```
+
+**Description:** External services can use the API Key method to make authorized API calls without requiring session authentication.
 
 ---
 

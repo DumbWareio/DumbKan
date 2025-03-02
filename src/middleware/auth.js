@@ -1,6 +1,7 @@
 /**
  * Authentication module
  * Handles PIN-based authentication, brute force protection, and session management
+ * Also supports API authorization via DUMB_SECRET header
  */
 
 const crypto = require('crypto');
@@ -84,6 +85,19 @@ function verifyPin(storedPin, providedPin) {
     }
 }
 
+// Constant-time secret comparison for API authorization
+function verifySecret(storedSecret, providedSecret) {
+    if (!storedSecret || !providedSecret) return false;
+    try {
+        return crypto.timingSafeEqual(
+            Buffer.from(storedSecret),
+            Buffer.from(providedSecret)
+        );
+    } catch {
+        return false;
+    }
+}
+
 // Authentication middleware
 const authMiddleware = (req, res, next) => {
     debugLog('🔐 Auth Check:', {
@@ -99,14 +113,27 @@ const authMiddleware = (req, res, next) => {
             cookie: !!req.headers.cookie,
             origin: req.headers.origin,
             referer: req.headers.referer,
-            'x-forwarded-proto': req.headers['x-forwarded-proto']
+            'x-forwarded-proto': req.headers['x-forwarded-proto'],
+            'x-api-key': !!req.headers['x-api-key'],
         },
         cookies: Object.keys(req.cookies || {}),
         pin: {
             configured: !!config.PIN,
             length: config.PIN?.length
+        },
+        secret: {
+            configured: !!config.DUMB_SECRET
         }
     });
+    
+    // Check for API key authorization
+    if (config.DUMB_SECRET && req.path.startsWith('/api/')) {
+        const apiKey = req.headers['x-api-key'];
+        if (apiKey && verifySecret(config.DUMB_SECRET, apiKey)) {
+            debugLog('Auth successful - Valid API key');
+            return next();
+        }
+    }
     
     // If no PIN is set, bypass authentication
     if (!config.PIN || config.PIN.trim() === '') {
@@ -225,6 +252,7 @@ module.exports = {
     isLockedOut,
     recordAttempt,
     verifyPin,
+    verifySecret,
     authMiddleware,
     cleanupInterval,
     getLastAttemptTime,

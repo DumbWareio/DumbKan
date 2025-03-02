@@ -48,7 +48,8 @@ A lightweight, mobile-friendly Kanban board application for managing tasks and p
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
 | PORT | Port for the server to listen on | 3000 | No |
-| DUMBKAN_PIN | PIN protection (4-10 digits) | - | No |
+| DUMBKAN_PIN | PIN code required to access the application | None | No |
+| DUMB_SECRET | Secret key for API authorization via X-API-Key header | None | No |
 | SITE_TITLE | Title displayed in the header and browser tab | DumbKan | No |
 | BASE_URL | Base URL path for the application (e.g., '/app') | - | No |
 
