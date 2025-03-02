@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- Dynamic base path script - execute before anything else loads -->
+    <script>
+        // Function to get the base path from the current URL
+        function getBasePath() {
+            // Get the current path from the window location
+            const path = window.location.pathname;
+            
+            // Skip leading slash if present for splitting
+            const pathToProcess = path.startsWith('/') ? path.substring(1) : path;
+            
+            // Split by slashes to get path segments
+            const segments = pathToProcess.split('/');
+            
+            // If no segments or only empty segments, we're at the root
+            if (segments.length === 0 || (segments.length === 1 && segments[0] === '')) {
+                return '';
+            }
+            
+            // Check if the last segment is a file (like index.html)
+            const lastSegment = segments[segments.length - 1];
+            const isLastSegmentFile = lastSegment.includes('.');
+            
+            let resultPath;
+            
+            // If the last segment is a file, use all segments except the last one
+            if (isLastSegmentFile) {
+                // Join all segments except the last one, preceded by a slash
+                resultPath = '/' + segments.slice(0, segments.length - 1).join('/');
+            } else {
+                // If we have segments and the last one isn't a file, use the full path
+                resultPath = path;
+            }
+            
+            // IMPORTANT: Always remove trailing slashes to prevent double slashes in URLs
+            resultPath = resultPath.replace(/\/+$/, '');
+            
+            return resultPath;
+        }
+        
+        // Set the base path as a global variable
+        window.APP_BASE_PATH = getBasePath();
+        console.log('Detected base path: "' + window.APP_BASE_PATH + '"');
+        
+        // Helper to get full resource path
+        function getResourcePath(path) {
+            // Normalize path to ensure it starts with exactly one slash
+            const normalizedPath = path.replace(/^\/*/, '/');
+            
+            // If there's no app base path, just return the normalized path
+            if (!window.APP_BASE_PATH) {
+                return normalizedPath;
+            }
+            
+            // If path already starts with the base path, return as is
+            if (normalizedPath.startsWith(window.APP_BASE_PATH + '/') || normalizedPath === window.APP_BASE_PATH) {
+                return normalizedPath;
+            }
+            
+            // Ensure no double slashes when joining paths
+            const fullPath = window.APP_BASE_PATH + normalizedPath;
+            
+            // Log the path construction for debugging
+            console.log('Resource path construction:', {
+                basePath: window.APP_BASE_PATH,
+                resourcePath: path,
+                normalizedPath: normalizedPath,
+                fullPath: fullPath
+            });
+            
+            return fullPath;
+        }
+        
+        // Dynamically create a base element
+        if (window.APP_BASE_PATH) {
+            const baseElement = document.createElement('base');
+            baseElement.href = window.APP_BASE_PATH + '/';
+            document.head.appendChild(baseElement);
+        }
+    </script>
+    
+    <!-- Load server-generated config.js with dynamic path -->
+    <script>
+        document.write('<script src="' + getResourcePath('/config.js') + '"><\/script>');
+    </script>
+    <title>{{SITE_TITLE}}</title>
+    <!-- Load other resources with dynamic paths -->
+    <script>
+        document.write('<link rel="icon" type="image/svg+xml" href="' + getResourcePath('/favicon.svg') + '">');
+        document.write('<link rel="stylesheet" href="' + getResourcePath('/styles.css') + '">');
+        document.write('<link rel="manifest" href="' + getResourcePath('/manifest.json') + '">');
+        document.write('<link rel="apple-touch-icon" href="' + getResourcePath('/icons/icon-192x192.png') + '">');
+        document.write('<script src="' + getResourcePath('/marked.min.js') + '"><\/script>');
+    </script>
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+    <meta name="description" content="A lightweight Kanban board application">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
+    <style>
+        @media (max-width: 768px) {
+            .app-title {
+                font-size: 1.2rem;
+                text-align: center;
+                margin: 0 auto;
+            }
+            .board-header {
+                justify-content: center;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <div class="container">
+            <div class="board-header">
+                <div class="app-title">{{SITE_TITLE}}</div>
+                <div class="board-selector">
+                    <button id="boardMenuBtn" aria-label="Open board menu">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M3 12h18M3 6h18M3 18h18"></path>
+                        </svg>
+                    </button>
+                    <h1 id="currentBoard">Loading...</h1>
+                </div>
+                <button id="themeToggle" aria-label="Toggle theme">
+                    <svg class="moon" viewBox="0 0 24 24">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg class="sun" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Board Menu (hidden by default) -->
+            <div id="boardMenu" class="board-menu" hidden>
+                <div class="menu-header">
+                    <h3>Your Boards</h3>
+                    <button id="addBoardBtn" class="btn-text">
+                        <svg viewBox="0 0 24 24" width="20" height="20">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        New Board
+                    </button>
+                </div>
+                <ul id="boardList" class="board-list">
+                    <!-- Boards will be populated by JavaScript -->
+                </ul>
+            </div>
+
+            <!-- Kanban Board -->
+            <div class="board-container">
+                <div id="columns" class="columns">
+                    <!-- Columns will be populated by JavaScript -->
+                    <button id="addColumnBtn" class="add-column-btn" aria-label="Add new column">
+                        <svg viewBox="0 0 24 24" width="24" height="24">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+    <div class="dumbware-credit">
+        A Dumbware by <a href="https://dumbware.io" target="_blank" rel="noopener noreferrer">Dumbware.io</a>
+    </div>
+    <!-- IMPORTANT: Do not modify this script type unless the entire file is fully structured as an ES module. -->
+    <script>
+        document.write('<script src="' + getResourcePath('/marked.min.js') + '"><\/script>');
+        document.write('<script src="' + getResourcePath('/dumbdateparser.js') + '"><\/script>');
+        document.write('<script src="' + getResourcePath('/src/api-utils.js') + '"><\/script>');
+        document.write('<script src="' + getResourcePath('/src/theme.js') + '"><\/script>');
+        document.write('<script src="' + getResourcePath('/src/date-utils.js') + '"><\/script>');
+        document.write('<script src="' + getResourcePath('/src/text-utils.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/state.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/auth-storage.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/login-utils.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/ui-utils.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/element-init.js') + '"><\/script>');
+        document.write('<script src="' + getResourcePath('/src/task-modal.js') + '"><\/script>');
+        document.write('<script src="' + getResourcePath('/src/task-utils.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/drag/index.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/render-utils.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/render-init.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/board-utils.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/event-listeners.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/data-loading.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/app-init.js') + '"><\/script>');
+        document.write('<script type="module" src="' + getResourcePath('/src/app-bootstrap.js') + '"><\/script>');
+    </script>
+    <!-- Service Worker Registration -->
+    <script>
+        // Track if an update is available
+        let updateAvailable = false;
+
+        // Service worker registration and update handling
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // Use options to set the correct scope
+                const swOptions = {};
+                
+                // Use the dynamically detected base path
+                const basePath = window.APP_BASE_PATH || '';
+                
+                // Function to register the service worker
+                function registerServiceWorker() {
+                    // Set the correct scope based on the base path
+                    // For empty base path, use '/' as the scope
+                    swOptions.scope = basePath ? basePath + '/' : '/';
+                    console.log('Setting service worker scope to:', swOptions.scope);
+                    
+                    // Register the service worker with the correct scope and path
+                    navigator.serviceWorker.register(getResourcePath('/sw.js'), swOptions)
+                        .then(registration => {
+                            console.log('ServiceWorker registration successful with scope:', registration.scope);
+                            
+                            // Send configuration to service worker
+                            function setServiceWorkerConfig() {
+                                if (navigator.serviceWorker.controller) {
+                                    // Determine protocol from current location
+                                    const protocol = window.location.protocol === 'https:' ? 'https' : 'http';
+                                    
+                                    // Send protocol preference to service worker
+                                    navigator.serviceWorker.controller.postMessage({
+                                        type: 'SET_PROTOCOL',
+                                        protocol: protocol
+                                    });
+                                    
+                                    // Also send base path
+                                    navigator.serviceWorker.controller.postMessage({
+                                        type: 'SET_BASE_PATH',
+                                        basePath: basePath
+                                    });
+                                    
+                                    console.log(`Set service worker protocol preference to: ${protocol}`);
+                                    console.log(`Set service worker base path to: "${basePath}"`);
+                                } else {
+                                    console.log('Service worker not yet controlling the page');
+                                    // Try again in a second if not ready
+                                    setTimeout(setServiceWorkerConfig, 1000);
+                                }
+                            }
+                            
+                            setTimeout(setServiceWorkerConfig, 1000);
+                            
+                            // Check for updates
+                            registration.addEventListener('updatefound', () => {
+                                const newWorker = registration.installing;
+                                console.log('New service worker installing');
+                                
+                                newWorker.addEventListener('statechange', () => {
+                                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                        console.log('New service worker installed but waiting for activation');
+                                        updateAvailable = true;
+                                        
+                                        // Show update notification
+                                        showUpdateNotification();
+                                    }
+                                });
+                            });
+                        })
+                        .catch(error => {
+                            console.error('ServiceWorker registration failed:', error);
+                        });
+                }
+                
+                // Wait a bit before registering to ensure everything is ready
+                setTimeout(registerServiceWorker, 1000);
+                
+                // Detect controller change (service worker activated)
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    console.log('Service worker controller changed');
+                    
+                    // If this wasn't from our update button, reload
+                    if (!updateAccepted) {
+                        window.location.reload();
+                    }
+                });
+            });
+        }
+        
+        // Flag to prevent double reload
+        let updateAccepted = false;
+        
+        // Function to display an update notification
+        function showUpdateNotification() {
+            // Create or find the notification element
+            let notificationContainer = document.getElementById('sw-update-notification');
+            
+            if (!notificationContainer) {
+                // Create notification container
+                notificationContainer = document.createElement('div');
+                notificationContainer.id = 'sw-update-notification';
+                notificationContainer.style.position = 'fixed';
+                notificationContainer.style.bottom = '20px';
+                notificationContainer.style.right = '20px';
+                notificationContainer.style.backgroundColor = '#4CAF50';
+                notificationContainer.style.color = 'white';
+                notificationContainer.style.padding = '15px 20px';
+                notificationContainer.style.borderRadius = '5px';
+                notificationContainer.style.boxShadow = '0 3px 6px rgba(0,0,0,0.16)';
+                notificationContainer.style.zIndex = '9999';
+                notificationContainer.style.display = 'flex';
+                notificationContainer.style.alignItems = 'center';
+                notificationContainer.style.justifyContent = 'space-between';
+                notificationContainer.style.maxWidth = '320px';
+                
+                // Create message
+                const message = document.createElement('div');
+                message.textContent = 'Application update available';
+                
+                // Create buttons container
+                const buttonsContainer = document.createElement('div');
+                buttonsContainer.style.marginLeft = '15px';
+                
+                // Create update button
+                const updateButton = document.createElement('button');
+                updateButton.textContent = 'Update Now';
+                updateButton.style.backgroundColor = 'white';
+                updateButton.style.color = '#4CAF50';
+                updateButton.style.border = 'none';
+                updateButton.style.padding = '5px 10px';
+                updateButton.style.borderRadius = '3px';
+                updateButton.style.cursor = 'pointer';
+                updateButton.style.marginRight = '10px';
+                
+                // Create dismiss button
+                const dismissButton = document.createElement('button');
+                dismissButton.textContent = 'Later';
+                dismissButton.style.backgroundColor = 'transparent';
+                dismissButton.style.color = 'white';
+                dismissButton.style.border = 'none';
+                dismissButton.style.padding = '5px 10px';
+                dismissButton.style.borderRadius = '3px';
+                dismissButton.style.cursor = 'pointer';
+                
+                // Add update action
+                updateButton.addEventListener('click', () => {
+                    if (updateAvailable && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                        updateAccepted = true;
+                        // Send skip-waiting message to activate the new service worker
+                        navigator.serviceWorker.controller.postMessage({
+                            type: 'SKIP_WAITING'
+                        });
+                        notificationContainer.remove();
+                    }
+                });
+                
+                // Add dismiss action
+                dismissButton.addEventListener('click', () => {
+                    notificationContainer.remove();
+                });
+                
+                // Assemble notification
+                buttonsContainer.appendChild(updateButton);
+                buttonsContainer.appendChild(dismissButton);
+                notificationContainer.appendChild(message);
+                notificationContainer.appendChild(buttonsContainer);
+                
+                // Add to document
+                document.body.appendChild(notificationContainer);
+            }
+        }
+    </script>
+
+    <!-- Add this before the closing body tag -->
+    <div id="confirmModal" class="modal" hidden>
+        <div class="modal-content">
+            <div class="modal-drag-handle"></div>
+            <button class="modal-close" aria-label="Close modal">×</button>
+            <h2>Delete Column</h2>
+            <p>Are you sure you want to delete this column? This action cannot be undone.</p>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" data-action="cancel">Cancel</button>
+                <button type="button" class="btn-primary" data-action="confirm">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add this before the closing body tag -->
+    <div id="taskModal" class="modal" hidden>
+        <div class="modal-content">
+            <div class="modal-drag-handle"></div>
+            <button class="modal-close" aria-label="Close modal">×</button>
+            <div class="editable-title-container">
+                <span id="taskStatusToggle" class="badge status-badge active" title="Active"></span>
+                <div class="title-wrapper">
+                    <div id="taskTitleDisplay" class="editable-title">Task Title</div>
+                    <input type="text" id="taskTitle" class="title-edit-input" required hidden>
+                </div>
+            </div>
+            <form id="taskForm">
+                <div class="form-group" hidden>
+                    <!-- Original title input is hidden but kept for form submission -->
+                    <label for="taskTitleHidden">Title</label>
+                    <input type="text" id="taskTitleHidden">
+                </div>
+                <!-- Hidden status field to store the value for form submission -->
+                <input type="hidden" id="taskStatus" value="active">
+                <!-- Hidden priority field to store the value for form submission -->
+                <input type="hidden" id="taskPriority" value="medium">
+                
+                <!-- Priority options container -->
+                <div class="modal-priority-container">
+                    <div id="taskPriorityBadge" class="priority-options-container">
+                        <!-- Priority options will be dynamically inserted here -->
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="taskDescription">Description</label>
+                    <textarea id="taskDescription" placeholder="Enter task details (supports Markdown)"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="taskDueDate">Due Date</label>
+                    <div class="date-input-container">
+                        <input type="text" id="taskDueDate" placeholder="e.g., today, tomorrow, next week">
+                        <button type="button" class="calendar-trigger" data-for="taskDueDate" aria-label="Open calendar">
+                            <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M8 2v3M16 2v3M3.5 8h17M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.5" fill="none"></path></svg>
+                        </button>
+                        <div class="calendar-popup" id="dueDateCalendar"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="taskStartDate">Start Date</label>
+                    <div class="date-input-container">
+                        <input type="text" id="taskStartDate" placeholder="e.g., today, tomorrow, next week">
+                        <button type="button" class="calendar-trigger" data-for="taskStartDate" aria-label="Open calendar">
+                            <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M8 2v3M16 2v3M3.5 8h17M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.5" fill="none"></path></svg>
+                        </button>
+                        <div class="calendar-popup" id="startDateCalendar"></div>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-delete" data-action="delete">Delete Task</button>
+                    <div class="actions-right">
+                        <button type="submit" class="btn-primary">Save Changes</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Debug Helper for Service Worker -->
+    <script>
+        // Track if we're waiting for cache clear response
+        let cacheClearInProgress = false;
+        let cacheClearedCallback = null;
+        
+        // Listen for messages from service worker, only if supported
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                // Handle cache cleared message
+                if (event.data && event.data.type === 'CACHES_CLEARED') {
+                    console.log('Received confirmation that caches were cleared at:', new Date(event.data.timestamp).toLocaleTimeString());
+                    cacheClearInProgress = false;
+                    
+                    // Call callback if one was registered
+                    if (typeof cacheClearedCallback === 'function') {
+                        cacheClearedCallback();
+                        cacheClearedCallback = null;
+                    }
+                }
+                
+                // Handle service worker update notification
+                if (event.data && event.data.type === 'SW_UPDATED') {
+                    console.log('Service worker updated to version:', event.data.version);
+                }
+            });
+        }
+        
+        /**
+         * Force refresh the app by clearing caches and service workers
+         * Used during development or in emergency recovery situations
+         */
+        async function refreshApp() {
+            console.log('Starting app refresh process...');
+            
+            // Clear caches and unregister service workers
+            const clearPromise = new Promise(async (resolve) => {
+                // Set cache clear in progress
+                cacheClearInProgress = true;
+                
+                // Set callback to be called when service worker confirms clearing
+                cacheClearedCallback = () => {
+                    console.log('Caches cleared successfully');
+                    resolve(true);
+                };
+                
+                try {
+                    // Check if service workers are supported before trying to use them
+                    if ('serviceWorker' in navigator) {
+                        // If we have a service worker controlling the page, send message
+                        if (navigator.serviceWorker.controller) {
+                            navigator.serviceWorker.controller.postMessage({
+                                type: 'CLEAR_CACHES'
+                            });
+                            console.log('Sent cache clear request to service worker');
+                            
+                            // Set a timeout in case the service worker doesn't respond
+                            setTimeout(() => {
+                                if (cacheClearInProgress) {
+                                    console.log('Timeout waiting for service worker response, continuing with unregister');
+                                    cacheClearInProgress = false;
+                                    resolve(false);
+                                }
+                            }, 3000);
+                        } else {
+                            console.log('No controlling service worker found');
+                            cacheClearInProgress = false;
+                            resolve(false);
+                        }
+                    } else {
+                        console.log('Service workers not supported in this browser');
+                        cacheClearInProgress = false;
+                        resolve(false);
+                    }
+                } catch (error) {
+                    console.error('Error sending message to service worker:', error);
+                    cacheClearInProgress = false;
+                    resolve(false);
+                }
+            });
+            
+            // Wait for service worker to clear caches or timeout
+            const cleared = await clearPromise;
+            
+            try {
+                // Now unregister all service workers if supported
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for(let registration of registrations) {
+                        console.log('Unregistering service worker');
+                        await registration.unregister();
+                    }
+                    console.log('All service workers unregistered');
+                }
+                
+                // Manually clear caches as well (belt and suspenders)
+                const cacheNames = await caches.keys();
+                await Promise.all(
+                    cacheNames.map(cacheName => {
+                        console.log(`Clearing cache: ${cacheName}`);
+                        return caches.delete(cacheName);
+                    })
+                );
+            } catch (error) {
+                console.error('Error clearing caches:', error);
+                cacheClearInProgress = false;
+                resolve(false);
+            }
+        }
+    </script>
+
+    <!-- Add this before the closing body tag -->
+    <div id="confirmModal" class="modal" hidden>
+        <div class="modal-content">
+            <div class="modal-drag-handle"></div>
+            <button class="modal-close" aria-label="Close modal">×</button>
+            <h2>Delete Column</h2>
+            <p>Are you sure you want to delete this column? This action cannot be undone.</p>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" data-action="cancel">Cancel</button>
+                <button type="button" class="btn-primary" data-action="confirm">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add this before the closing body tag -->
+    <div id="taskModal" class="modal" hidden>
+        <div class="modal-content">
+            <div class="modal-drag-handle"></div>
+            <button class="modal-close" aria-label="Close modal">×</button>
+            <div class="editable-title-container">
+                <span id="taskStatusToggle" class="badge status-badge active" title="Active"></span>
+                <div class="title-wrapper">
+                    <div id="taskTitleDisplay" class="editable-title">Task Title</div>
+                    <input type="text" id="taskTitle" class="title-edit-input" required hidden>
+                </div>
+            </div>
+            <form id="taskForm">
+                <div class="form-group" hidden>
+                    <!-- Original title input is hidden but kept for form submission -->
+                    <label for="taskTitleHidden">Title</label>
+                    <input type="text" id="taskTitleHidden">
+                </div>
+                <!-- Hidden status field to store the value for form submission -->
+                <input type="hidden" id="taskStatus" value="active">
+                <!-- Hidden priority field to store the value for form submission -->
+                <input type="hidden" id="taskPriority" value="medium">
+                
+                <!-- Priority options container -->
+                <div class="modal-priority-container">
+                    <div id="taskPriorityBadge" class="priority-options-container">
+                        <!-- Priority options will be dynamically inserted here -->
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="taskDescription">Description</label>
+                    <textarea id="taskDescription" placeholder="Enter task details (supports Markdown)"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="taskDueDate">Due Date</label>
+                    <div class="date-input-container">
+                        <input type="text" id="taskDueDate" placeholder="e.g., today, tomorrow, next week">
+                        <button type="button" class="calendar-trigger" data-for="taskDueDate" aria-label="Open calendar">
+                            <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M8 2v3M16 2v3M3.5 8h17M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.5" fill="none"></path></svg>
+                        </button>
+                        <div class="calendar-popup" id="dueDateCalendar"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="taskStartDate">Start Date</label>
+                    <div class="date-input-container">
+                        <input type="text" id="taskStartDate" placeholder="e.g., today, tomorrow, next week">
+                        <button type="button" class="calendar-trigger" data-for="taskStartDate" aria-label="Open calendar">
+                            <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M8 2v3M16 2v3M3.5 8h17M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.5" fill="none"></path></svg>
+                        </button>
+                        <div class="calendar-popup" id="startDateCalendar"></div>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-delete" data-action="delete">Delete Task</button>
+                    <div class="actions-right">
+                        <button type="submit" class="btn-primary">Save Changes</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

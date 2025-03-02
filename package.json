@@ -1,14 +1,21 @@
 {
-    "name": "dumbkan",
-    "version": "1.0.0",
-    "description": "A stupidly simple Kanban board",
-    "main": "server.js",
-    "scripts": {
-        "start": "node server.js"
-    },
-    "dependencies": {
-        "cookie-parser": "^1.4.7",
-        "dotenv": "^16.3.1",
-        "express": "^4.18.2"
-    }
+  "name": "dumbkan",
+  "version": "1.0.0",
+  "description": "A stupidly simple Kanban board",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "generate-icons": "node scripts/generate-icons.js"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^16.3.1",
+    "@dumbwareio/dumbdateparser": "1.0.0",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "helmet": "^7.1.0"
+  },
+  "devDependencies": {
+    "sharp": "^0.33.2"
+  }
 }

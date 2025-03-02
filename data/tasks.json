@@ -22,13 +22,40 @@
       "columns": {
         "column-1737820503477": {
           "name": "To Do",
-          "tasks": []
+          "tasks": [
+            "Task1"
+          ]
         },
         "column-1737820504596": {
           "name": "Doing",
-          "tasks": []
+          "tasks": [
+            "Task2"
+          ]
         },
         "column-1737820919397": {
+          "name": "Done",
+          "tasks": []
+        },
+        "column-1740936473661": {
+          "name": "New Column",
+          "tasks": [
+            "new column task"
+          ]
+        }
+      }
+    },
+    "test": {
+      "name": "TEST",
+      "columns": {
+        "todo": {
+          "name": "To Do",
+          "tasks": []
+        },
+        "doing": {
+          "name": "Doing",
+          "tasks": []
+        },
+        "done": {
           "name": "Done",
           "tasks": []
         }

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Dynamic base path script - execute before anything else loads -->
+    <script>
+        // Function to get the base path from the current URL
+        function getBasePath() {
+            const path = window.location.pathname;
+            // Find the last segment (after the last slash)
+            const lastSlashIndex = path.lastIndexOf('/');
+            if (lastSlashIndex <= 0) {
+                // We're at the root
+                return '';
+            }
+            
+            let resultPath;
+            
+            // Check if the URL ends with index.html or similar
+            const lastSegment = path.substring(lastSlashIndex + 1);
+            if (lastSegment === '' || lastSegment.includes('.html')) {
+                // Return everything before the last slash
+                resultPath = path.substring(0, lastSlashIndex);
+            } else {
+                // Otherwise the entire path is our base
+                resultPath = path;
+            }
+            
+            // IMPORTANT: Always remove trailing slashes to prevent double slashes in URLs
+            resultPath = resultPath.replace(/\/+$/, '');
+            
+            return resultPath;
+        }
+        
+        // Set the base path as a global variable
+        window.APP_BASE_PATH = getBasePath();
+        console.log('Detected base path: "' + window.APP_BASE_PATH + '"');
+        
+        // Helper to get full resource path
+        function getResourcePath(path) {
+            // Normalize path to ensure it starts with exactly one slash
+            const normalizedPath = path.replace(/^\/*/, '/');
+            
+            // If there's no app base path, just return the normalized path
+            if (!window.APP_BASE_PATH) {
+                return normalizedPath;
+            }
+            
+            // If path already starts with the base path, return as is
+            if (normalizedPath.startsWith(window.APP_BASE_PATH + '/') || normalizedPath === window.APP_BASE_PATH) {
+                return normalizedPath;
+            }
+            
+            // Ensure no double slashes when joining paths
+            const fullPath = window.APP_BASE_PATH + normalizedPath;
+            
+            // Log the path construction for debugging
+            console.log('Resource path construction:', {
+                basePath: window.APP_BASE_PATH,
+                resourcePath: path,
+                normalizedPath: normalizedPath,
+                fullPath: fullPath
+            });
+            
+            return fullPath;
+        }
+        
+        // Dynamically create a base element
+        if (window.APP_BASE_PATH) {
+            const baseElement = document.createElement('base');
+            baseElement.href = window.APP_BASE_PATH + '/';
+            document.head.appendChild(baseElement);
+        }
+    </script>
+    
+    <!-- Preload critical assets -->
+    <link rel="preload" href="/config.js" as="script">
+    <link rel="preload" href="/styles.css" as="style">
+    
+    <!-- Load server-generated config.js with dynamic path -->
+    <script>
+        document.write('<script src="' + getResourcePath('/config.js') + '"><\/script>');
+    </script>
+    
+    <title>{{SITE_TITLE}}</title>
+    
+    <!-- Load other resources with dynamic paths -->
+    <script>
+        document.write('<link rel="icon" type="image/svg+xml" href="' + getResourcePath('/favicon.svg') + '">');
+        document.write('<link rel="stylesheet" href="' + getResourcePath('/styles.css') + '">');
+    </script>
+    
+    <!-- Debug logging -->
+    <script>
+        console.log('Current URL:', window.location.href);
+        console.log('Current Protocol:', window.location.protocol);
+        console.log('Base Path:', window.APP_BASE_PATH);
+    </script>
+</head>
+<body>
+    <main>
+        <form id="pinForm" action="javascript:void(0);">
+            <button id="themeToggle" aria-label="Toggle theme" type="button">
+                <svg class="moon" viewBox="0 0 24 24">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+                <svg class="sun" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+            </button>
+            <h1>{{SITE_TITLE}}</h1>
+            <h2>Enter PIN</h2>
+            <div class="pin-input-container"></div>
+            <div class="pin-error" role="alert" aria-hidden="true">Incorrect PIN. Please try again.</div>
+        </form>
+    </main>
+    <div class="dumbware-credit">
+        A Dumbware by <a href="https://dumbware.io" target="_blank" rel="noopener noreferrer">Dumbware.io</a>
+    </div>
+    
+    <!-- Critical path scripts for login (minimized set) -->
+    <script>
+        const criticalScripts = [
+            '/src/api-utils.js',
+            '/src/theme.js'
+        ];
+        
+        // Load critical scripts synchronously to ensure they're available immediately
+        criticalScripts.forEach(script => {
+            document.write('<script src="' + getResourcePath(script) + '"><\/script>');
+        });
+    </script>
+    
+    <!-- Deferred module loading - load asynchronously -->
+    <script>
+        // Function to load scripts asynchronously
+        function loadScript(src, isModule = false) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = getResourcePath(src);
+                if (isModule) script.type = 'module';
+                script.async = true;
+                script.onload = resolve;
+                script.onerror = reject;
+                document.body.appendChild(script);
+            });
+        }
+        
+        // Login essential modules - load these first
+        const essentialModules = [
+            { src: '/src/auth-storage.js', module: true },
+            { src: '/src/login-utils.js', module: true }
+        ];
+        
+        // Secondary modules - load these after essential ones
+        const secondaryModules = [
+            { src: '/src/date-utils.js', module: false },
+            { src: '/src/text-utils.js', module: false },
+            { src: '/src/ui-utils.js', module: true },
+            { src: '/src/state.js', module: true },
+            { src: '/src/element-init.js', module: true },
+            { src: '/src/app-bootstrap.js', module: true }
+        ];
+        
+        // Not needed for login but preload for faster subsequent page loads
+        const deferredModules = [
+            { src: '/src/task-modal.js', module: false },
+            { src: '/src/task-utils.js', module: false },
+            { src: '/src/drag/index.js', module: true },
+            { src: '/src/board-utils.js', module: true },
+            { src: '/src/event-listeners.js', module: true },
+            { src: '/src/data-loading.js', module: true },
+            { src: '/src/render-utils.js', module: true },
+            { src: '/src/render-init.js', module: true },
+            { src: '/src/app-init.js', module: true }
+        ];
+        
+        // Load scripts in priority order
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Update form action
+            const pinForm = document.getElementById('pinForm');
+            if (pinForm) {
+                pinForm.setAttribute('action', getResourcePath('/verify-pin'));
+                console.log('Updated form action to:', pinForm.getAttribute('action'));
+            }
+            
+            // Load essential modules immediately
+            const essentialPromises = essentialModules.map(mod => 
+                loadScript(mod.src, mod.module)
+            );
+            
+            // After essential modules are loaded, initialize login
+            Promise.all(essentialPromises).then(() => {
+                if (typeof window.initLogin === 'function') {
+                    window.initLogin();
+                }
+                
+                // Then load secondary modules
+                secondaryModules.forEach(mod => 
+                    loadScript(mod.src, mod.module)
+                );
+                
+                // Load deferred modules with a delay
+                setTimeout(() => {
+                    deferredModules.forEach(mod => 
+                        loadScript(mod.src, mod.module)
+                    );
+                }, 1000);
+            });
+        });
+    </script>
+</body>
+</html> 

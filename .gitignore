@@ -129,5 +129,18 @@ dist
 .yarn/install-state.gz
 .pnp.*
 
-/dumbdata/
+# Cursor IDE
+cursorrules
+.cursor
+.cursor/
+
+# Dumb Boilerplate Documentation
+boilerplate.md
+reference.md
+
+dumbdata/
 .DS_Store
+# Temporary directories and their subdirectories
+tmp/
+**/tmp/
+**/tmp/**
