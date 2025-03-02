@@ -3,7 +3,18 @@ name: Build and Push Docker Image
 on:
   push:
     branches:
-      - main # Trigger the workflow on pushes to the main branch
+      - main
+      - Rewrite
+      - dev
+  pull_request:
+    branches:
+      - main
+      - Rewrite
+      - dev
+
+env:
+  DOCKER_IMAGE: dumbwareio/dumbkan
+  PLATFORMS: linux/amd64,linux/arm64
 
 jobs:
   build-and-push:
@@ -21,12 +32,29 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # Step 3: Build the Docker image
-      - name: Build Docker Image
+      # Step 3: Set Docker tags
+      - name: Set Docker tags
+        id: docker_meta
         run: |
-          docker build -t dumbwareio/dumbkan:latest .
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "DOCKER_TAGS=${DOCKER_IMAGE}:latest" >> $GITHUB_ENV
+          elif [ "${{ github.ref }}" = "refs/heads/Rewrite" ]; then
+            echo "DOCKER_TAGS=${DOCKER_IMAGE}:rewrite" >> $GITHUB_ENV
+          elif [ "${{ github.ref }}" = "refs/heads/dev" ]; then
+            # Generate timestamp in format YYYYMMDD-HHMMSS
+            TIMESTAMP=$(date -u +"%Y%m%d-%H%M%S")
+            # Set both the nightly tag and the timestamped nightly tag
+            echo "DOCKER_TAGS=${DOCKER_IMAGE}:nightly,${DOCKER_IMAGE}:nightly-${TIMESTAMP}" >> $GITHUB_ENV
+          fi
 
-      # Step 4: Push the Docker image to Docker Hub
-      - name: Push Docker Image
-        run: |
-          docker push dumbwareio/dumbkan:latest 
+      # Step 4: Build and push using Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          push: true
+          tags: ${{ env.DOCKER_TAGS }}
+          platforms: ${{ env.PLATFORMS }} 
