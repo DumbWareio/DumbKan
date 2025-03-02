@@ -148,16 +148,20 @@ function handleDragEnd(e) {
     });
     
     document.querySelectorAll('.column.dragging').forEach(el => {
+        console.log('Removing dragging class from column', el.dataset.sectionId);
         el.classList.remove('dragging');
     });
     
     // Remove drag-over classes from all columns
-    document.querySelectorAll('.column').forEach(col => {
-        col.classList.remove('drag-over');
+    document.querySelectorAll('.column.drag-over').forEach(el => {
+        el.classList.remove('drag-over');
     });
     
-    // Check for and clean up any duplicates
-    cleanupColumnDuplicates();
+    // Check the columns container for duplicates after a drag operation
+    if (window.cleanupColumnDuplicates) {
+        console.log('Running column duplicate cleanup after drag end');
+        window.cleanupColumnDuplicates();
+    }
 }
 
 // Export all functions for use in modular environments
@@ -186,7 +190,8 @@ export {
     ensureAddColumnButtonIsLast,
     positionDraggedColumn,
     safeJsonParse,
-    arraysEqual
+    arraysEqual,
+    cleanupColumnDuplicates
 };
 
 // Make core functions available on window for legacy code compatibility
@@ -210,4 +215,17 @@ const legacyFunctions = {
 // Attach to window object for backward compatibility
 Object.entries(legacyFunctions).forEach(([name, func]) => {
     window[name] = func;
-}); 
+});
+
+// Expose the functions to the global window object
+window.handleDragStart = handleDragStart;
+window.handleDragEnd = handleDragEnd;
+window.handleDragOver = handleDragOver;
+window.handleDrop = handleDrop;
+window.handleTouchStart = handleTouchStart;
+window.handleTouchMove = handleTouchMove;
+window.handleTouchEnd = handleTouchEnd;
+window.cleanupColumnDuplicates = cleanupColumnDuplicates;
+
+// Log the initialization
+console.log('Drag and drop handlers initialized'); 

@@ -67,7 +67,14 @@ router.post('/:sectionId/move', async (req, res) => {
         board.sectionOrder.splice(newIndex, 0, sectionId);
 
         await writeData(data);
-        res.json({ success: true });
+        
+        // Return the updated section order to help client stay in sync
+        res.json({ 
+            success: true, 
+            sectionOrder: board.sectionOrder,
+            boardId,
+            sectionId
+        });
     } catch (error) {
         res.status(500).json({ error: 'Failed to move section' });
     }

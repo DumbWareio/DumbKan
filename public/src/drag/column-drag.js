@@ -216,6 +216,23 @@ async function handleSectionMove(sectionId, newIndex) {
         const boardId = window.state.activeBoard;
         console.log(`Moving section ${sectionId} to position ${newIndex} in board ${boardId}`);
         
+        // Get current section order BEFORE making the API call
+        const board = window.state.boards[boardId];
+        const originalSectionOrder = [...board.sectionOrder];
+        const currentIndex = originalSectionOrder.indexOf(sectionId);
+
+        console.log('Board section order before update:', [...originalSectionOrder]);
+        
+        // Calculate what the new order should be (for verification)
+        const expectedNewOrder = [...originalSectionOrder];
+        if (currentIndex !== -1 && currentIndex !== newIndex) {
+            // Remove from current position
+            expectedNewOrder.splice(currentIndex, 1);
+            // Add at new position
+            expectedNewOrder.splice(newIndex > currentIndex ? newIndex - 1 : newIndex, 0, sectionId);
+            console.log('Expected new order after move:', expectedNewOrder);
+        }
+        
         // Use loggedFetch instead of fetch for consistent API handling and logging
         const response = await window.loggedFetch(`${window.appConfig.basePath}/api/boards/${boardId}/sections/${sectionId}/move`, {
             method: 'POST',
@@ -227,48 +244,73 @@ async function handleSectionMove(sectionId, newIndex) {
             throw new Error(`Failed to move section: ${response.status} ${response.statusText}`);
         }
 
-        // Get current section order
-        const board = window.state.boards[boardId];
-        console.log('Board section order before update:', [...board.sectionOrder]);
-        
-        // Create a new array instead of modifying the existing one
-        const updatedSectionOrder = [...board.sectionOrder];
-        const currentIndex = updatedSectionOrder.indexOf(sectionId);
-        
-        if (currentIndex !== -1) {
-            // Only move if the section exists and the position actually changed
-            if (currentIndex !== newIndex) {
-                // Remove from current position
-                updatedSectionOrder.splice(currentIndex, 1);
-                // Add at new position
-                updatedSectionOrder.splice(newIndex > currentIndex ? newIndex - 1 : newIndex, 0, sectionId);
-                
-                // Update the board's section order with our new array
-                board.sectionOrder = updatedSectionOrder;
-                console.log('Board section order after update:', board.sectionOrder);
-            } else {
-                console.log('Section position unchanged, skipping reorder');
-            }
+        // Get the response data
+        let responseData;
+        if (response.data) {
+            responseData = response.data;
         } else {
-            console.warn(`Section ${sectionId} not found in board section order`);
+            try {
+                responseData = await response.json();
+            } catch (error) {
+                console.warn('Could not parse server response, using calculated order instead');
+                responseData = { success: true };
+            }
         }
+
+        // If the server returns an updated sectionOrder, use it
+        if (responseData && responseData.sectionOrder) {
+            board.sectionOrder = [...responseData.sectionOrder];
+            console.log('Using server-provided section order:', board.sectionOrder);
+        } else {
+            // Otherwise, manually update the order based on our calculations
+            if (currentIndex !== -1 && currentIndex !== newIndex) {
+                // Use our pre-calculated expected order
+                board.sectionOrder = expectedNewOrder;
+                console.log('Using client-calculated section order:', board.sectionOrder);
+            }
+        }
+
+        console.log('Board section order after update:', board.sectionOrder);
 
         // Ensure the "add column" button is at the end of the columns container
         ensureAddColumnButtonIsLast(document.getElementById('columns'));
 
         // Clean up any duplicate columns before rendering
+        cleanupColumnDuplicates(sectionId);
+
+        // Force a DOM refresh to match the state by directly manipulating the columns container
         const columnsContainer = document.getElementById('columns');
         if (columnsContainer) {
-            // Find duplicates of the section we just moved
-            const duplicateSections = [...columnsContainer.querySelectorAll(`.column[data-section-id="${sectionId}"]`)];
-            if (duplicateSections.length > 1) {
-                console.warn(`Found ${duplicateSections.length} instances of section ${sectionId}, removing duplicates`);
-                // Keep only the first instance
-                for (let i = 1; i < duplicateSections.length; i++) {
-                    console.log(`Removing duplicate section ${sectionId} at index ${i}`);
-                    duplicateSections[i].remove();
+            // Get all current columns except the add button
+            const currentColumns = [...columnsContainer.querySelectorAll('.column:not(.add-column-btn)')];
+            
+            // Re-order the columns in the DOM to match the updated board.sectionOrder
+            board.sectionOrder.forEach((id, index) => {
+                const columnToMove = currentColumns.find(col => col.dataset.sectionId === id);
+                if (columnToMove) {
+                    // If this column should be at the end
+                    if (index === board.sectionOrder.length - 1) {
+                        // Insert before the add button if it exists
+                        const addButton = columnsContainer.querySelector('.add-column-btn');
+                        if (addButton) {
+                            columnsContainer.insertBefore(columnToMove, addButton);
+                        } else {
+                            columnsContainer.appendChild(columnToMove);
+                        }
+                    } else {
+                        // Find the next column that should come after this one
+                        const nextSectionId = board.sectionOrder[index + 1];
+                        const nextColumn = currentColumns.find(col => col.dataset.sectionId === nextSectionId);
+                        
+                        if (nextColumn && nextColumn.parentNode === columnsContainer) {
+                            columnsContainer.insertBefore(columnToMove, nextColumn);
+                        } else {
+                            // If next column not found, just append this column
+                            columnsContainer.appendChild(columnToMove);
+                        }
+                    }
                 }
-            }
+            });
         }
 
         // Render the updated board using the most appropriate render function
@@ -299,89 +341,62 @@ async function handleSectionMove(sectionId, newIndex) {
 }
 
 /**
- * Checks for and cleans up any duplicate columns in the DOM
- * Also ensures that the DOM order matches the state order
+ * Removes duplicate column elements from the DOM
+ * @param {string} [sectionId] - Optional section ID to focus cleanup on
  * @returns {boolean} - True if duplicates were found and removed
  */
-function cleanupColumnDuplicates() {
+function cleanupColumnDuplicates(sectionId) {
     const columnsContainer = document.getElementById('columns');
     if (!columnsContainer) {
-        console.warn('Could not find columns container for cleanup');
         return false;
     }
     
-    let duplicatesFound = false;
+    let found = false;
     
-    // Use a more robust duplicate detection approach
-    const sectionIds = new Map(); // Use Map to track the first occurrence of each section
-    const allSections = [...columnsContainer.querySelectorAll('.column[data-section-id]')];
-    const duplicateSections = [];
-    
-    // First pass: identify all sections
-    allSections.forEach(column => {
-        const sectionId = column.dataset.sectionId;
-        if (sectionId) {
-            if (sectionIds.has(sectionId)) {
-                // This is a duplicate, add it to the list
-                duplicateSections.push(column);
-                console.warn(`Found duplicate section: ${sectionId}`);
-                duplicatesFound = true;
-            } else {
-                // This is the first occurrence, add it to the Map
-                sectionIds.set(sectionId, column);
+    // If a specific section ID is provided, only check that section
+    if (sectionId) {
+        const duplicateSections = [...columnsContainer.querySelectorAll(`.column[data-section-id="${sectionId}"]`)];
+        if (duplicateSections.length > 1) {
+            console.warn(`Found ${duplicateSections.length} instances of section ${sectionId}, removing duplicates`);
+            // Keep only the first instance
+            for (let i = 1; i < duplicateSections.length; i++) {
+                console.log(`Removing duplicate section ${sectionId} at index ${i}`);
+                duplicateSections[i].remove();
             }
+            found = true;
+        }
+        return found;
+    }
+    
+    // Otherwise check all columns
+    const allColumns = columnsContainer.querySelectorAll('.column:not(.add-column-btn)');
+    const sectionIds = new Set();
+    
+    // Identify duplicates
+    allColumns.forEach(column => {
+        const id = column.dataset.sectionId;
+        if (!id) return;
+        
+        if (sectionIds.has(id)) {
+            // This is a duplicate, mark for removal
+            column.classList.add('duplicate-column');
+            found = true;
+        } else {
+            sectionIds.add(id);
         }
     });
     
-    // Remove any duplicated sections
-    if (duplicateSections.length > 0) {
-        console.warn(`Found ${duplicateSections.length} duplicate sections, removing them`);
-        duplicateSections.forEach(section => {
-            console.log(`Removing duplicate section: ${section.dataset.sectionId}`);
-            section.remove();
-        });
-        
-        // Force a full re-render to ensure consistent state
-        if (typeof window.renderActiveBoard === 'function') {
-            console.log('Rendering board after removing duplicate sections');
-            window.renderActiveBoard(window.state, window.elements);
-        } else {
-            // If we can't render, force a full reload
-            console.log('Forcing full board reload after removing duplicates');
-            window.loadBoards();
-        }
-    }
+    // Remove the duplicates
+    const duplicates = columnsContainer.querySelectorAll('.duplicate-column');
+    duplicates.forEach(duplicate => {
+        console.log(`Removing duplicate column: ${duplicate.dataset.sectionId}`);
+        duplicate.remove();
+    });
     
-    // Ensure columns match the state's section order
-    const boardId = window.state.activeBoard;
-    if (boardId && window.state.boards && window.state.boards[boardId]) {
-        const board = window.state.boards[boardId];
-        if (board.sectionOrder && board.sectionOrder.length > 0) {
-            // Get the actual DOM order of columns
-            const domSections = [...columnsContainer.querySelectorAll('.column[data-section-id]')];
-            const domOrder = domSections.map(col => col.dataset.sectionId);
-            
-            // Check if DOM order matches state order
-            const stateOrder = [...board.sectionOrder];
-            const orderMismatch = !arraysEqual(domOrder, stateOrder);
-            
-            if (orderMismatch) {
-                console.warn('Column order in DOM does not match state, forcing re-render');
-                if (typeof window.renderActiveBoard === 'function') {
-                    window.renderActiveBoard(window.state, window.elements);
-                } else {
-                    window.loadBoards();
-                }
-            }
-        }
-    }
-    
-    // Ensure the add column button is last
-    ensureAddColumnButtonIsLast(columnsContainer);
-    
-    return duplicatesFound;
+    return found;
 }
 
+// Export the functions
 export {
     positionDraggedColumn,
     handleSectionDragStart,
