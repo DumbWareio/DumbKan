@@ -276,7 +276,10 @@ function renderCalendar(container, currentMonth, selectedDate, onDateSelect) {
         dayElement.dataset.date = dayData.date.toISOString();
         
         // Add click event
-        dayElement.addEventListener('click', () => {
+        dayElement.addEventListener('click', (e) => {
+            // For day clicks, we generally want the calendar to close, but still prevent propagation
+            e.stopPropagation();
+            
             if (typeof onDateSelect === 'function') {
                 onDateSelect(dayData.date, true); // true = close calendar
             }
@@ -292,7 +295,11 @@ function renderCalendar(container, currentMonth, selectedDate, onDateSelect) {
     const todayButton = document.createElement('button');
     todayButton.className = 'calendar-button';
     todayButton.textContent = 'Today';
-    todayButton.addEventListener('click', () => {
+    todayButton.addEventListener('click', (e) => {
+        // Prevent event propagation to stop the calendar from closing
+        e.preventDefault();
+        e.stopPropagation();
+        
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         if (typeof onDateSelect === 'function') {
@@ -305,7 +312,11 @@ function renderCalendar(container, currentMonth, selectedDate, onDateSelect) {
     const clearButton = document.createElement('button');
     clearButton.className = 'calendar-button';
     clearButton.textContent = 'Clear';
-    clearButton.addEventListener('click', () => {
+    clearButton.addEventListener('click', (e) => {
+        // Prevent event propagation to stop the calendar from closing
+        e.preventDefault();
+        e.stopPropagation();
+        
         if (typeof onDateSelect === 'function') {
             onDateSelect(null, false); // false = keep calendar open
             // Re-render calendar with no selected date
@@ -317,13 +328,21 @@ function renderCalendar(container, currentMonth, selectedDate, onDateSelect) {
     footer.appendChild(clearButton);
     
     // Add month navigation functionality
-    prevBtn.addEventListener('click', () => {
+    prevBtn.addEventListener('click', (e) => {
+        // Prevent event propagation to stop the calendar from closing
+        e.preventDefault();
+        e.stopPropagation();
+        
         const newMonth = new Date(currentMonth);
         newMonth.setMonth(newMonth.getMonth() - 1);
         renderCalendar(container, newMonth, selectedDate, onDateSelect);
     });
     
-    nextBtn.addEventListener('click', () => {
+    nextBtn.addEventListener('click', (e) => {
+        // Prevent event propagation to stop the calendar from closing
+        e.preventDefault();
+        e.stopPropagation();
+        
         const newMonth = new Date(currentMonth);
         newMonth.setMonth(newMonth.getMonth() + 1);
         renderCalendar(container, newMonth, selectedDate, onDateSelect);
@@ -361,6 +380,11 @@ function initTaskDatePickers() {
         });
         
         if (!targetInput || !calendarPopup) return;
+        
+        // Add click handler to calendar popup to prevent event propagation
+        calendarPopup.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
         
         // Remove any existing click listeners to prevent duplicates
         const newTrigger = trigger.cloneNode(true);
