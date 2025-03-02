@@ -13,9 +13,12 @@ import { getDragAfterElement } from './core-utils.js';
  * @param {TouchEvent} e - The touch start event
  */
 function handleTouchStart(e) {
+    console.log('Touch start detected on element:', e.target);
+    
     // Check for task drag handle
     const taskDragHandle = e.target.closest('.task-drag-handle');
     if (taskDragHandle) {
+        console.log('Task drag handle identified, handling task touch start');
         handleTaskTouchStart(e, taskDragHandle);
         return;
     }
@@ -23,8 +26,12 @@ function handleTouchStart(e) {
     // Check for column drag handle
     const columnDragHandle = e.target.closest('.column-drag-handle');
     if (columnDragHandle) {
+        console.log('Column drag handle identified, handling column touch start');
         handleColumnTouchStart(e, columnDragHandle);
+        return;
     }
+    
+    console.log('No drag handle identified in touch start');
 }
 
 /**
@@ -61,14 +68,22 @@ function handleTaskTouchStart(e, dragHandle) {
  * @param {Element} dragHandle - The column's drag handle element
  */
 function handleColumnTouchStart(e, dragHandle) {
+    console.log('Column touch start detected', dragHandle);
     const columnHeader = dragHandle.closest('.column-header');
-    if (!columnHeader) return;
+    if (!columnHeader) {
+        console.warn('No column header found for drag handle');
+        return;
+    }
     
     const column = columnHeader.closest('.column');
-    if (!column) return;
+    if (!column) {
+        console.warn('No column found for column header');
+        return;
+    }
     
     e.preventDefault(); // Prevent scrolling while dragging
     
+    console.log('Creating synthetic dragstart event for column:', column.dataset.sectionId);
     // Create and dispatch dragstart event
     const dragStartEvent = new DragEvent('dragstart', {
         bubbles: true,
@@ -81,6 +96,9 @@ function handleColumnTouchStart(e, dragHandle) {
         sectionId: column.dataset.sectionId,
         type: 'section'
     }));
+    
+    // Add the dragging class to visually indicate the drag
+    column.classList.add('dragging');
     
     column.dispatchEvent(dragStartEvent);
 }
@@ -95,7 +113,17 @@ function handleTouchMove(e) {
     const draggedColumn = document.querySelector('.column.dragging');
 
     // Only proceed if we have a dragging element
-    if (!draggedTask && !draggedColumn) return;
+    if (!draggedTask && !draggedColumn) {
+        // No dragging element detected
+        return;
+    }
+    
+    // Log which type of element is being dragged
+    if (draggedTask) {
+        console.log('Touch move with dragged task');
+    } else if (draggedColumn) {
+        console.log('Touch move with dragged column');
+    }
     
     e.preventDefault();
     const touch = e.touches[0];
@@ -112,7 +140,10 @@ function handleTouchMove(e) {
     // Find the element under the touch point
     const elementUnderTouch = document.elementFromPoint(touch.clientX, touch.clientY);
     if (elementUnderTouch) {
+        console.log('Element under touch:', elementUnderTouch);
         elementUnderTouch.dispatchEvent(dragOverEvent);
+    } else {
+        console.warn('No element found under touch point');
     }
 }
 
@@ -216,22 +247,32 @@ function handleTaskTouchEnd(e, draggedTask) {
  * @param {Element} draggedColumn - The dragged column element
  */
 function handleColumnTouchEnd(e, draggedColumn) {
+    console.log('Column touch end detected', draggedColumn);
     const touch = e.changedTouches[0];
     
     // Get the columns container and all columns
     const columnsContainer = document.getElementById('columns');
-    if (!columnsContainer) return;
+    if (!columnsContainer) {
+        console.warn('No columns container found');
+        return;
+    }
     
     // Get all column elements
     const allColumns = [...columnsContainer.querySelectorAll('.column')];
     
     // Get the section ID of the dragged column
     const sectionId = draggedColumn.dataset.sectionId;
-    if (!sectionId) return;
+    if (!sectionId) {
+        console.warn('Dragged column has no section ID');
+        return;
+    }
     
     // Get the active board
     const board = window.state.boards[window.state.activeBoard];
-    if (!board) return;
+    if (!board) {
+        console.warn('No active board found in state');
+        return;
+    }
     
     // Calculate the position where the column should be placed
     const afterElement = getDragAfterElement(allColumns, touch.clientX);
@@ -240,14 +281,21 @@ function handleColumnTouchEnd(e, draggedColumn) {
     let newIndex;
     if (afterElement) {
         newIndex = board.sectionOrder.indexOf(afterElement.dataset.sectionId);
+        console.log(`Column will be placed before: ${afterElement.dataset.sectionId} at index ${newIndex}`);
     } else {
         // Place at the end if no afterElement
         newIndex = allColumns.length - 1; // -1 because we don't count the add column button
+        console.log(`Column will be placed at the end, index ${newIndex}`);
     }
     
     // If the column wasn't moved, don't do anything
     const currentIndex = board.sectionOrder.indexOf(sectionId);
-    if (currentIndex === newIndex) return;
+    if (currentIndex === newIndex) {
+        console.log('Column was not moved (same position)');
+        return;
+    }
+    
+    console.log(`Moving column from index ${currentIndex} to ${newIndex}`);
     
     // Create a synthetic drop event for the column
     const dataTransfer = new DataTransfer();

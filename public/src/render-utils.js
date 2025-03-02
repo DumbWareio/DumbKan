@@ -293,6 +293,10 @@ function renderColumn(section, state, elements) {
     // Add drag event listeners to the header
     headerEl.addEventListener('dragstart', window.handleSectionDragStart);
     headerEl.addEventListener('dragend', () => columnEl.classList.remove('dragging'));
+    // Add touch event listeners for mobile drag and drop
+    headerEl.addEventListener('touchstart', window.handleTouchStart, { passive: false });
+    headerEl.addEventListener('touchmove', window.handleTouchMove, { passive: false });
+    headerEl.addEventListener('touchend', window.handleTouchEnd, { passive: false });
 
     columnEl.appendChild(headerEl);
 
