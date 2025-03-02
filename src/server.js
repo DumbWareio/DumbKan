@@ -375,7 +375,7 @@ app.use(BASE_PATH, (req, res, next) => {
 
 // Serve dumbdateparser.js from node_modules BEFORE auth middleware
 app.get(BASE_PATH + '/dumbdateparser.js', (req, res) => {
-    const filePath = path.join(__dirname, '../node_modules/dumbdateparser/src/browser.js');
+    const filePath = path.join(__dirname, '../node_modules/@dumbwareio/dumbdateparser/src/browser.js');
     console.log('[DEBUG] Serving dumbdateparser.js');
     console.log('[DEBUG] File path:', filePath);
     console.log('[DEBUG] Base path:', BASE_PATH);
