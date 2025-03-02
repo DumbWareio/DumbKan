@@ -24,8 +24,10 @@ const SITE_TITLE = process.env.SITE_TITLE || 'DumbKan';
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_TIME = 15 * 60 * 1000; // 15 minutes in milliseconds
 
-// Data file configuration - use absolute path for Docker environment
-const DATA_FILE = '/app/dumbdata/tasks.json';
+// Data file configuration - use absolute path for Docker environment and relative path for development
+const DATA_FILE = NODE_ENV === 'production' 
+    ? '/app/dumbdata/tasks.json'
+    : path.join(process.cwd(), 'dumbdata', 'tasks.json');
 
 // Public directory path
 const PUBLIC_DIR = path.join(__dirname, '../../public');

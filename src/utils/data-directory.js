@@ -11,7 +11,8 @@ const config = require('../config');
 const legacyDataPaths = [
     path.join(process.cwd(), 'app', 'data'),
     path.join(process.cwd(), 'data'),
-    path.join('/app', 'data') // For Docker environments
+    path.join('/app', 'data'), // For Docker environments
+    path.join(process.cwd(), 'dumbdata') // For current environment structure
 ];
 
 /**

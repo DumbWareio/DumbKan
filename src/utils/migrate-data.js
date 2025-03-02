@@ -76,20 +76,26 @@ function migrateData(oldData) {
                     
                     // Create a new task object with defaults for new fields
                     const now = new Date().toISOString();
+                    
+                    // Handle case where oldTask is a string (task name) instead of an object
+                    const taskTitle = typeof oldTask === 'string' 
+                        ? oldTask 
+                        : (oldTask.title || 'Untitled Task');
+                    
                     newData.tasks[taskId] = {
                         id: taskId,
-                        title: oldTask.title || 'Untitled Task',
-                        description: oldTask.description || '',
-                        createdAt: oldTask.createdAt || now,
-                        updatedAt: oldTask.updatedAt || now,
+                        title: taskTitle,
+                        description: typeof oldTask === 'object' ? (oldTask.description || '') : '',
+                        createdAt: typeof oldTask === 'object' ? (oldTask.createdAt || now) : now,
+                        updatedAt: typeof oldTask === 'object' ? (oldTask.updatedAt || now) : now,
                         sectionId: sectionId,
                         boardId: newBoardId,
-                        priority: oldTask.priority || 'medium',
-                        status: oldTask.status || 'active',
-                        tags: oldTask.tags || [],
-                        assignee: oldTask.assignee || null,
-                        dueDate: oldTask.dueDate || null,
-                        startDate: oldTask.startDate || null
+                        priority: typeof oldTask === 'object' ? (oldTask.priority || 'medium') : 'medium',
+                        status: typeof oldTask === 'object' ? (oldTask.status || 'active') : 'active',
+                        tags: typeof oldTask === 'object' ? (oldTask.tags || []) : [],
+                        assignee: typeof oldTask === 'object' ? (oldTask.assignee || null) : null,
+                        dueDate: typeof oldTask === 'object' ? (oldTask.dueDate || null) : null,
+                        startDate: typeof oldTask === 'object' ? (oldTask.startDate || null) : null
                     };
                 });
             }
@@ -176,6 +182,10 @@ async function migrateOldData() {
         const backupPath = `${oldDataPath}.backup-${Date.now()}`;
         await fs.copyFile(oldDataPath, backupPath);
         console.log('Created backup of old data at:', backupPath);
+        
+        // Remove the original file to prevent repeated migrations
+        await fs.unlink(oldDataPath);
+        console.log('Removed original data file to prevent repeated migrations');
         
         return true;
     } catch (error) {
