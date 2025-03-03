@@ -2,7 +2,9 @@
 
 A lightweight, mobile-friendly Kanban board application for managing tasks and projects. Built with vanilla JavaScript and Node.js.
 
-![dumbkan](https://github.com/user-attachments/assets/80d32ace-a8b9-476b-a235-df857c1d0c36)
+<p align="center">
+  <img src=".github/images/kan.gif" width="400">
+</p>
 
 
 ## Features
@@ -75,23 +77,52 @@ This version contains significant changes to the data structure. If you're upgra
 
 ## Getting Started
 
-### Option 1: Docker (Recommended)
-1. Pull the image:
-   ```bash
-   docker pull dumbwareio/dumbkan:latest
-   ```
+### Option 1: Docker (For Dummies)
 
-2. Run the container:
-   ```bash
-   docker run -d -p 3000:3000 -v $(pwd)/data:/app/data --env-file .env dumbwareio/dumbkan:latest
-   ```
+Pull and run with one command:
+```bash
+docker run -d -p 3000:3000 -v $(pwd)/data:/app/dumbdata --name dumbkan dumbwareio/dumbkan:latest
+```
 
-3. Open your browser and navigate to:
-   ```
-   http://localhost:3000
-   ```
+1. Go to <http://localhost:3000>
+2. Create your first board and tasks
+3. Marvel at how dumb easy this was
 
-### Option 2: Local Installation
+### Option 2: Docker Compose (For Dummies who like customizing)
+
+Create a `docker-compose.yml` file:
+
+```yaml
+services:
+  dumbkan:
+    image: dumbwareio/dumbkan:latest
+    container_name: dumbkan
+    restart: unless-stopped
+    ports:
+      - 3000:3000
+    volumes:
+      # Where your tasks data will be stored
+      - ./data:/app/dumbdata
+    environment:
+      # The title shown in the web interface
+      SITE_TITLE: DumbKan
+      # Optional PIN protection (leave empty to disable)
+      DUMBKAN_PIN: 
+      # The base URL for the application
+      BASE_URL: http://localhost:3000
+```
+
+Then run:
+```bash
+docker compose up -d
+```
+
+1. Go to <http://localhost:3000>
+2. Create your first board and tasks
+3. Rejoice in the glory of your dumb organization
+
+### Option 3: Local Installation (For Developers)
+
 1. Clone the repository:
    ```bash
    git clone https://github.com/dumbwareio/dumbkan.git
@@ -103,38 +134,40 @@ This version contains significant changes to the data structure. If you're upgra
    npm install
    ```
 
-3. Start the server:
+3. Set environment variables in `.env`:
+   ```
+   PORT=3000                  # Port to run the server on
+   DUMBKAN_PIN=               # Optional PIN protection
+   SITE_TITLE=DumbKan        # Custom site title
+   BASE_URL=http://localhost:3000  # Base URL for the application
+   ```
+
+4. Start the server:
    ```bash
    npm start
    ```
 
-4. Open your browser and navigate to:
-   ```
-   http://localhost:3000
-   ```
+5. Go to <http://localhost:3000> and enjoy your locally hosted DumbKan!
+
+#### Windows Users
+
+If you're using Windows PowerShell with Docker, use this format for paths:
+```powershell
+docker run -d -p 3000:3000 -v "${PWD}\data:/app/dumbdata" dumbwareio/dumbkan:latest
+```
 
 ## Usage Guide
 
 ### Managing Tasks
-- Click "Add Task" to create a new task
-- Double-click (or double-tap on mobile) to edit a task
+- Click the + button in a column to create a new task
+- Click the info icon in a task to edit details
 - Drag and drop tasks between columns
-- Delete tasks using the delete button in the edit modal
-
-### Working with Boards
-- Click the board name to open the board selector
-- Use "Manage Boards" to add or remove boards
-- Each board maintains its own columns and tasks
+- Delete tasks by clicking the title, then the red x
 
 ### Customizing Columns
-- Click "Add Column" to create a new column
+- Click the + button on the right to create a new column
 - Click a column name to edit it
-- Use the remove icon (×) to delete a column
-
-### Theme Switching
-- Click the sun/moon icon to toggle between light and dark modes
-- Theme automatically syncs with system preferences
-- Theme choice persists across sessions
+- Delete by clicking the title, then the red x
 
 ## Technical Details
 
