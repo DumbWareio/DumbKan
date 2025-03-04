@@ -1,0 +1,388 @@
+:root {
+    /* Colors */
+    --primary: #2196F3;
+    --primary-hover: #1976D2;
+    --bg-light: #f5f5f5;
+    --container-light: white;
+    --text-light: #333;
+    --border-light: #ccc;
+    --bg-dark: #1a1a1a;
+    --container-dark: #2d2d2d;
+    --text-dark: white;
+    --border-dark: #404040;
+    
+    /* Theme variables */
+    --background: var(--bg-light);
+    --container: var(--container-light);
+    --text: var(--text-light);
+    --border: var(--border-light);
+    
+    /* Layout */
+    --border-radius: 12px;
+    --shadow: 0 2px 4px rgba(0,0,0,0.1);
+    --transition: 0.2s ease;
+}
+
+/* Dark theme */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background: var(--bg-dark);
+        --container: var(--container-dark);
+        --text: var(--text-dark);
+        --border: var(--border-dark);
+    }
+}
+
+.dark-theme {
+    --background: var(--bg-dark);
+    --container: var(--container-dark);
+    --text: var(--text-dark);
+    --border: var(--border-dark);
+}
+
+/* Base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--background);
+    color: var(--text);
+    line-height: 1.6;
+    transition: background-color var(--transition);
+}
+
+.app {
+    min-height: 100vh;
+    padding: 2rem;
+}
+
+/* Header */
+header {
+    max-width: 1200px;
+    margin: 0 auto 2rem;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 2rem;
+    padding: 0 1rem;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    flex: 1;
+}
+
+h1 {
+    font-size: 2rem;
+    color: var(--primary);
+}
+
+#theme-toggle {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: var(--border-radius);
+    transition: transform var(--transition);
+    margin-left: auto;
+}
+
+#theme-toggle:hover {
+    transform: scale(1.1);
+}
+
+/* Board */
+.board {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.column {
+    background: var(--container);
+    padding: 1rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+}
+
+.column h2 {
+    margin-bottom: 1rem;
+    font-size: 1.25rem;
+}
+
+.tasks {
+    min-height: 200px;
+    margin-bottom: 1rem;
+}
+
+/* Tasks */
+.task {
+    background: var(--container);
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border);
+    cursor: grab;
+    transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.task:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.task.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+}
+
+/* Buttons */
+.add-task {
+    width: 100%;
+    padding: 0.75rem;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: background-color var(--transition);
+}
+
+.add-task:hover {
+    background: var(--primary-hover);
+}
+
+/* Toast */
+.toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    padding: 1rem 2rem;
+    background: var(--container);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* PIN Modal */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(5px);
+}
+
+.modal-content {
+    background: var(--container);
+    padding: 2rem;
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+}
+
+.modal h2 {
+    margin-bottom: 2rem;
+    color: var(--text);
+}
+
+.pin-input {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-bottom: 2rem;
+}
+
+.pin-input input {
+    width: 3rem;
+    height: 3.5rem;
+    text-align: center;
+    font-size: 1.5rem;
+    border: 2px solid var(--border);
+    border-radius: var(--border-radius);
+    background: var(--container);
+    color: var(--text);
+    transition: border-color var(--transition);
+}
+
+.pin-input input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.pin-keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    max-width: 300px;
+    margin: 0 auto;
+}
+
+.pin-keypad button {
+    background: var(--container);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 1rem;
+    font-size: 1.25rem;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.pin-keypad button:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.pin-keypad .clear {
+    color: #f44336;
+}
+
+.pin-keypad .enter {
+    color: #4caf50;
+}
+
+.pin-keypad .clear:hover {
+    background: #f44336;
+    border-color: #f44336;
+    color: white;
+}
+
+.pin-keypad .enter:hover {
+    background: #4caf50;
+    border-color: #4caf50;
+    color: white;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .app {
+        padding: 1rem;
+    }
+    
+    .board {
+        grid-template-columns: 1fr;
+    }
+
+    .pin-input input {
+        width: 2.5rem;
+        height: 3rem;
+        font-size: 1.25rem;
+    }
+}
+
+/* Board Selector */
+.board-selector {
+    position: relative;
+    margin-left: 2rem;
+    z-index: 1000;
+}
+
+.board-button {
+    background: var(--container);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.5rem 1rem;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    min-width: 120px;
+    transition: all var(--transition);
+}
+
+.board-button:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.board-button::after {
+    content: '▼';
+    font-size: 0.8em;
+    margin-left: auto;
+}
+
+.board-menu {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    left: 0;
+    min-width: 200px;
+    background: var(--container);
+    border: 1px solid var(--border);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.board-menu button {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: none;
+    border: none;
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all var(--transition);
+    white-space: nowrap;
+}
+
+.board-menu button:hover {
+    background: var(--primary);
+    color: white;
+}
+
+.board-menu button:not(:last-child) {
+    border-bottom: 1px solid var(--border);
+}
+
+.manage-boards-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-top: 1px solid var(--border) !important;
+    margin-top: 0.5rem;
+    padding-top: 1rem !important;
+}
+
+.manage-boards-btn:hover {
+    background: none !important;
+    color: var(--primary) !important;
+}
+
+.manage-boards-btn .icon {
+    font-size: 1.1em;
+    opacity: 0.8;
+} 

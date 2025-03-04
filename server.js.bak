@@ -1,0 +1,331 @@
+require('dotenv').config();
+const express = require('express');
+const fs = require('fs').promises;
+const path = require('path');
+const app = express();
+
+app.use(express.json());
+
+// Ensure data directory and tasks.json exist
+async function initializeStorage() {
+    try {
+        await fs.mkdir('data').catch(() => {});
+        try {
+            await fs.access('data/tasks.json');
+        } catch {
+            // Initialize with default structure
+            const defaultData = {
+                boards: {
+                    work: {
+                        name: 'Work',
+                        columns: {
+                            todo: { name: 'To Do', tasks: [] },
+                            doing: { name: 'Doing', tasks: [] },
+                            done: { name: 'Done', tasks: [] }
+                        }
+                    },
+                    personal: {
+                        name: 'Personal',
+                        columns: {
+                            todo: { name: 'To Do', tasks: [] },
+                            doing: { name: 'Doing', tasks: [] },
+                            done: { name: 'Done', tasks: [] }
+                        }
+                    }
+                },
+                activeBoard: 'work'
+            };
+            await fs.writeFile('data/tasks.json', JSON.stringify(defaultData, null, 2));
+        }
+    } catch (error) {
+        console.error('Error initializing storage:', error);
+    }
+}
+
+// Initialize storage before starting server
+initializeStorage();
+
+// Middleware
+const auth = (req, res, next) => {
+    const pin = process.env.DUMBKAN_PIN;
+    if (!pin || pin.length < 4 || pin.length > 10 || !/^\d+$/.test(pin)) {
+        return next();
+    }
+    
+    const providedPin = req.headers['x-pin'];
+    if (providedPin === pin) {
+        return next();
+    }
+    
+    res.status(401).json({ error: 'Unauthorized' });
+};
+
+// Routes
+app.get('/', (_, res) => res.send(html));
+
+app.get('/api/pin-required', (_, res) => {
+    const pin = process.env.DUMBKAN_PIN;
+    const required = !!(pin && pin.length >= 4 && pin.length <= 10 && /^\d+$/.test(pin));
+    res.json({ required });
+});
+
+app.post('/api/verify-pin', (req, res) => {
+    const pin = process.env.DUMBKAN_PIN;
+    if (!pin || pin.length < 4 || pin.length > 10 || !/^\d+$/.test(pin)) {
+        return res.json({ ok: true });
+    }
+    
+    const { pin: providedPin } = req.body;
+    if (providedPin === pin) {
+        res.json({ ok: true });
+    } else {
+        res.status(401).json({ error: 'Invalid PIN' });
+    }
+});
+
+app.get('/data/tasks.json', auth, async (_, res) => {
+    try {
+        const data = await fs.readFile('data/tasks.json', 'utf8');
+        res.json(JSON.parse(data));
+    } catch (error) {
+        console.error('Error reading tasks:', error);
+        res.status(500).json({ error: 'Failed to read tasks' });
+    }
+});
+
+app.post('/data/tasks.json', auth, async (req, res) => {
+    try {
+        await fs.writeFile('data/tasks.json', JSON.stringify(req.body, null, 2));
+        res.json({ ok: true });
+    } catch (error) {
+        console.error('Error saving tasks:', error);
+        res.status(500).json({ error: 'Failed to save' });
+    }
+});
+
+// Start server
+app.listen(process.env.PORT || 3000, () => {
+    console.log(`Running on port ${process.env.PORT || 3000}`);
+    const pin = process.env.DUMBKAN_PIN;
+    if (pin && pin.length >= 4 && pin.length <= 10 && /^\d+$/.test(pin)) {
+        console.log('PIN protection enabled');
+    }
+});
+
+const html = `<!DOCTYPE html>
+<html>
+<head>
+    <title>DumbKan</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            // ... existing code ...
+        }
+
+        .pin-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--background);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 1rem;
+            z-index: 1000;
+        }
+        .pin-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            align-items: center;
+            background: var(--container);
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+        }
+        .pin-input-container {
+            display: flex;
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+        .pin-input-container input.pin-input {
+            width: 35px;
+            height: 45px;
+            text-align: center;
+            font-size: 1.25rem;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            background: var(--container);
+            color: var(--text);
+            transition: all var(--transition);
+            flex: none;
+            max-width: 30px;
+            padding: 0;
+        }
+        .pin-input-container input.pin-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: var(--primary);
+            color: white;
+        }
+        .pin-button {
+            padding: 0.75rem 2rem;
+            font-size: 1rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: background-color var(--transition);
+            margin-top: 1rem;
+        }
+        .pin-button:hover {
+            background: var(--primary-hover);
+        }
+        .pin-error {
+            color: #f44336;
+            font-size: 0.9rem;
+            margin-top: -0.5rem;
+        }
+
+        // ... existing styles ...
+    </style>
+</head>
+<body>
+    <div id="pin-overlay" class="pin-overlay" style="display: none;">
+        <h1>DumbKan</h1>
+        <h2>Enter PIN</h2>
+        <form id="pin-form" class="pin-form">
+            <div class="pin-input-container">
+                <input type="password" class="pin-input" maxlength="1" pattern="[0-9]" inputmode="numeric" required>
+                <input type="password" class="pin-input" maxlength="1" pattern="[0-9]" inputmode="numeric" required>
+                <input type="password" class="pin-input" maxlength="1" pattern="[0-9]" inputmode="numeric" required>
+                <input type="password" class="pin-input" maxlength="1" pattern="[0-9]" inputmode="numeric" required>
+            </div>
+            <div id="pin-error" class="pin-error" style="display: none;">Invalid PIN</div>
+            <button type="submit" class="pin-button">Unlock</button>
+        </form>
+    </div>
+
+    // ... existing HTML ...
+
+    <script>
+        // ... existing script ...
+
+        // PIN Input Handling
+        const pinForm = document.getElementById('pin-form');
+        const pinInputs = document.querySelectorAll('.pin-input');
+        const pinError = document.getElementById('pin-error');
+        let verifiedPin = null;
+
+        // Handle PIN input behavior
+        pinInputs.forEach((input, index) => {
+            input.addEventListener('input', (e) => {
+                const value = e.target.value;
+                
+                // Only allow numbers
+                if (!/^\d*$/.test(value)) {
+                    input.value = '';
+                    return;
+                }
+
+                // Auto-advance to next input
+                if (value && index < pinInputs.length - 1) {
+                    pinInputs[index + 1].focus();
+                }
+
+                // Auto-submit when all digits are entered
+                if (index === pinInputs.length - 1 && value) {
+                    const pin = Array.from(pinInputs).map(input => input.value).join('');
+                    verifyPin(pin);
+                }
+            });
+
+            input.addEventListener('keydown', (e) => {
+                // Handle backspace
+                if (e.key === 'Backspace' && !input.value && index > 0) {
+                    pinInputs[index - 1].focus();
+                    pinInputs[index - 1].value = '';
+                }
+            });
+
+            // Handle paste
+            input.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, pinInputs.length);
+                
+                if (pastedData) {
+                    pastedData.split('').forEach((digit, i) => {
+                        if (i < pinInputs.length) {
+                            pinInputs[i].value = digit;
+                        }
+                    });
+                    
+                    // Focus last filled input or next empty one
+                    const focusIndex = Math.min(pastedData.length, pinInputs.length - 1);
+                    pinInputs[focusIndex].focus();
+                }
+            });
+        });
+
+        async function verifyPin(pin) {
+            try {
+                const response = await fetch('/api/verify-pin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pin })
+                });
+
+                if (response.ok) {
+                    verifiedPin = pin;
+                    document.getElementById('pin-overlay').style.display = 'none';
+                } else {
+                    pinError.style.display = 'block';
+                    pinError.textContent = 'Invalid PIN';
+                    pinInputs.forEach(input => input.value = '');
+                    pinInputs[0].focus();
+                }
+            } catch (error) {
+                console.error('Error verifying PIN:', error);
+                pinError.style.display = 'block';
+                pinError.textContent = 'Error verifying PIN';
+            }
+        }
+
+        // Check if PIN is required on load
+        async function checkPinRequired() {
+            try {
+                const response = await fetch('/api/pin-required');
+                const { required } = await response.json();
+                
+                if (required) {
+                    document.getElementById('pin-overlay').style.display = 'flex';
+                    pinInputs[0].focus();
+                }
+            } catch (error) {
+                console.error('Error checking PIN requirement:', error);
+            }
+        }
+
+        // Add PIN to all API requests
+        const originalFetch = window.fetch;
+        window.fetch = async function(url, options = {}) {
+            if (verifiedPin) {
+                options.headers = {
+                    ...options.headers,
+                    'X-Pin': verifiedPin
+                };
+            }
+            return originalFetch(url, options);
+        };
+
+        checkPinRequired();
+
+        // ... existing script ...
+    </script>
+</body>
+</html>`;
