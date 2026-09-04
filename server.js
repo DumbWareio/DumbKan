@@ -970,9 +970,9 @@ const html = `<!DOCTYPE html>
             flex: 1;
             min-width: 0;
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.5rem;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.25rem;
         }
         
         .task-text {
@@ -989,6 +989,51 @@ const html = `<!DOCTYPE html>
             flex-shrink: 0;
             margin-left: auto;
         }
+
+        .task-title-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-width: 0;
+        }
+        .task-substeps {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            margin-top: 0.25rem;
+        }
+        .task-substeps:empty { display: none; }
+        .substep-row {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.85em;
+            cursor: default;
+        }
+        .substep-row input[type="checkbox"] {
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+        .substep-row.completed .substep-label {
+            text-decoration: line-through;
+            opacity: 0.7;
+        }
+        .substeps-section { text-align: left; }
+        .substeps-section label { display: block; margin-bottom: 0.5rem; font-size: 0.9em; }
+        .substeps-editor { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.5rem; }
+        .substeps-editor .substep-row input.substep-input {
+            flex: 1; padding: 0.35rem 0.5rem; font-size: 0.9rem;
+            border: 1px solid var(--border); border-radius: 4px;
+            background: var(--container); color: var(--text);
+        }
+        .substep-remove {
+            background: none; border: none; color: #f44336; cursor: pointer; font-size: 1.1rem; padding: 0 0.25rem;
+        }
+        .add-substep-btn {
+            background: none; border: 1px dashed var(--border); color: var(--text);
+            padding: 0.4rem 0.75rem; border-radius: var(--border-radius); cursor: pointer; font-size: 0.85rem;
+        }
+        .add-substep-btn:hover { border-color: var(--primary); color: var(--primary); }
         
         /* Strikethrough for Done tasks */
         .column[data-column="done"] .task-text {
@@ -1146,6 +1191,11 @@ const html = `<!DOCTYPE html>
                     maxlength="500"
                     required
                 ></textarea>
+                <div id="substeps-section" class="substeps-section">
+                    <label>Substeps</label>
+                    <div id="substeps-editor" class="substeps-editor"></div>
+                    <button type="button" id="add-substep-btn" class="add-substep-btn">+ Add substep</button>
+                </div>
                 <div class="modal-buttons">
                     <button type="button" class="cancel-button" onclick="closeTaskModal()">Cancel</button>
                     <button type="button" id="delete-task-btn" class="delete-button" style="display: none;">Delete Task</button>
@@ -1292,6 +1342,106 @@ const html = `<!DOCTYPE html>
         };
         let currentBoard = 'work';
         let verifiedPin = null;
+        let modalSubsteps = [];
+
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        }
+
+        function normalizeTask(task) {
+            if (typeof task === 'string') {
+                return { id: generateId(), text: task, substeps: [] };
+            }
+            return {
+                id: task.id || generateId(),
+                text: task.text || '',
+                substeps: Array.isArray(task.substeps) ? task.substeps.map(s => ({
+                    text: s.text || '',
+                    completed: !!s.completed
+                })) : []
+            };
+        }
+
+        function migrateTasks(data) {
+            let changed = false;
+            Object.values(data.boards).forEach(board => {
+                Object.values(board.columns).forEach(column => {
+                    column.tasks = column.tasks.map(t => {
+                        if (typeof t === 'string') changed = true;
+                        return normalizeTask(t);
+                    });
+                });
+            });
+            return changed;
+        }
+
+        function renderSubsteps(container, substeps, options = {}) {
+            const { editable = false, onToggle, onChange } = options;
+            container.innerHTML = '';
+            substeps.forEach((substep, index) => {
+                const row = document.createElement('div');
+                row.className = 'substep-row' + (substep.completed ? ' completed' : '');
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = substep.completed;
+                checkbox.addEventListener('mousedown', e => e.stopPropagation());
+                checkbox.addEventListener('click', e => e.stopPropagation());
+                checkbox.addEventListener('change', e => {
+                    e.stopPropagation();
+                    substep.completed = checkbox.checked;
+                    row.classList.toggle('completed', checkbox.checked);
+                    if (onToggle) onToggle(index, substep);
+                });
+
+                if (editable) {
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.className = 'substep-input';
+                    input.value = substep.text;
+                    input.placeholder = 'Substep';
+                    input.addEventListener('mousedown', e => e.stopPropagation());
+                    input.addEventListener('click', e => e.stopPropagation());
+                    input.addEventListener('input', () => {
+                        substep.text = input.value;
+                        if (onChange) onChange();
+                    });
+                    const removeBtn = document.createElement('button');
+                    removeBtn.type = 'button';
+                    removeBtn.className = 'substep-remove';
+                    removeBtn.textContent = '×';
+                    removeBtn.addEventListener('mousedown', e => e.stopPropagation());
+                    removeBtn.addEventListener('click', e => {
+                        e.stopPropagation();
+                        substeps.splice(index, 1);
+                        renderSubsteps(container, substeps, options);
+                        if (onChange) onChange();
+                    });
+                    row.appendChild(checkbox);
+                    row.appendChild(input);
+                    row.appendChild(removeBtn);
+                } else {
+                    const label = document.createElement('span');
+                    label.className = 'substep-label';
+                    label.textContent = substep.text;
+                    row.appendChild(checkbox);
+                    row.appendChild(label);
+                }
+                container.appendChild(row);
+            });
+        }
+
+        function getSubstepsFromElement(taskEl) {
+            return Array.from(taskEl.querySelectorAll('.substep-row')).map(row => ({
+                text: row.querySelector('.substep-label')?.textContent || '',
+                completed: row.querySelector('input[type="checkbox"]')?.checked || false
+            })).filter(s => s.text);
+        }
+
+        function findTaskIndex(columnId, taskId) {
+            const tasks = boardData.boards[currentBoard].columns[columnId]?.tasks || [];
+            return tasks.findIndex(t => normalizeTask(t).id === taskId);
+        }
 
         // Board selector
         const currentBoardBtn = document.getElementById('current-board');
@@ -1425,6 +1575,8 @@ const html = `<!DOCTYPE html>
                 // Update the global boardData
                 boardData = data;
                 currentBoard = data.activeBoard || Object.keys(data.boards)[0];
+
+                if (migrateTasks(boardData)) await saveTasks();
                 
                 // Update UI
                 currentBoardBtn.textContent = data.boards[currentBoard].name;
@@ -1570,7 +1722,15 @@ const html = `<!DOCTYPE html>
         const taskForm = document.getElementById('task-form');
         const taskInput = document.getElementById('task-input');
         const taskModalTitle = document.getElementById('task-modal-title');
+        const substepsEditor = document.getElementById('substeps-editor');
+        const addSubstepBtn = document.getElementById('add-substep-btn');
         let currentTaskAction = { type: 'add', column: null, task: null };
+
+        addSubstepBtn.addEventListener('click', () => {
+            modalSubsteps.push({ text: '', completed: false });
+            renderSubsteps(substepsEditor, modalSubsteps, { editable: true });
+            substepsEditor.querySelector('.substep-input:last-child')?.focus();
+        });
 
         // Handle Enter key in task input
         taskInput.addEventListener('keydown', (e) => {
@@ -1583,7 +1743,18 @@ const html = `<!DOCTYPE html>
         function openTaskModal(type, column, task = null) {
             currentTaskAction = { type, column, task };
             taskModalTitle.textContent = type === 'add' ? 'Add Task' : 'Edit Task';
-            taskInput.value = task ? task.querySelector('.task-text').textContent : '';
+            modalSubsteps = [];
+
+            if (type === 'edit' && task) {
+                const columnId = task.parentElement.id;
+                const index = Array.from(task.parentElement.children).indexOf(task);
+                const taskData = normalizeTask(boardData.boards[currentBoard].columns[columnId].tasks[index]);
+                taskInput.value = taskData.text;
+                modalSubsteps = taskData.substeps.map(s => ({ ...s }));
+            } else {
+                taskInput.value = '';
+            }
+            renderSubsteps(substepsEditor, modalSubsteps, { editable: true });
             
             const deleteBtn = document.getElementById('delete-task-btn');
             if (type === 'edit') {
@@ -1610,34 +1781,48 @@ const html = `<!DOCTYPE html>
         function closeTaskModal() {
             taskModal.style.display = 'none';
             taskInput.value = '';
+            modalSubsteps = [];
+            substepsEditor.innerHTML = '';
         }
 
         taskForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const text = taskInput.value.trim();
             if (!text) return;
+            const substeps = modalSubsteps.filter(s => s.text.trim()).map(s => ({
+                text: s.text.trim(),
+                completed: !!s.completed
+            }));
 
             if (currentTaskAction.type === 'add') {
-                // Add task to data structure
-                boardData.boards[currentBoard].columns[currentTaskAction.column].tasks.push(text);
+                const taskData = { id: generateId(), text, substeps };
+                boardData.boards[currentBoard].columns[currentTaskAction.column].tasks.push(taskData);
                 
-                // Create and append the task element
-                const task = createTask(currentTaskAction.column, text);
+                const task = createTask(currentTaskAction.column, taskData);
                 if (task) {
                     document.getElementById(currentTaskAction.column).appendChild(task);
                 }
             } else {
-                // Update existing task
                 const task = currentTaskAction.task;
                 const columnId = task.closest('.column').dataset.column;
                 const tasksContainer = task.parentElement;
                 const index = Array.from(tasksContainer.children).indexOf(task);
+                const taskData = { ...normalizeTask(boardData.boards[currentBoard].columns[columnId].tasks[index]), text, substeps };
                 
-                // Update data structure
-                boardData.boards[currentBoard].columns[columnId].tasks[index] = text;
+                boardData.boards[currentBoard].columns[columnId].tasks[index] = taskData;
                 
-                // Update UI
                 task.querySelector('.task-text').textContent = text;
+                const substepsContainer = task.querySelector('.task-substeps');
+                renderSubsteps(substepsContainer, substeps, {
+                    onToggle: (i, sub) => {
+                        const colId = task.parentElement.id;
+                        const idx = findTaskIndex(colId, task.dataset.taskId);
+                        if (idx >= 0) {
+                            boardData.boards[currentBoard].columns[colId].tasks[idx].substeps[i] = sub;
+                            saveTasks();
+                        }
+                    }
+                });
             }
 
             // Save changes
@@ -1650,7 +1835,8 @@ const html = `<!DOCTYPE html>
         });
 
         // Task Management
-        function createTask(column, text = '') {
+        function createTask(column, taskData = '') {
+            const data = normalizeTask(taskData);
             if (!boardData.boards[currentBoard].columns[column]) {
                 console.error('Invalid column:', column);
                 return null;
@@ -1659,6 +1845,7 @@ const html = `<!DOCTYPE html>
             const task = document.createElement('div');
             task.className = 'task';
             task.draggable = true;
+            task.dataset.taskId = data.id;
             
             // Create move indicator for mobile (first)
             const moveIndicator = document.createElement('div');
@@ -1670,19 +1857,39 @@ const html = `<!DOCTYPE html>
             // Create task content wrapper
             const taskContent = document.createElement('div');
             taskContent.className = 'task-content';
+
+            const titleRow = document.createElement('div');
+            titleRow.className = 'task-title-row';
             
             // Create task text
             const taskText = document.createElement('span');
             taskText.className = 'task-text';
-            taskText.textContent = text;
-            taskContent.appendChild(taskText);
+            taskText.textContent = data.text;
+            titleRow.appendChild(taskText);
             
             // Create checkmark for done tasks
             const checkmark = document.createElement('span');
             checkmark.className = 'task-checkmark';
             checkmark.innerHTML = '✓';
             checkmark.style.display = 'none';
-            taskContent.appendChild(checkmark);
+            titleRow.appendChild(checkmark);
+            taskContent.appendChild(titleRow);
+
+            const substepsContainer = document.createElement('div');
+            substepsContainer.className = 'task-substeps';
+            substepsContainer.addEventListener('mousedown', e => e.stopPropagation());
+            substepsContainer.addEventListener('click', e => e.stopPropagation());
+            renderSubsteps(substepsContainer, data.substeps, {
+                onToggle: (i, sub) => {
+                    const columnId = task.parentElement.id;
+                    const idx = findTaskIndex(columnId, task.dataset.taskId);
+                    if (idx >= 0) {
+                        boardData.boards[currentBoard].columns[columnId].tasks[idx].substeps[i] = sub;
+                        saveTasks();
+                    }
+                }
+            });
+            taskContent.appendChild(substepsContainer);
             
             task.appendChild(taskContent);
 
@@ -1892,11 +2099,13 @@ const html = `<!DOCTYPE html>
                 // Update the tasks array for the current board and column
                 if (boardData.boards[currentBoard].columns[columnId]) {
                     boardData.boards[currentBoard].columns[columnId].tasks = Array.from(tasks)
-                        .map(task => {
-                            const taskText = task.querySelector('.task-text');
-                            return taskText ? taskText.textContent.trim() : '';
+                        .map(taskEl => {
+                            const taskId = taskEl.dataset.taskId || generateId();
+                            const text = taskEl.querySelector('.task-text')?.textContent.trim() || '';
+                            const substeps = getSubstepsFromElement(taskEl);
+                            return { id: taskId, text, substeps };
                         })
-                        .filter(text => text); // Remove any empty tasks
+                        .filter(t => t.text);
                 }
             });
 
@@ -2068,9 +2277,8 @@ const html = `<!DOCTYPE html>
 
                 // Render tasks for this column
                 if (column.tasks && Array.isArray(column.tasks)) {
-                    const uniqueTasks = [...new Set(column.tasks)].filter(task => task && task.trim());
-                    uniqueTasks.forEach(taskText => {
-                        const task = createTask(columnId, taskText);
+                    column.tasks.forEach(taskData => {
+                        const task = createTask(columnId, taskData);
                         if (task) {
                             tasksDiv.appendChild(task);
                         }
