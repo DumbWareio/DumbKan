@@ -56,6 +56,16 @@ When `DUMBKAN_PIN` is set, the app requires PIN verification before accessing or
 ## Data Persistence
 Task data is stored in `/app/data/tasks.json`. When using Docker, mount this directory as a volume to persist data between container restarts.
 
+
+## Easypanel
+
+DumbKan has a one-click deployment template on [Easypanel](https://easypanel.io), a self-hosted Docker deployment platform.
+
+[![Deploy on Easypanel][easypanel-btn]][easypanel-deploy]
+
+[easypanel-btn]: https://easypanel.io/img/deploy-on-easypanel-40.svg
+[easypanel-deploy]: https://easypanel.io/templates/dumbkan
+
 ## Getting Started
 
 ### Option 1: Docker (Recommended)
